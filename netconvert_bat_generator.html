@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>netconvert Batch Generator</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --ink:#1c2733; --muted:#6b7885;
+    --line:#dbe2e8; --accent:#1f6feb; --accent-d:#1857bd;
+    --ok:#1a7f43; --warn:#b26a00; --err:#c0392b;
+    --chip:#eef3f8; --code:#0f2233; --codeink:#d6e6f5;
+    --radius:8px; --shadow:0 1px 3px rgba(20,40,60,.08),0 1px 2px rgba(20,40,60,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;
+    display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#38bdf8);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px}
+  header .spacer{flex:1}
+  header a{color:var(--muted);font-size:12.5px;text-decoration:none}
+  header a:hover{color:var(--accent)}
+  main{padding:18px;max-width:1280px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  @media (max-width:960px){ main{grid-template-columns:1fr} }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .card h2{margin:0 0 4px;font-size:15px}
+  .card .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row .field{flex:1;min-width:180px}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+  .field label{font-size:12px;font-weight:600;color:var(--muted)}
+  .field .hint{font-size:11px;color:var(--muted);font-weight:400}
+  input[type=text],input[type=number],select{padding:7px 9px;border:1px solid var(--line);
+    border-radius:6px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,111,235,.12)}
+  .presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .preset{flex:1;min-width:200px;border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;background:#fff;text-align:left;font:inherit;color:inherit}
+  .preset b{display:block;font-size:13.5px}
+  .preset span{font-size:12px;color:var(--muted)}
+  .preset.active{border-color:var(--accent);background:#f2f7ff}
+  .preset:hover{border-color:var(--accent)}
+  .modified{font-size:11.5px;color:var(--warn);min-height:16px}
+  .opt{display:grid;grid-template-columns:22px 1fr;gap:2px 8px;padding:8px 0;border-top:1px solid var(--line)}
+  .opt:first-of-type{border-top:none}
+  .opt input[type=checkbox]{margin:3px 0 0;width:15px;height:15px;accent-color:var(--accent)}
+  .opt .name{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:600}
+  .opt .help{grid-column:2;font-size:12px;color:var(--muted)}
+  .opt .warn{grid-column:2;font-size:12px;color:var(--warn)}
+  .opt .extra{grid-column:2;display:flex;gap:8px;align-items:center;margin-top:4px;font-size:12px;color:var(--muted)}
+  .opt .extra input,.opt .extra select{width:auto;padding:4px 7px;font-size:12.5px}
+  .group-title{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin:14px 0 2px}
+  .group-title:first-child{margin-top:0}
+  .sticky{position:sticky;top:64px}
+  pre.code{background:var(--code);color:var(--codeink);border-radius:6px;padding:12px 14px;font-family:ui-monospace,Consolas,monospace;
+    font-size:12px;line-height:1.5;overflow:auto;max-height:calc(100vh - 260px);margin:0;white-space:pre}
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .tabs button{border:none;background:none;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2.5px solid transparent;font-weight:550}
+  .tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button.btn{background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;
+    font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  button.btn:hover{background:var(--accent-d)}
+  button.btn.ghost{background:var(--chip);color:var(--ink)}
+  button.btn.ghost:hover{background:#e2e9f0}
+  .steps{margin:0;padding-left:20px;font-size:12.5px;color:var(--muted)}
+  .steps li{margin:3px 0}
+  .steps code,.sub code,.help code{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;background:var(--chip);padding:1px 4px;border-radius:3px;color:var(--ink)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NC</div>
+  <h1>netconvert Batch Generator</h1>
+  <div class="spacer"></div>
+  <a href="index.html">← alle tools</a>
+</header>
+
+<main>
+  <div>
+    <div class="card">
+      <h2>1 · Vertrekpunt</h2>
+      <p class="sub">De twee varianten uit de cursus (module 1). Daarna kan je elke optie aanpassen.</p>
+      <div class="presets">
+        <button class="preset" data-preset="auto"><b>Auto-only</b><span>Enkel gemotoriseerd verkeer. Eenvoudigst en properst.</span></button>
+        <button class="preset" data-preset="fiets"><b>Auto + fiets</b><span>Ook fietsinfrastructuur. Rijker, maar meer opkuiswerk.</span></button>
+      </div>
+      <div class="modified" id="modified"></div>
+    </div>
+
+    <div class="card">
+      <h2>2 · Bestanden</h2>
+      <p class="sub">Zet de <code>.bat</code> in dezelfde map als je <code>.osm</code>. Bestandsnamen zijn relatief tegenover die map.</p>
+      <div class="row">
+        <div class="field"><label>OSM-bestand</label><input type="text" id="osm" value="map.osm"></div>
+        <div class="field"><label>Uitvoer (.net.xml)</label><input type="text" id="out" value="map_auto.net.xml"></div>
+      </div>
+      <div class="field">
+        <label>Patch voor knopen (optioneel) <span class="hint">· bv. oversteken.nod.xml: oversteeklichten op de takken worden geen eigen VRI</span></label>
+        <input type="text" id="nodes" placeholder="leeg laten als je geen patch hebt">
+      </div>
+      <div class="row">
+        <div class="field"><label>Naam van de .bat</label><input type="text" id="batname" value="bouw_netwerk.bat"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3 · Opties</h2>
+      <p class="sub">Aangevinkt = wordt meegegeven aan netconvert. De uitleg en valkuilen komen uit de cursus.</p>
+      <div id="opts"></div>
+    </div>
+
+    <div class="card">
+      <h2>4 · Na het bouwen</h2>
+      <div id="post"></div>
+    </div>
+  </div>
+
+  <div class="sticky">
+    <div class="card">
+      <div class="tabs">
+        <button class="active" data-view="bat">.bat (Windows)</button>
+        <button data-view="xml">Importopties (netedit)</button>
+      </div>
+      <p class="sub" id="viewHelp"></p>
+      <pre class="code" id="preview"></pre>
+      <div class="actions">
+        <button class="btn" id="dl">⬇ Download</button>
+        <button class="btn ghost" id="copy">Kopieer</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Gebruik</h2>
+      <ol class="steps">
+        <li>Download de <code>.bat</code> en zet ze naast je <code>.osm</code> (en de patch, als je die gebruikt).</li>
+        <li>Dubbelklik. Het script controleert <code>SUMO_HOME</code> en de invoerbestanden, bouwt het net en toont het aantal VRI's.</li>
+        <li>Toets het aantal VRI's aan de werkelijkheid. Te veel? Dan zijn er oversteeklichten als eigen VRI binnengekomen: gebruik een patch.</li>
+      </ol>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- opties ----------
+// kind: bool = vlag met value true; num/select = vlag met waarde (enkel als aangevinkt)
+const GROUPS = [
+  { title: 'Modi', opts: [
+    { key: 'keep-edges.by-vclass', kind: 'select', choices: ['passenger', 'passenger,bicycle'],
+      help: 'Houdt enkel edges waar deze voertuigklassen mogen. Losse fiets- en voetpaden en opritten vallen weg.' },
+    { key: 'osm.bike-access', kind: 'bool',
+      help: 'Leest de fiets-tags uit OSM (richting, toegang). Minder onlogische fiets↔auto-connecties. Enkel zinvol met fiets.' },
+    { key: 'bicycle-typemap', label: 'typemap osmNetconvertBicycle', kind: 'bool', virtual: true,
+      help: 'Brengt vrijliggende fietspaden binnen als aparte edges. Nodig voor de fietsvariant.' },
+    { key: 'sidewalks.guess', kind: 'bool', help: 'Voegt voetpaden toe langs de wegen. Niet in het basisnet van de cursus.' },
+    { key: 'crossings.guess', kind: 'bool', help: 'Voegt voetgangersoversteken toe op de kruispunten. Hoort bij sidewalks.guess.' },
+  ]},
+  { title: 'Verkeerslichten (VRI)', opts: [
+    { key: 'tls.guess-signals', kind: 'bool', help: 'Leidt de VRI\'s af uit de signaalknopen in OSM.' },
+    { key: 'tls.join', kind: 'bool', help: 'Bundelt de signaalknopen van één kruispunt in één regeling.' },
+    { key: 'tls.default-type', kind: 'select', choices: ['actuated', 'static', 'delay_based'],
+      help: 'Type regeling voor de gegenereerde VRI\'s. actuated = voertuigafhankelijk.' },
+    { key: 'tls.discard-simple', kind: 'bool',
+      warn: 'Valkuil: filtert oversteeklichten weg, maar gooit ook echte kruispunten weg waarvan de signalen in OSM alleen op de oversteken staan. Gebruik liever een patch.' },
+  ]},
+  { title: 'Kruispunten & geometrie', opts: [
+    { key: 'junctions.join', kind: 'bool', help: 'Voegt knopen die dicht bij elkaar liggen samen tot één kruispunt.' },
+    { key: 'junctions.join-dist', kind: 'num', step: 1, unit: 'm', help: 'Maximale afstand voor junctions.join.' },
+    { key: 'roundabouts.guess', kind: 'bool', help: 'Herkent rotondes en geeft ze de juiste voorrang.' },
+    { key: 'no-turnarounds', kind: 'bool', help: 'Geen U-turn-connecties aan de kruispunten.' },
+    { key: 'geometry.remove', kind: 'bool', help: 'Ruimt overbodige knopen op en voegt edges samen.' },
+    { key: 'ramps.guess', kind: 'bool',
+      warn: 'Enkel bij snelwegen. Zonder snelweg in het gebied verzint deze vlag een afrit aan de kaderrand.' },
+  ]},
+  { title: 'Opkuis & uitvoer', opts: [
+    { key: 'remove-edges.isolated', kind: 'bool', help: 'Verwijdert losse wegstukjes die nergens op aansluiten.' },
+    { key: 'output.street-names', kind: 'bool', help: 'Neemt de straatnamen mee in het net.' },
+    { key: 'output.original-names', kind: 'bool', help: 'Bewaart de OSM-id\'s, handig om terug te zoeken in OSM.' },
+  ]},
+];
+const ALL = GROUPS.flatMap(g => g.opts);
+
+const BASE = {
+  'keep-edges.by-vclass': [true, 'passenger'], 'osm.bike-access': [false], 'bicycle-typemap': [false],
+  'sidewalks.guess': [false], 'crossings.guess': [false],
+  'tls.guess-signals': [true], 'tls.join': [true], 'tls.default-type': [true, 'actuated'], 'tls.discard-simple': [false],
+  'junctions.join': [true], 'junctions.join-dist': [true, 15], 'roundabouts.guess': [true], 'no-turnarounds': [true],
+  'geometry.remove': [true], 'ramps.guess': [false],
+  'remove-edges.isolated': [true], 'output.street-names': [true], 'output.original-names': [true],
+};
+const PRESETS = {
+  auto: { ...BASE },
+  fiets: { ...BASE, 'keep-edges.by-vclass': [true, 'passenger,bicycle'], 'osm.bike-access': [true], 'bicycle-typemap': [true] },
+};
+const SUFFIX = { auto: '_auto', fiets: '_autofiets' };
+
+const POST = [
+  { key: 'countTls', label: 'Aantal VRI\'s tonen', def: true, help: 'Telt de verkeerslichtregelingen in het resultaat, om te toetsen aan de werkelijkheid.' },
+  { key: 'poly', label: 'Achtergrond maken (polyconvert)', def: false, help: 'Gebouwen, landgebruik en water als shapes, uitgelijnd op dit net. Werkt met een export van openstreetmap.org; een Overpass-extract met enkel wegen bevat geen achtergrond.' },
+  { key: 'netedit', label: 'Resultaat openen in netedit', def: false, help: 'Opent het net (en de achtergrond) in netedit zodra het klaar is.' },
+];
+
+// ---------- toestand ----------
+let state = {}, post = {}, preset = 'auto', view = 'bat';
+const $ = s => document.querySelector(s);
+
+function applyPreset(p) {
+  preset = p;
+  state = JSON.parse(JSON.stringify(PRESETS[p]));
+  const osm = $('#osm').value.trim() || 'map.osm';
+  $('#out').value = osm.replace(/\.osm(\.gz)?$/i, '') + SUFFIX[p] + '.net.xml';
+  renderOpts(); update();
+}
+
+function renderOpts() {
+  let h = '';
+  for (const g of GROUPS) {
+    h += `<div class="group-title">${g.title}</div>`;
+    for (const o of g.opts) {
+      const [on, val] = state[o.key];
+      h += `<label class="opt"><input type="checkbox" data-k="${o.key}" ${on ? 'checked' : ''}>`;
+      h += `<span class="name">${o.label || o.key}</span>`;
+      if (o.kind === 'select') {
+        h += `<span class="extra">waarde <select data-v="${o.key}">${o.choices.map(c => `<option ${c === val ? 'selected' : ''}>${c}</option>`).join('')}</select></span>`;
+      } else if (o.kind === 'num') {
+        h += `<span class="extra">waarde <input type="number" data-v="${o.key}" value="${val}" step="${o.step}" style="width:80px"> ${o.unit || ''}</span>`;
+      }
+      if (o.help) h += `<span class="help">${o.help}</span>`;
+      if (o.warn) h += `<span class="warn">⚠ ${o.warn}</span>`;
+      h += `</label>`;
+    }
+  }
+  $('#opts').innerHTML = h;
+  document.querySelectorAll('.preset').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+}
+
+function renderPost() {
+  $('#post').innerHTML = POST.map(o => `<label class="opt"><input type="checkbox" data-p="${o.key}" ${post[o.key] ? 'checked' : ''}>
+    <span class="name" style="font-family:inherit">${o.label}</span><span class="help">${o.help}</span></label>`).join('');
+}
+
+// ---------- genereren ----------
+const q = s => `"${s}"`;
+
+function netconvertArgs(forXml) {
+  // lijst van [optie, waarde]
+  const a = [];
+  const typ = forXml ? '${SUMO_HOME}/data/typemap/' : '%TYP%\\';
+  let types = typ + 'osmNetconvert.typ.xml';
+  if (state['bicycle-typemap'][0]) types += ',' + typ + 'osmNetconvertBicycle.typ.xml';
+  a.push(['type-files', types]);
+  for (const o of ALL) {
+    if (o.virtual) continue;
+    const [on, val] = state[o.key];
+    if (!on) continue;
+    if (o.key === 'junctions.join-dist' && !state['junctions.join'][0]) continue;
+    a.push([o.key, o.kind === 'bool' ? 'true' : String(val)]);
+  }
+  return a;
+}
+
+function modifiedList() {
+  const ref = PRESETS[preset], diff = [];
+  for (const k in ref) if (JSON.stringify(ref[k]) !== JSON.stringify(state[k])) diff.push(k);
+  return diff;
+}
+
+function genBat() {
+  const osm = $('#osm').value.trim() || 'map.osm';
+  const out = $('#out').value.trim() || 'net.net.xml';
+  const nodes = $('#nodes').value.trim();
+  const poly = out.replace(/\.net\.xml$/i, '') + '_background.poly.xml';
+  const mod = modifiedList();
+  const L = [];
+  L.push('@echo off');
+  L.push('REM ============================================================================');
+  L.push(`REM  netconvert: OSM -> SUMO  (${preset === 'auto' ? 'auto-only' : 'auto + fiets'}${mod.length ? ', aangepast' : ''})`);
+  L.push(`REM  Gemaakt met netconvert Batch Generator op ${new Date().toLocaleDateString('nl-BE')}`);
+  if (mod.length) L.push(`REM  Afwijkend van de cursusvariant: ${mod.join(', ')}`);
+  L.push('REM  Invoer : ' + osm + (nodes ? '  +  patch ' + nodes : ''));
+  L.push('REM  Uitvoer: ' + out + (post.poly ? '  +  ' + poly : ''));
+  L.push('REM ============================================================================');
+  L.push('setlocal');
+  L.push('cd /d "%~dp0"');
+  L.push('if "%SUMO_HOME%"=="" ( echo [FOUT] SUMO_HOME is niet ingesteld. & pause & exit /b 1 )');
+  for (const f of [osm, nodes].filter(Boolean))
+    L.push(`if not exist ${q(f)} ( echo [FOUT] ${f.replace(/[()]/g, '^$&')} niet gevonden in deze map. & pause & exit /b 1 )`);
+  L.push('set BIN=%SUMO_HOME%\\bin');
+  L.push('set TYP=%SUMO_HOME%\\data\\typemap');
+  L.push('');
+  L.push('echo Netwerk bouwen...');
+  const args = [['osm-files', q(osm)]];
+  for (const [k, v] of netconvertArgs(false)) args.push([k, k === 'type-files' ? q(v) : (/[\s,]/.test(v) ? q(v) : v)]);
+  if (nodes) args.push(['node-files', q(nodes)]);
+  args.push(['output-file', q(out)]);
+  L.push('"%BIN%\\netconvert.exe" ^');
+  args.forEach(([k, v], i) => L.push(`  --${k} ${v}${i < args.length - 1 ? ' ^' : ''}`));
+  L.push('if errorlevel 1 ( echo. & echo *** netconvert is mislukt, zie de meldingen hierboven *** & pause & exit /b 1 )');
+  if (post.countTls) {
+    L.push('');
+    L.push(`for /f %%n in ('find /c "<tlLogic " ^< ${q(out)}') do set NTLS=%%n`);
+    L.push('echo.');
+    L.push('echo Aantal VRI\'s in het net: %NTLS%   - toets dit aan de werkelijkheid.');
+  }
+  if (post.poly) {
+    L.push('');
+    L.push('echo Achtergrond maken...');
+    L.push('"%BIN%\\polyconvert.exe" ^');
+    L.push(`  --net-file ${q(out)} ^`);
+    L.push(`  --osm-files ${q(osm)} ^`);
+    L.push('  --type-file "%TYP%\\osmPolyconvert.typ.xml" ^');
+    L.push('  --prune.in-net true ^');
+    L.push(`  --output-file ${q(poly)}`);
+    L.push('if errorlevel 1 ( echo *** polyconvert is mislukt *** & pause & exit /b 1 )');
+  }
+  L.push('');
+  L.push('echo.');
+  L.push(`echo Klaar: ${out}${post.poly ? ' en ' + poly : ''}`);
+  if (post.netedit) {
+    L.push(`start "" "%BIN%\\netedit.exe" -n ${q(out)}${post.poly ? ' -a ' + q(poly) : ''}`);
+  } else {
+    L.push(`echo Bekijk met: sumo-gui -n ${q(out)}${post.poly ? ' -a ' + q(poly) : ''}`);
+  }
+  L.push('pause');
+  return L.join('\r\n') + '\r\n';
+}
+
+function genXml() {
+  const mod = modifiedList();
+  const L = [];
+  L.push('<?xml version="1.0" encoding="UTF-8"?>');
+  L.push('<!--');
+  L.push(`  Importopties: ${preset === 'auto' ? 'auto-only' : 'auto + fiets'}${mod.length ? ' (aangepast)' : ''}`);
+  L.push('  Gemaakt met netconvert Batch Generator op ' + new Date().toLocaleDateString('nl-BE') + '.');
+  L.push('  Bevat enkel opties, geen bestanden: zo werkt het voor elk gebied.');
+  L.push('');
+  L.push('  netedit: bij het importeren van de .osm, in het venster met de importopties:');
+  L.push('           Load options, kies dit bestand. Controleer dat osm-files naar je .osm wijst.');
+  L.push('           Een patch (node-files) vul je in met het volledige pad.');
+  L.push('           Na het importeren: Processing, Clean Junctions (F6), daarna');
+  L.push('           Processing, Compute Junctions with volatile options (Shift+F5).');
+  L.push('-->');
+  L.push('<netconvertConfiguration>');
+  for (const [k, v] of netconvertArgs(true)) L.push(`    <${k} value="${v}"/>`);
+  L.push('</netconvertConfiguration>');
+  return L.join('\r\n') + '\r\n';
+}
+
+function update() {
+  const mod = modifiedList();
+  $('#modified').textContent = mod.length ? `Aangepast t.o.v. de cursusvariant: ${mod.join(', ')}` : '';
+  $('#preview').textContent = view === 'bat' ? genBat() : genXml();
+  $('#viewHelp').innerHTML = view === 'bat'
+    ? 'Zet dit bestand naast je <code>.osm</code> en dubbelklik.'
+    : 'Laad dit bestand in netedit bij het importeren van een <code>.osm</code> (Load options). Daarna F6 en Shift+F5.';
+}
+
+// ---------- events ----------
+document.querySelectorAll('.preset').forEach(b => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+$('#opts').addEventListener('change', e => {
+  const k = e.target.dataset.k, v = e.target.dataset.v;
+  if (k) state[k][0] = e.target.checked;
+  if (v) state[v][1] = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+  update();
+});
+$('#post').addEventListener('change', e => { post[e.target.dataset.p] = e.target.checked; update(); });
+$('#osm').addEventListener('change', () => {
+  const osm = $('#osm').value.trim() || 'map.osm';
+  $('#out').value = osm.replace(/\.osm(\.gz)?$/i, '') + SUFFIX[preset] + '.net.xml';
+  update();
+});
+['#osm', '#out', '#nodes', '#batname'].forEach(s => $(s).addEventListener('input', update));
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  view = b.dataset.view;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  update();
+}));
+
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1800); }
+$('#dl').addEventListener('click', () => {
+  const isBat = view === 'bat';
+  const name = isBat ? ($('#batname').value.trim() || 'bouw_netwerk.bat').replace(/(\.bat)?$/i, '.bat')
+                     : (preset === 'auto' ? 'auto_only' : 'auto_fiets') + '_importopties.xml';
+  const blob = new Blob([isBat ? genBat() : genXml()], { type: isBat ? 'application/octet-stream' : 'application/xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('Gedownload: ' + name);
+});
+$('#copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(view === 'bat' ? genBat() : genXml()); toast('Gekopieerd'); }
+  catch (e) { toast('Kopiëren lukt niet in deze browser'); }
+});
+
+POST.forEach(o => post[o.key] = o.def);
+renderPost();
+applyPreset('auto');
+</script>
+</body>
+</html>

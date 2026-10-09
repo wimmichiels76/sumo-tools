@@ -4,6 +4,7 @@ Browsertools voor SUMO-microsimulatie, gepubliceerd via GitHub Pages.
 
 | Tool | Bestand |
 |---|---|
+| netconvert Batch Generator | `netconvert_bat_generator.html` |
 | SUMO Simulation Manager | `SUMO_Simulation_Manager.html` |
 | SUMO VRI Manager | `SUMO_VRI_Manager.html` |
 | SUMO Network Link Manager | `sumo_link_manager.html` |
