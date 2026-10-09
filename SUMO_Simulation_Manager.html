@@ -1,0 +1,2052 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUMO Simulation Manager</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --ink:#1c2733; --muted:#6b7885;
+    --line:#dbe2e8; --accent:#1f6feb; --accent-d:#1857bd;
+    --ok:#1a7f43; --warn:#b26a00; --err:#c0392b;
+    --chip:#eef3f8; --code:#0f2233; --codeink:#d6e6f5;
+    --radius:8px; --shadow:0 1px 3px rgba(20,40,60,.08),0 1px 2px rgba(20,40,60,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;
+    display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#38bdf8);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px}
+  header .spacer{flex:1}
+  .proj{display:flex;flex-direction:column;gap:1px}
+  .proj .pname{font-weight:600}
+  .proj .ppath{font-size:11px;color:var(--muted);font-family:ui-monospace,Consolas,monospace;max-width:520px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  nav.tabs{display:flex;gap:2px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:47px;z-index:19}
+  nav.tabs button{border:none;background:none;padding:11px 15px;cursor:pointer;font-size:13.5px;color:var(--muted);
+    border-bottom:2.5px solid transparent;font-weight:550;display:flex;align-items:center;gap:7px}
+  nav.tabs button .n{width:19px;height:19px;border-radius:50%;background:var(--chip);color:var(--muted);
+    font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  nav.tabs button:hover{color:var(--ink)}
+  nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  nav.tabs button.active .n{background:var(--accent);color:#fff}
+  main{padding:18px;max-width:1180px;margin:0 auto}
+  .tab{display:none}
+  .tab.active{display:block;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .card h2{margin:0 0 4px;font-size:15px}
+  .card h3{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .card .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+  .field label{font-size:12px;font-weight:600;color:var(--muted)}
+  .field .hint{font-size:11px;color:var(--muted);font-weight:400}
+  input[type=text],input[type=number],select,textarea{padding:7px 9px;border:1px solid var(--line);
+    border-radius:6px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,111,235,.12)}
+  textarea{font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.5;resize:vertical}
+  button.btn{background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;
+    font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  button.btn:hover{background:var(--accent-d)}
+  button.btn.ghost{background:var(--chip);color:var(--ink)}
+  button.btn.ghost:hover{background:#e2e9f0}
+  button.btn.sm{padding:5px 9px;font-size:12px}
+  button.btn.danger{background:#fbe9e7;color:var(--err)}
+  button.btn.danger:hover{background:#f7d7d3}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;background:var(--chip);color:var(--muted)}
+  .pill.ok{background:#e4f4ea;color:var(--ok)} .pill.warn{background:#fbf0dd;color:var(--warn)} .pill.err{background:#fbe4e0;color:var(--err)}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left}
+  th{background:var(--chip);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+  td input{width:100%;border:none;padding:3px 4px;background:transparent}
+  td input:focus{background:#fff;box-shadow:inset 0 0 0 1px var(--accent)}
+  .matrix td.diag{background:#f0f2f4}
+  .matrix th.rh{background:#e8eef4}
+  .matrix input{text-align:center;font-variant-numeric:tabular-nums}
+  .matrix td.locked{background:repeating-linear-gradient(45deg,#f6f7f9,#f6f7f9 6px,#eceef1 6px,#eceef1 12px)}
+  .matrix td.locked input{color:#aeb6bf}
+  .matrix input:disabled{cursor:not-allowed;background:transparent}
+  .matrix th.badzone{color:var(--warn)}
+  .matrix td.rowsum,.matrix td.colsum,.matrix td.grandsum{font-weight:700;background:#e4e7ea;text-align:center;font-variant-numeric:tabular-nums}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr}}
+  code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  pre.xml{background:var(--code);color:var(--codeink);padding:12px;border-radius:6px;overflow:auto;font-size:11.5px;line-height:1.5;max-height:340px;margin:0}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .empty{text-align:center;padding:34px;color:var(--muted)}
+  .empty .big{font-size:32px;margin-bottom:6px;opacity:.5}
+  .tree{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.9}
+  .tree .fdr{color:var(--accent);font-weight:600}
+  .tree .fl{color:var(--ink)}
+  .tree .muted{color:var(--muted)}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .kpi .k{background:var(--chip);border-radius:8px;padding:12px 14px}
+  .kpi .k .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .kpi .k .l{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .stat-list{list-style:none;padding:0;margin:0}
+  .stat-list li{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .checkline{display:flex;align-items:center;gap:8px;padding:5px 0}
+  .checkline input{width:16px;height:16px}
+  .banner{padding:10px 14px;border-radius:8px;font-size:12.5px;margin-bottom:14px;display:flex;gap:9px;align-items:flex-start}
+  .banner.info{background:#eaf2fd;color:#1857bd;border:1px solid #cfe0fb}
+  .banner.warn{background:#fdf6e6;color:#8a5a00;border:1px solid #f2e0b5}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--code);color:#fff;padding:10px 15px;border-radius:8px;
+    font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.2);opacity:0;transform:translateY(8px);transition:.25s;z-index:50;max-width:340px}
+  .toast.show{opacity:1;transform:none}
+  .toast.err{background:#7a1c14}
+  .inline-actions{display:flex;gap:5px}
+  .tag{font-size:10.5px;padding:1px 6px;border-radius:4px;background:var(--chip);color:var(--muted);font-weight:600}
+  .list-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;margin-bottom:7px;background:#fff}
+  .list-item:hover{border-color:var(--accent)}
+  .list-item .li-main{flex:1;min-width:0}
+  .list-item .li-title{font-weight:600}
+  .list-item .li-sub{font-size:11.5px;color:var(--muted);font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  svg .axis{stroke:var(--line)} svg .grid{stroke:#eef2f5} svg text{fill:var(--muted);font-size:10px}
+  svg .pt{fill:var(--accent)} svg .fit{stroke:var(--err);fill:none;stroke-width:2} svg .band{fill:rgba(31,111,235,.12)}
+  svg .bp-box{fill:rgba(31,111,235,.16);stroke:var(--accent);stroke-width:1.2}
+  svg .bp-med{stroke:var(--accent);stroke-width:2.2} svg .bp-w{stroke:#8a97a5;stroke-width:1}
+  svg .bp-pt{fill:#1f6feb;opacity:.5}
+  details.adv{margin-top:8px} details.adv summary{cursor:pointer;font-size:12px;color:var(--accent);font-weight:600}
+  .fsbadge{font-size:11px}
+  .divider{height:1px;background:var(--line);margin:14px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">S</div>
+  <h1>SUMO Simulation Manager</h1>
+  <span class="pill" id="fsBadge">geen map geopend</span>
+  <div class="spacer"></div>
+  <div class="proj" id="projInfo" style="display:none">
+    <span class="pname" id="projName"></span>
+    <span class="ppath" id="projPath"></span>
+  </div>
+  <button class="btn ghost sm" id="btnSave" title="Project-manifest opslaan (project.json)">Opslaan</button>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="folders" class="active"><span class="n">1</span> Mappen</button>
+  <button data-tab="od"><span class="n">2</span> OD &amp; routes</button>
+  <button data-tab="config"><span class="n">3</span> Config &amp; output</button>
+  <button data-tab="run"><span class="n">4</span> Runs</button>
+  <button data-tab="report"><span class="n">5</span> Rapport</button>
+</nav>
+
+<main>
+  <!-- ============ TAB 1 : FOLDERS ============ -->
+  <section class="tab active" id="tab-folders">
+    <div class="banner info" id="fsInfoBanner">
+      <span>ℹ️</span>
+      <div><b>Werkt volledig in de browser</b> — geen Python nodig. In Chrome/Edge opent de tool een projectmap
+      rechtstreeks van schijf (lezen &amp; schrijven). In andere browsers werk je met bestand-upload/-download.</div>
+    </div>
+
+    <div class="card">
+      <h2>Projectmap</h2>
+      <p class="sub">Kies of maak de wortelmap van je SUMO-studie. De tool gebruikt de zesmappen-indeling die je voor cliëntopleveringen hanteert.</p>
+      <div class="toolbar">
+        <button class="btn" id="btnOpenFolder">📂 Map openen</button>
+        <button class="btn ghost" id="btnScaffold">✨ Mapstructuur aanmaken</button>
+        <button class="btn ghost" id="btnLoadManifest">↻ project.json laden</button>
+      </div>
+      <div id="folderState"></div>
+    </div>
+
+    <div class="card">
+      <h2>Structuur</h2>
+      <p class="sub">De zes standaardmappen. Configs verwijzen met <code>../</code> naar hun siblings.</p>
+      <div class="tree" id="folderTree">
+        <div class="empty"><div class="big">🗂️</div>Nog geen map geopend.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Projectgegevens</h2>
+      <div class="grid2">
+        <div class="field"><label>Projectnaam</label><input type="text" id="pNameIn" placeholder="bv. Geel_rotonde"></div>
+        <div class="field"><label>Opdrachtgever</label><input type="text" id="pClientIn" placeholder="bv. Stad Geel"></div>
+        <div class="field"><label>SUMO-versie</label><input type="text" id="pSumoVer" placeholder="1.24"></div>
+        <div class="field"><label>Omschrijving</label><input type="text" id="pDescIn" placeholder="korte omschrijving"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 2 : OD & ROUTES ============ -->
+  <section class="tab" id="tab-od">
+    <div class="card">
+      <h2>Bestaande .rou.xml inladen</h2>
+      <p class="sub">Lees een bestaand routebestand in — <b>zones, voertuigtypes en de OD-matrix</b> worden gereconstrueerd (uit de <code>&lt;flow&gt;</code>-elementen) zodat je ze kan aanpassen en opnieuw genereren. Werkt het best op bestanden die met deze tool zijn gemaakt.</p>
+      <div class="toolbar">
+        <select id="rouLoadSelect" style="min-width:200px"></select>
+        <button class="btn" id="btnLoadRou">📂 Inladen uit traffic/</button>
+        <button class="btn ghost" id="btnUploadRou">⇧ Bestand kiezen</button>
+        <input type="file" id="rouFileInput" accept=".xml,.rou.xml" style="display:none">
+        <span class="pill" id="rouLoadStat"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Zones &amp; kant-koppeling</h2>
+      <p class="sub">Definieer de zones (armen / TAZ). Elke zone koppelt aan een <b>bron-edge</b> (waar verkeer instroomt) en een <b>bestemmings-edge</b> (waar het uitrijdt). Dit maakt directe <code>&lt;flow from to&gt;</code> mogelijk — SUMO routeert zelf, geen duarouter nodig.</p>
+      <div class="toolbar">
+        <button class="btn sm" id="btnAddZone">+ Zone</button>
+        <button class="btn ghost sm" id="btnZonesFromNet">⇩ Edges uit .net.xml lezen</button>
+        <span class="pill" id="netEdgeCount">geen net geladen</span>
+      </div>
+      <table id="zoneTable">
+        <thead><tr><th style="width:26%">Zone</th><th>Bron-edge (from)</th><th>Bestemmings-edge (to)</th><th style="width:60px"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>OD-matrices</h2>
+      <div class="toolbar">
+        <button class="btn sm" id="btnAddMatrix">+ Matrix</button>
+        <button class="btn ghost sm" id="btnImportCsv">⇧ CSV importeren</button>
+        <input type="file" id="csvFile" accept=".csv" style="display:none">
+        <select id="matrixSelect" style="min-width:180px"></select>
+        <button class="btn ghost sm" id="btnDelMatrix">Verwijder matrix</button>
+      </div>
+      <div id="matrixArea"><div class="empty"><div class="big">🔢</div>Nog geen matrix. Maak er een of importeer een CSV.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Voertuigtypes</h2>
+      <p class="sub">Split per matrixcel over voertuigtypes. Aandelen tellen bij voorkeur tot 100 %.</p>
+      <table id="vtypeTable">
+        <thead><tr><th>id</th><th>vClass</th><th>aandeel&nbsp;%</th><th>accel</th><th>decel</th><th>length</th><th>maxSpeed</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="toolbar" style="margin-top:8px"><button class="btn sm" id="btnAddVtype">+ Type</button></div>
+    </div>
+
+    <div class="card">
+      <h2>.rou.xml genereren</h2>
+      <div class="row">
+        <div class="field"><label>Matrix</label><select id="genMatrix"></select></div>
+        <div class="field"><label>Periode begin (s)</label><input type="number" id="genBegin" value="0"></div>
+        <div class="field"><label>Periode eind (s)</label><input type="number" id="genEnd" value="3600"></div>
+        <div class="field"><label>Vertrekpatroon</label>
+          <select id="genPattern">
+            <option value="vehsPerHour">vehsPerHour (uniform)</option>
+            <option value="exp" selected>period="exp(rate)" (Poisson)</option>
+            <option value="period">period (gelijkmatig)</option>
+          </select>
+        </div>
+        <div class="field"><label>Bestandsnaam</label><input type="text" id="genFilename" placeholder="AS.rou.xml"></div>
+      </div>
+      <div class="toolbar">
+        <button class="btn" id="btnGenRou">⚙️ Genereren</button>
+        <button class="btn ghost" id="btnSaveRou" disabled>💾 Naar traffic/</button>
+        <button class="btn ghost" id="btnDownloadRou" disabled>⇩ Download</button>
+        <span style="width:1px;height:22px;background:var(--line)"></span>
+        <button class="btn" id="btnGenAll" title="Genereer élke matrix als eigen &lt;naam&gt;.rou.xml">⚙️ Genereer alle matrices</button>
+        <span class="pill" id="rouStats"></span>
+      </div>
+      <pre class="xml" id="rouPreview" style="display:none"></pre>
+    </div>
+  </section>
+
+  <!-- ============ TAB 3 : CONFIG & OUTPUT ============ -->
+  <section class="tab" id="tab-config">
+    <div class="card">
+      <h2>.sumocfg opbouwen</h2>
+      <p class="sub">Paden worden relatief geschreven vanuit <code>config/</code> (dus <code>../network/</code>, <code>../traffic/</code>, <code>../background/</code>).</p>
+      <div class="grid2">
+        <div>
+          <h3>Invoer <span class="hint" style="font-weight:400">— uit je projectmappen; <button class="btn ghost sm" id="btnRefreshCfgFiles" style="padding:2px 7px">↻ vernieuw</button></span></h3>
+          <div class="field"><label>net-file <span class="hint">(uit network/)</span></label><select id="cfgNet"></select></div>
+          <div class="field"><label>route-files <span class="hint">(uit traffic/ — Ctrl/Shift voor meerdere)</span></label><select id="cfgRoutes" multiple size="4" style="min-height:88px"></select></div>
+          <div class="field"><label>additional-files <span class="hint">(background/ · VRI/ · config/ — meerdere mogelijk)</span></label><select id="cfgAdd" multiple size="4" style="min-height:88px"></select></div>
+          <div class="field"><label>gui-settings-file <span class="hint">(voor sumo-gui: schema/delay/decals — géén additional!)</span></label><select id="cfgGui"></select></div>
+        </div>
+        <div>
+          <h3>Tijd &amp; verwerking</h3>
+          <div class="row">
+            <div class="field"><label>begin</label><input type="number" id="cfgBegin" value="0" style="width:90px"></div>
+            <div class="field"><label>end</label><input type="number" id="cfgEnd" value="3600" style="width:90px"></div>
+            <div class="field"><label>step-length</label><input type="number" id="cfgStep" value="0.5" step="0.1" style="width:90px"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>time-to-teleport <span class="hint">(-1 = uit)</span></label><input type="number" id="cfgTeleport" value="-1" style="width:110px"></div>
+            <div class="field"><label>lateral-resolution</label><input type="number" id="cfgLateral" value="" placeholder="0.8" step="0.1" style="width:110px"></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Output</h3>
+      <p class="sub">Kies welke outputbestanden geschreven worden. Ze landen in <code>output/</code> (of de run-submap).</p>
+      <div class="grid2">
+        <div id="outToggles"></div>
+        <div>
+          <div class="field"><label>Output-submap <span class="hint">(binnen output/)</span></label><input type="text" id="cfgOutDir" placeholder="runs_AS"></div>
+          <div class="banner info" style="margin-top:6px"><span>ℹ️</span><div>tripinfo/summary schrijft het run-script per seed×scale weg (expliciete <code>--…-output</code>-paden). Voor <b>edgeData</b> maakt de tool een <code>edgedata.add.xml</code> met kale bestandsnaam; het run-script kopieert dat naar élke per-run map <code>output/&lt;submap&gt;/&lt;seed_scale&gt;/</code>, zodat edgeData daar terechtkomt en niets overschreven wordt.</div></div>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top:12px">
+        <div class="field" style="margin:0"><label>Config-bestandsnaam</label><input type="text" id="cfgFilename" placeholder="AS.sumocfg"></div>
+        <button class="btn" id="btnBuildCfg" style="align-self:flex-end">⚙️ Config opbouwen</button>
+        <button class="btn ghost" id="btnSaveCfg" style="align-self:flex-end" disabled>💾 Naar config/</button>
+        <button class="btn ghost" id="btnDownloadCfg" style="align-self:flex-end" disabled>⇩ Download</button>
+        <span style="width:1px;height:32px;background:var(--line);align-self:flex-end;margin:0 2px"></span>
+        <button class="btn" id="btnBuildAllCfg" style="align-self:flex-end" title="Eén config per .rou.xml in traffic/, genaamd &lt;net&gt;_&lt;matrix&gt;.sumocfg">⚙️ Genereer alle configs</button>
+      </div>
+      <pre class="xml" id="cfgPreview" style="display:none"></pre>
+      <pre class="xml" id="edgeAddPreview" style="display:none"></pre>
+    </div>
+
+    <div class="card">
+      <h2>Opgeslagen configs</h2>
+      <div id="cfgList"><div class="empty">Nog geen configs geregistreerd.</div></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 4 : RUN ============ -->
+  <section class="tab" id="tab-run">
+    <div class="banner warn"><span>⚠️</span><div>De browser kan SUMO niet zelf starten. Deze tab <b>genereert een run-script</b> (.bat voor Windows, .sh voor Linux/Mac) dat je lokaal uitvoert. Het script draait alle combinaties van seeds × schalen en schrijft genummerde outputs.</div></div>
+
+    <div class="card">
+      <h2>Run-configuratie</h2>
+      <div class="grid2">
+        <div>
+          <div class="field"><label>SUMO-binary</label>
+            <select id="runBinary"><option value="sumo">sumo (headless, snel)</option><option value="sumo-gui">sumo-gui (met GUI)</option></select>
+          </div>
+          <div class="field"><label>Configs <span class="hint">(één run-set per config, bv. AS + OS)</span></label>
+            <select id="runConfigs" multiple size="4" style="min-height:90px"></select>
+          </div>
+          <div class="field"><label>Seeds <span class="hint">(komma-gescheiden of “1-5”)</span></label><input type="text" id="runSeeds" value="1,2,3,4,5"></div>
+        </div>
+        <div>
+          <div class="field"><label>Schaalfactoren voor VDF-sweep <span class="hint">(--scale; komma-lijst of “0.8-1.2:0.05”)</span></label>
+            <input type="text" id="runScales" value="1.0"></div>
+          <div class="field"><label>Extra uitlooptijd <span class="hint">(seconden na end, voor leeglopen)</span></label><input type="number" id="runTail" value="0"></div>
+          <div class="checkline"><input type="checkbox" id="runParallel"><label for="runParallel">Parallel draaien (start alle runs tegelijk)</label></div>
+          <div class="field"><label>Max. parallelle processen</label><input type="number" id="runMaxProc" value="6" min="1" style="width:90px"></div>
+        </div>
+      </div>
+      <details class="adv"><summary>Geavanceerde SUMO-vlaggen</summary>
+        <div class="field" style="margin-top:8px"><label>Extra command-line opties (worden aan elke run toegevoegd)</label>
+          <input type="text" id="runExtra" placeholder="--ignore-route-errors --no-step-log --lanechange.duration 1"></div>
+      </details>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn" id="btnGenRun">⚙️ Run-script genereren</button>
+        <button class="btn ghost" id="btnDownloadBat" disabled>⇩ .bat</button>
+        <button class="btn ghost" id="btnDownloadSh" disabled>⇩ .sh</button>
+        <button class="btn ghost" id="btnSaveRun" disabled>💾 Naar batch/</button>
+        <span class="pill" id="runStats"></span>
+      </div>
+      <pre class="xml" id="runPreview" style="display:none"></pre>
+    </div>
+
+    <div class="card">
+      <h2>Draaiboek</h2>
+      <div class="tree" id="runManifest"><div class="empty">Genereer eerst een script.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>GUI-weergave &amp; opname (viewsettings + still/animatie)</h2>
+      <p class="sub">Genereert <code>background/viewsettings.xml</code> (schema “real world”, delay, luchtfoto-decal) — koppel dit in tab 3 als <b>gui-settings-file</b> zodat de simulatie zó opent in sumo-gui. Plus een <code>make_gui_media.py</code> dat via TraCI een still-PNG + 2D-GIF opneemt (lokaal draaien; vereist SUMO_HOME, traci, Pillow).</p>
+      <div class="grid2">
+        <div>
+          <div class="field"><label>Config</label><select id="mediaConfig"></select></div>
+          <div class="field"><label>Achtergrondafbeelding <span class="hint">(in background/, optioneel)</span></label><input type="text" id="mediaBg" placeholder="schijnpoort.jpg"></div>
+          <div class="field"><label>Uitsnede: xmin ymin xmax ymax <span class="hint">(net-coörd.; leeg = hele net)</span></label><input type="text" id="mediaBound" placeholder="1230 820 1565 1135"></div>
+        </div>
+        <div>
+          <div class="row">
+            <div class="field"><label>Warmup (stappen)</label><input type="number" id="mediaWarmup" value="400" style="width:120px"></div>
+            <div class="field"><label>Frames</label><input type="number" id="mediaFrames" value="60" style="width:90px"></div>
+            <div class="field"><label>Delay (ms/stap) <span class="hint">(sumo-gui snelheid)</span></label><input type="number" id="mediaDelay" value="200" style="width:110px"></div>
+          </div>
+          <div class="field"><label>GIF-bestandsnaam</label><input type="text" id="mediaGif" placeholder="sim.gif"></div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn" id="btnGenMedia">⚙️ viewsettings + script genereren</button>
+        <button class="btn ghost" id="btnSaveMedia" disabled>💾 Naar projectmap</button>
+        <button class="btn ghost" id="btnDownloadMedia" disabled>⇩ Download</button>
+      </div>
+      <pre class="xml" id="mediaViewPreview" style="display:none"></pre>
+      <pre class="xml" id="mediaPyPreview" style="display:none"></pre>
+    </div>
+  </section>
+
+  <!-- ============ TAB 5 : REPORT ============ -->
+  <section class="tab" id="tab-report">
+    <div class="card">
+      <h2>Outputbestanden inladen</h2>
+      <p class="sub">Laad <code>tripinfo</code>- en/of <code>summary</code>-XML's uit je output-mappen. Meerdere bestanden = seeds/schalen die de tool aggregeert. Metriek volgt je conventie: <b>gemiddeld tijdverlies per voertuig</b> (niet totaal).</p>
+      <div class="toolbar">
+        <button class="btn" id="btnLoadOutputs">📂 Outputmap scannen</button>
+        <button class="btn ghost" id="btnUploadOutputs">⇧ Bestanden kiezen</button>
+        <input type="file" id="outputFiles" accept=".xml" multiple style="display:none">
+        <button class="btn ghost" id="btnLoadNet">🗺️ Netwerk laden</button>
+        <input type="file" id="netFileInput" accept=".xml,.net.xml" style="display:none">
+        <button class="btn ghost sm" id="btnClearReport">Leegmaken</button>
+        <span class="pill" id="reportCount">0 bestanden</span>
+        <span class="pill" id="netBadge">geen netwerk</span>
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-left:auto">vertraging-metriek
+          <select id="delayMetric" style="padding:4px 6px"><option value="total">totale vertraging (incl. wachtrij)</option><option value="timeloss">tijdverlies</option></select></label>
+      </div>
+    </div>
+
+    <div id="reportPerConfig"></div>
+
+    <div class="card" id="reportResults" style="display:none">
+      <div class="toolbar">
+        <button class="btn" id="btnExportReport">📄 HTML-rapport</button>
+        <button class="btn" id="btnExportDoc">📝 Word (.doc)</button>
+        <span class="hint">Beide worden in de <code>report/</code>-map opgeslagen (of gedownload zonder mapoegang). HTML: druk af als PDF. Word: bewerkbaar, grafieken als afbeelding.</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================= *
+ *  SUMO Simulation Manager — single-file, no dependencies.
+ *  State lives in `state`, persisted to project.json + localStorage.
+ * ============================================================= */
+
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+const uid = ()=> 'id'+Math.random().toString(36).slice(2,9);
+const esc = s=> String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = (v,d=0)=>{const n=parseFloat(v);return isNaN(n)?d:n;};
+const hasFrom = z=> !!(z && z.fromEdge && String(z.fromEdge).trim());   // zone can be an origin
+const hasTo   = z=> !!(z && z.toEdge   && String(z.toEdge).trim());     // zone can be a destination
+
+const FOLDERS = ['network','config','background','output','VRI','traffic','batch','report'];
+
+let dirHandle = null;              // FileSystemDirectoryHandle (Chrome/Edge)
+const hasFS = 'showDirectoryPicker' in window;
+
+let state = blankState();
+function blankState(){
+  return {
+    version:1,
+    name:'', client:'', sumoVer:'1.24', desc:'',
+    zones:[],                       // {id,name,fromEdge,toEdge}
+    matrices:[],                    // {id,name,peak,values:{'zi>zj':n}}
+    vtypes:[ {id:'car',vClass:'passenger',share:95,accel:2.6,decel:4.5,length:5,maxSpeed:13.9},
+             {id:'trailer',vClass:'trailer',share:5,accel:1.3,decel:4.0,length:16,maxSpeed:22} ],
+    configs:[],                     // {id,filename,net,routes,add,begin,end,step,teleport,lateral,outDir,outputs:{}}
+    netEdges:[],                    // parsed edge ids
+    lastRun:null,
+    modified:new Date().toISOString()
+  };
+}
+
+const OUTPUTS = [
+  {key:'tripinfo', flag:'--tripinfo-output', file:'tripinfo.xml', label:'tripinfo (per voertuig: duur, tijdverlies, wachttijd)', on:true},
+  {key:'summary',  flag:'--summary-output',  file:'summary.xml',  label:'summary (per stap: aantal in net, wachtend, gemiddelde snelheid)', on:true},
+  {key:'edgedata', flag:'__edgedata__',      file:'edgedata.xml', label:'edgeData (per edge: volume, dichtheid, snelheid) — via additional', on:false},
+  {key:'statistic',flag:'--statistic-output',file:'statistics.xml',label:'statistics (samenvatting hele run)', on:false},
+  {key:'fcd',      flag:'--fcd-output',      file:'fcd.xml',      label:'fcd (trajectoriën — groot!)', on:false},
+  {key:'emission', flag:'--emission-output', file:'emission.xml', label:'emissions (CO2/NOx per voertuig)', on:false},
+];
+
+/* -------------------- toast -------------------- */
+let toastT;
+function toast(msg,isErr){
+  const t=$('#toast'); t.textContent=msg; t.className='toast show'+(isErr?' err':'');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.className='toast',2600);
+}
+
+/* -------------------- persistence -------------------- */
+function touch(){ state.modified=new Date().toISOString(); saveLocal(); }
+function saveLocal(){ try{ localStorage.setItem('sumo_mgr_state', JSON.stringify(state)); }catch(e){} }
+function loadLocal(){
+  try{ const s=localStorage.getItem('sumo_mgr_state'); if(s){ state=Object.assign(blankState(),JSON.parse(s)); } }catch(e){}
+}
+
+/* -------------------- File System helpers -------------------- */
+async function ensureFolders(){
+  if(!dirHandle) return;
+  for(const f of FOLDERS){ await dirHandle.getDirectoryHandle(f,{create:true}); }
+}
+async function writeFile(relPath, contents){
+  // relPath like "traffic/AS.rou.xml"
+  if(dirHandle){
+    const parts=relPath.split('/');
+    let dh=dirHandle;
+    for(let i=0;i<parts.length-1;i++){ dh=await dh.getDirectoryHandle(parts[i],{create:true}); }
+    const fh=await dh.getFileHandle(parts[parts.length-1],{create:true});
+    const w=await fh.createWritable(); await w.write(contents); await w.close();
+    return true;
+  }
+  return false;
+}
+async function readFile(relPath){
+  if(!dirHandle) return null;
+  const parts=relPath.split('/'); let dh=dirHandle;
+  for(let i=0;i<parts.length-1;i++){ dh=await dh.getDirectoryHandle(parts[i]); }
+  const fh=await dh.getFileHandle(parts[parts.length-1]);
+  return await (await fh.getFile()).text();
+}
+function download(filename, contents, mime='text/plain'){
+  const blob=new Blob([contents],{type:mime});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+/* -------------------- Tabs -------------------- */
+$$('#tabs button').forEach(b=>b.addEventListener('click',()=>{
+  $$('#tabs button').forEach(x=>x.classList.remove('active'));
+  $$('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  $('#tab-'+b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='od') renderOD();
+  if(b.dataset.tab==='config') renderConfigTab();
+  if(b.dataset.tab==='run') renderRunTab();
+}));
+
+/* =============================================================
+ *  TAB 1 — FOLDERS
+ * ============================================================= */
+$('#btnOpenFolder').addEventListener('click', async ()=>{
+  if(!hasFS){ toast('Deze browser ondersteunt geen mappentoegang. Gebruik Chrome of Edge, of werk met upload/download.',true); return; }
+  try{
+    dirHandle = await window.showDirectoryPicker({mode:'readwrite'});
+    await tryLoadManifest();
+    await scanFolders();
+    updateFsBadge();
+    toast('Map geopend: '+dirHandle.name);
+  }catch(e){ if(e.name!=='AbortError') toast('Kon map niet openen: '+e.message,true); }
+});
+
+$('#btnScaffold').addEventListener('click', async ()=>{
+  if(!dirHandle){
+    if(!hasFS){ toast('Kies eerst een map (Chrome/Edge vereist voor schrijven).',true); return; }
+    try{ dirHandle=await window.showDirectoryPicker({mode:'readwrite'}); }catch(e){ return; }
+  }
+  await ensureFolders();
+  await writeManifest();
+  await scanFolders(); updateFsBadge();
+  toast('Zes mappen aangemaakt + project.json geschreven.');
+});
+
+$('#btnLoadManifest').addEventListener('click', tryLoadManifest);
+
+async function tryLoadManifest(){
+  try{
+    const txt=await readFile('project.json');
+    if(txt){ const j=JSON.parse(txt); state=Object.assign(blankState(),j); touch(); syncProjectFields(); refreshAllViews(); toast('project.json geladen.'); }
+  }catch(e){ /* no manifest yet */ }
+}
+function refreshAllViews(){ try{ renderOD(); renderConfigTab(); renderRunTab(); renderReport(); }catch(e){} }
+async function writeManifest(){
+  const ok=await writeFile('project.json', JSON.stringify(state,null,2));
+  if(ok) toast('project.json opgeslagen.'); else download('project.json',JSON.stringify(state,null,2),'application/json');
+}
+$('#btnSave').addEventListener('click', writeManifest);
+
+async function scanFolders(){
+  if(!dirHandle){ return; }
+  const tree=$('#folderTree'); let html='<div><span class="fdr">'+esc(dirHandle.name)+'/</span></div>';
+  for(const f of FOLDERS){
+    let entries=[];
+    try{
+      const dh=await dirHandle.getDirectoryHandle(f);
+      for await (const [name,handle] of dh.entries()){ if(handle.kind==='file') entries.push(name); }
+    }catch(e){ html+='<div class="muted">&nbsp;&nbsp;├─ '+f+'/ <span class="tag">ontbreekt</span></div>'; continue; }
+    html+='<div><span class="muted">&nbsp;&nbsp;├─ </span><span class="fdr">'+f+'/</span> <span class="muted">('+entries.length+')</span></div>';
+    entries.sort().forEach(n=>{ html+='<div class="fl muted">&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;'+esc(n)+'</div>'; });
+    // auto-register known files
+    if(f==='network') state._netFiles=entries.filter(n=>n.endsWith('.net.xml'));
+    if(f==='traffic') state._rouFiles=entries.filter(n=>n.endsWith('.rou.xml'));
+    if(f==='config'){ state._cfgFiles=entries.filter(n=>n.endsWith('.sumocfg')); state._cfgAddFiles=entries.filter(n=>n.endsWith('.add.xml')); }
+    if(f==='background') state._bgFiles=entries.filter(n=>n.endsWith('.xml'));
+    if(f==='VRI') state._vriFiles=entries.filter(n=>n.endsWith('.xml'));
+  }
+  tree.innerHTML=html;
+  $('#folderState').innerHTML='<span class="pill ok">✓ '+dirHandle.name+' — '+(state._netFiles?.length||0)+' net, '+(state._rouFiles?.length||0)+' routes, '+(state._cfgFiles?.length||0)+' configs</span>';
+  populateCfgSelects();
+  await syncConfigsFromDisk();
+  if(state._netFiles && state._netFiles[0] && state._netFiles[0]!==netGeomFile) await parseNetIntoGeom(state._netFiles[0]);
+}
+// Reconstruct the config registry from the .sumocfg files actually on disk,
+// so an existing project shows its configs in "Opgeslagen configs" even if it
+// was built earlier / on another machine / before they were registered in-tool.
+function parseSumocfg(name, txt){
+  try{
+    const d=new DOMParser().parseFromString(txt,'text/xml');
+    const gv=sel=>{ const el=d.querySelector(sel); return el?el.getAttribute('value'):''; };
+    const outputs={};
+    OUTPUTS.forEach(o=>{ if(o.key==='edgedata') return; const tag=o.flag.replace('--',''); if(gv(tag)!=='') outputs[o.key]=true; });
+    const add=gv('additional-files')||'';
+    if(/edgedata/i.test(add)) outputs.edgedata=true;
+    const addList=add.split(',').map(s=>s.trim()).filter(a=>a && !/edgedata/i.test(a));  // non-edge additionals
+    let outDir=''; const anyOut=gv('tripinfo-output')||gv('summary-output')||gv('statistic-output')||'';
+    let m=anyOut.match(/output\/([^\/]+)\//); if(!m) m=(gv('edgeData')||'').match(/output\/([^\/]+)\//);
+    if(m) outDir=m[1];
+    return {id:uid(), filename:name, net:gv('net-file')||'', routes:gv('route-files')||'',
+      begin:num(gv('begin'),0), end:num(gv('end'),3600), outDir, outputs, add:addList, guiSettings:gv('gui-settings-file')||''};
+  }catch(e){ return null; }
+}
+async function syncConfigsFromDisk(){
+  if(!dirHandle) return;
+  let cfgDir; try{ cfgDir=await dirHandle.getDirectoryHandle('config'); }catch(e){ return; }
+  const byName=Object.fromEntries((state.configs||[]).map(c=>[c.filename,c]));
+  for await (const [name,h] of cfgDir.entries()){
+    if(h.kind!=='file' || !name.endsWith('.sumocfg')) continue;
+    let txt; try{ txt=await (await h.getFile()).text(); }catch(e){ continue; }
+    const rec=parseSumocfg(name,txt); if(!rec) continue;
+    const ex=byName[name];
+    if(ex) Object.assign(ex, rec, {id:ex.id});         // refresh from disk, keep id
+    else { state.configs.push(rec); byName[name]=rec; }
+  }
+  touch(); renderCfgList(); renderRunTab();
+}
+
+function updateFsBadge(){
+  const b=$('#fsBadge');
+  if(dirHandle){ b.className='pill ok'; b.textContent='📂 '+dirHandle.name; $('#projInfo').style.display='flex'; $('#projPath').textContent=dirHandle.name+'/'; }
+  else { b.className='pill'; b.textContent=hasFS?'geen map geopend':'browser zonder schrijftoegang'; }
+  $('#projName').textContent=state.name||'(naamloos project)';
+}
+// project fields
+['pNameIn','pClientIn','pSumoVer','pDescIn'].forEach(id=>{
+  $('#'+id).addEventListener('input',()=>{
+    state.name=$('#pNameIn').value; state.client=$('#pClientIn').value;
+    state.sumoVer=$('#pSumoVer').value; state.desc=$('#pDescIn').value; touch(); updateFsBadge();
+  });
+});
+function syncProjectFields(){
+  $('#pNameIn').value=state.name||''; $('#pClientIn').value=state.client||'';
+  $('#pSumoVer').value=state.sumoVer||''; $('#pDescIn').value=state.desc||'';
+  updateFsBadge();
+}
+
+/* =============================================================
+ *  TAB 2 — OD & ROUTES
+ * ============================================================= */
+function renderOD(){ renderZones(); renderMatrixSelect(); renderMatrix(); renderVtypes(); renderGenMatrixSelect();
+  $('#netEdgeCount').textContent = state.netEdges.length? state.netEdges.length+' edges geladen' : 'geen net geladen';
+  const rls=$('#rouLoadSelect'); if(rls){ const opts=(state._rouFiles||[]); rls.innerHTML = opts.length? opts.map(n=>`<option>${esc(n)}</option>`).join('') : '<option disabled>— geen .rou.xml in traffic/ —</option>'; } }
+
+/* ---- load an existing .rou.xml back into zones + vTypes + OD matrix ---- */
+$('#btnLoadRou').addEventListener('click', async ()=>{
+  const name=$('#rouLoadSelect').value;
+  if(!dirHandle || !name || name.startsWith('—')){ $('#rouFileInput').click(); return; }
+  try{ const txt=await readFile('traffic/'+name); parseRouIntoState(txt, name); }
+  catch(e){ toast('Kon traffic/'+name+' niet lezen: '+e.message,true); }
+});
+$('#btnUploadRou').addEventListener('click',()=>$('#rouFileInput').click());
+$('#rouFileInput').addEventListener('change', async e=>{ const f=e.target.files[0]; if(!f) return; parseRouIntoState(await f.text(), f.name); e.target.value=''; });
+
+function parseRouIntoState(txt, fname){
+  let doc; try{ doc=new DOMParser().parseFromString(txt,'text/xml'); }catch(err){ toast('Kon .rou.xml niet parsen.',true); return; }
+  // vTypes (also inside vTypeDistribution)
+  const vts=$$('vType',doc);
+  if(vts.length) state.vtypes=vts.map(v=>({ id:v.getAttribute('id')||'type', vClass:v.getAttribute('vClass')||'passenger',
+    share:0, accel:num(v.getAttribute('accel'),2.6), decel:num(v.getAttribute('decel'),4.5),
+    length:num(v.getAttribute('length'),5), maxSpeed:num(v.getAttribute('maxSpeed'),13.9) }));
+  const vtSan=state.vtypes.map(v=>({id:v.id, san:v.id.replace(/[^A-Za-z0-9_]/g,'')}));
+  // named routes (for vehicles referencing a route by id)
+  const routeMap={}; $$('route',doc).forEach(r=>{ const id=r.getAttribute('id'), e=r.getAttribute('edges'); if(id&&e){ const a=e.trim().split(/\s+/); routeMap[id]=[a[0],a[a.length-1]]; } });
+  // existing zones -> edge lookups (so an external rou maps onto your defined arms)
+  const zoneByFrom={}, zoneByTo={};
+  state.zones.forEach(z=>{ if(z.fromEdge) zoneByFrom[z.fromEdge]=z.name; if(z.toEdge) zoneByTo[z.toEdge]=z.name; });
+
+  function endpoints(el){
+    const from=el.getAttribute('from'), to=el.getAttribute('to');
+    if(from&&to) return [from,to];
+    const rc=el.querySelector('route'); let edges=rc?rc.getAttribute('edges'):null;
+    if(!edges){ const rid=el.getAttribute('route'); if(rid&&routeMap[rid]) return routeMap[rid]; }
+    if(edges){ const a=edges.trim().split(/\s+/); return [a[0], a[a.length-1]]; }
+    return [from||null, to||null];
+  }
+  let begin=0,end=3600, pattern='vehsPerHour', hasFlowTiming=false;
+  const nameFrom={}, nameTo={}, cell={}, vtypeVeh={};
+  let named=0, matched=0, fallback=0, items=0;
+  function resolveZones(id, oe, de){
+    // a) tool scheme f_<orig>_<dest>_<vType> — ONLY if a known vType suffix is actually present
+    //    (jtrrouter ids like "f_B_o4.0" are the source edge, not orig_dest — must not match)
+    if(id && id.startsWith('f_')){
+      let rest=id.replace(/\.\d+$/,'').slice(2);
+      const vt=vtSan.find(v=>v.san && rest.endsWith('_'+v.san));
+      if(vt){ rest=rest.slice(0,rest.length-vt.san.length-1); const parts=rest.split('_'); if(parts.length===2){ named++; return [parts[0],parts[1]]; } }
+    }
+    // b) map edges onto your existing zones (if you defined arms with these from/to edges)
+    if(oe && de && zoneByFrom[oe] && zoneByTo[de]){ matched++; return [zoneByFrom[oe], zoneByTo[de]]; }
+    // c) fallback: use the edge ids themselves as zone names
+    if(oe||de){ fallback++; return [oe||'?', de||'?']; }
+    return [null,null];
+  }
+  function add(id,oe,de,cnt,vtype){
+    const [o,d]=resolveZones(id,oe,de); if(o==null||d==null) return;
+    if(oe) nameFrom[o]=oe; if(de) nameTo[d]=de;
+    cell[o+'|'+d]=(cell[o+'|'+d]||0)+cnt;
+    if(vtype) vtypeVeh[vtype]=(vtypeVeh[vtype]||0)+cnt; items++;
+  }
+  // flows
+  $$('flow',doc).forEach(fl=>{
+    const [oe,de]=endpoints(fl);
+    begin=num(fl.getAttribute('begin'),begin); end=num(fl.getAttribute('end'),end); hasFlowTiming=true;
+    const dur=Math.max(1,end-begin); let cnt=1;
+    if(fl.getAttribute('vehsPerHour')!=null){ cnt=num(fl.getAttribute('vehsPerHour'))*dur/3600; pattern='vehsPerHour'; }
+    else if(fl.getAttribute('number')!=null){ cnt=num(fl.getAttribute('number')); }
+    else if(fl.getAttribute('period')!=null){ const per=fl.getAttribute('period'); const m=String(per).match(/exp\(([\d.]+)\)/); if(m){ cnt=parseFloat(m[1])*dur; pattern='exp'; } else { cnt=dur/Math.max(0.001,num(per,1)); pattern='period'; } }
+    add(fl.getAttribute('id')||'', oe, de, cnt, fl.getAttribute('type')||'');
+  });
+  // individual vehicles + trips (1 each)  -> handles jtrrouter/duarouter output
+  $$('vehicle',doc).concat($$('trip',doc)).forEach(v=>{ const [oe,de]=endpoints(v); add(v.getAttribute('id')||'', oe, de, 1, v.getAttribute('type')||''); });
+
+  if(items===0){ touch(); renderOD(); const st=$('#rouLoadStat'); st.className='pill warn'; st.textContent='geen herkomst-bestemming gevonden (enkel vTypes geladen)'; toast('Geen OD-gegevens gevonden in dit bestand.',true); return; }
+
+  // upsert zones by name (non-destructive)
+  const allNames=[...new Set([...Object.keys(nameFrom),...Object.keys(nameTo)])];
+  allNames.forEach(nm=>{ let z=state.zones.find(x=>x.name===nm); if(!z){ z={id:uid(),name:nm,fromEdge:'',toEdge:''}; state.zones.push(z); }
+    if(nameFrom[nm]) z.fromEdge=nameFrom[nm]; if(nameTo[nm]) z.toEdge=nameTo[nm]; });
+  const nameToId=Object.fromEntries(state.zones.map(z=>[z.name,z.id]));
+  const m={id:uid(), name:(fname||'geladen').replace(/\.rou\.xml$/i,'').replace(/\.xml$/i,''), peak:'', values:{}};
+  Object.entries(cell).forEach(([k,v])=>{ const [o,d]=k.split('|'); const oi=nameToId[o],di=nameToId[d]; if(oi&&di&&v>0) m.values[oi+'>'+di]=Math.round(v); });
+  state.matrices.push(m); state._curMatrix=m.id;
+  const totVeh=Object.values(vtypeVeh).reduce((a,b)=>a+b,0);
+  if(totVeh>0) state.vtypes.forEach(v=>{ v.share=+(100*(vtypeVeh[v.id]||0)/totVeh).toFixed(1); });
+  touch(); renderOD();
+  if(hasFlowTiming){ $('#genBegin').value=begin; $('#genEnd').value=end; $('#genPattern').value=pattern; }
+  renderGenMatrixSelect(); if(typeof syncGenFilename==='function') syncGenFilename();
+  const how = named? 'uit flow-id\'s' : matched? 'via edge-koppeling met bestaande zones' : 'via edge-namen (herkomst/bestemming apart)';
+  const st=$('#rouLoadStat'); st.className='pill'+(named||matched? ' ok':' warn');
+  st.textContent=`${state.zones.length} zones · ${Object.keys(m.values).length} cellen · ${state.vtypes.length} types — ${how}`;
+  toast(`Ingeladen: ${fname||'rou'} — ${Object.keys(m.values).length} OD-cellen (${how}).`);
+}
+
+function renderZones(){
+  const tb=$('#zoneTable tbody'); tb.innerHTML='';
+  state.zones.forEach(z=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input value="${esc(z.name)}" data-f="name"></td>
+      <td><input value="${esc(z.fromEdge)}" data-f="fromEdge" list="edgeList" placeholder="edge-id"></td>
+      <td><input value="${esc(z.toEdge)}" data-f="toEdge" list="edgeList" placeholder="edge-id"></td>
+      <td class="inline-actions"><button class="btn danger sm" title="verwijder">✕</button></td>`;
+    tr.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>{ z[inp.dataset.f]=inp.value; touch(); renderMatrix(); }));
+    tr.querySelector('button').addEventListener('click',()=>{ state.zones=state.zones.filter(x=>x.id!==z.id); touch(); renderOD(); });
+    tb.appendChild(tr);
+  });
+  // datalist for edges
+  let dl=$('#edgeList'); if(!dl){ dl=document.createElement('datalist'); dl.id='edgeList'; document.body.appendChild(dl); }
+  dl.innerHTML=state.netEdges.map(e=>`<option value="${esc(e)}">`).join('');
+}
+$('#btnAddZone').addEventListener('click',()=>{ state.zones.push({id:uid(),name:'zone'+(state.zones.length+1),fromEdge:'',toEdge:''}); touch(); renderOD(); });
+
+$('#btnZonesFromNet').addEventListener('click', async ()=>{
+  let txt=null;
+  if(dirHandle){
+    try{
+      const dh=await dirHandle.getDirectoryHandle('network');
+      for await (const [name,h] of dh.entries()){ if(name.endsWith('.net.xml')){ txt=await (await h.getFile()).text(); break; } }
+    }catch(e){}
+  }
+  if(!txt){
+    // fallback: file picker
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='.xml,.net.xml';
+    inp.onchange=async()=>{ txt=await inp.files[0].text(); parseNetEdges(txt); };
+    inp.click(); return;
+  }
+  parseNetEdges(txt);
+});
+function parseNetEdges(txt){
+  try{
+    const doc=new DOMParser().parseFromString(txt,'text/xml');
+    const edges=$$('edge',doc).filter(e=>!e.getAttribute('function')).map(e=>e.getAttribute('id')).filter(Boolean);
+    state.netEdges=[...new Set(edges)].sort();
+    touch(); renderOD(); toast(state.netEdges.length+' edges gelezen uit het net.');
+  }catch(e){ toast('Kon net niet parsen: '+e.message,true); }
+}
+
+/* ---- matrices ---- */
+function currentMatrix(){ return state.matrices.find(m=>m.id===state._curMatrix) || state.matrices[0]; }
+function renderMatrixSelect(){
+  const sel=$('#matrixSelect'); sel.innerHTML=state.matrices.map(m=>`<option value="${m.id}">${esc(m.name)}${m.peak?' ('+esc(m.peak)+')':''}</option>`).join('');
+  if(state._curMatrix) sel.value=state._curMatrix; else if(state.matrices[0]) state._curMatrix=state.matrices[0].id;
+}
+$('#matrixSelect').addEventListener('change',e=>{ state._curMatrix=e.target.value; renderMatrix(); });
+$('#btnAddMatrix').addEventListener('click',()=>{
+  const m={id:uid(),name:'matrix'+(state.matrices.length+1),peak:'AS',values:{}};
+  state.matrices.push(m); state._curMatrix=m.id; touch(); renderMatrixSelect(); renderMatrix(); renderGenMatrixSelect();
+});
+$('#btnDelMatrix').addEventListener('click',()=>{
+  const m=currentMatrix(); if(!m) return;
+  state.matrices=state.matrices.filter(x=>x.id!==m.id); state._curMatrix=state.matrices[0]?.id;
+  touch(); renderMatrixSelect(); renderMatrix(); renderGenMatrixSelect();
+});
+function renderMatrix(){
+  const area=$('#matrixArea'); const m=currentMatrix();
+  if(!m){ area.innerHTML='<div class="empty"><div class="big">🔢</div>Nog geen matrix.</div>'; return; }
+  if(state.zones.length===0){ area.innerHTML='<div class="banner warn"><span>⚠️</span><div>Definieer eerst zones hierboven.</div></div>'; return; }
+  const z=state.zones;
+  let html=`<div class="row" style="margin-bottom:10px">
+      <div class="field"><label>Naam</label><input id="mName" value="${esc(m.name)}"></div>
+      <div class="field"><label>Spits/scenario</label><input id="mPeak" value="${esc(m.peak)}" placeholder="AS / OS"></div>
+      <div class="field" style="align-self:flex-end"><span class="pill" id="mTotal"></span></div>
+    </div>`;
+  // A cell (origin r → destination c) is fillable only if the origin has a bron-edge
+  // AND the destination has a bestemmings-edge — the same rule the .rou.xml generator uses.
+  const missFrom = z.filter(x=>!hasFrom(x));
+  const missTo   = z.filter(x=>!hasTo(x));
+  if(missFrom.length||missTo.length){
+    html+='<div class="banner warn" style="margin-bottom:10px"><span>🔒</span><div>';
+    if(missFrom.length) html+='Geen <b>bron-edge</b> — rij vergrendeld als herkomst: '+missFrom.map(x=>esc(x.name)).join(', ')+'. ';
+    if(missTo.length)   html+='Geen <b>bestemmings-edge</b> — kolom vergrendeld als bestemming: '+missTo.map(x=>esc(x.name)).join(', ')+'.';
+    html+=' Vul de edge-id\'s in bij “Zones &amp; kant-koppeling” om die cellen te ontgrendelen.</div></div>';
+  }
+  html+='<div style="overflow:auto"><table class="matrix"><thead><tr><th class="rh">van \\ naar</th>';
+  z.forEach(c=>{ const bad=!hasTo(c); html+=`<th class="rh${bad?' badzone':''}"${bad?' title="geen bestemmings-edge"':''}>${esc(c.name)}${bad?' 🔒':''}</th>`; });
+  html+='<th class="rh">Σ rij</th></tr></thead><tbody>';
+  z.forEach(r=>{
+    const rBad=!hasFrom(r);
+    html+=`<tr><th class="rh${rBad?' badzone':''}"${rBad?' title="geen bron-edge"':''}>${esc(r.name)}${rBad?' 🔒':''}</th>`;
+    z.forEach(c=>{
+      const key=r.id+'>'+c.id; const val=m.values[key]||'';
+      const locked = rBad || !hasTo(c);
+      const cls=[]; if(r.id===c.id) cls.push('diag'); if(locked) cls.push('locked');
+      let title = r.id===c.id ? 'zelfde zone' : '';
+      if(locked) title = (rBad && !hasTo(c)) ? 'herkomst mist bron-edge én bestemming mist bestemmings-edge'
+                       : rBad ? 'herkomstzone mist bron-edge' : 'bestemmingszone mist bestemmings-edge';
+      html+=`<td class="${cls.join(' ')}"><input data-key="${key}" value="${esc(val)}" ${locked?'disabled':''} title="${esc(title)}"></td>`;
+    });
+    html+=`<td class="rowsum" data-r="${r.id}"></td></tr>`;
+  });
+  html+='<tr><th class="rh">Σ kol</th>';
+  z.forEach(c=>html+=`<td class="colsum" data-c="${c.id}"></td>`);
+  html+='<td class="grandsum"></td></tr>';
+  html+='</tbody></table></div>';
+  area.innerHTML=html;
+  $('#mName').addEventListener('input',e=>{ m.name=e.target.value; touch(); renderMatrixSelect(); renderGenMatrixSelect(); });
+  $('#mPeak').addEventListener('input',e=>{ m.peak=e.target.value; touch(); renderMatrixSelect(); });
+  area.querySelectorAll('input[data-key]').forEach(inp=>{
+    inp.addEventListener('input',()=>{ const v=inp.value.trim(); if(v==='') delete m.values[inp.dataset.key]; else m.values[inp.dataset.key]=num(v,0); touch(); recalcSums(m); });
+  });
+  recalcSums(m);
+}
+function recalcSums(m){
+  // only count cells that are actually exportable (origin has bron-edge AND dest has bestemmings-edge)
+  const z=state.zones; let grand=0;
+  z.forEach(r=>{ let s=0; z.forEach(c=>{ if(hasFrom(r)&&hasTo(c)) s+=num(m.values[r.id+'>'+c.id],0); }); const el=$(`.rowsum[data-r="${r.id}"]`); if(el) el.textContent=s||''; grand+=s; });
+  z.forEach(c=>{ let s=0; z.forEach(r=>{ if(hasFrom(r)&&hasTo(c)) s+=num(m.values[r.id+'>'+c.id],0); }); const el=$(`.colsum[data-c="${c.id}"]`); if(el) el.textContent=s||''; });
+  const g=$('.grandsum'); if(g) g.textContent=grand;
+  const mt=$('#mTotal'); if(mt) mt.textContent='inzetbaar totaal: '+grand+' vtg';
+}
+
+/* ---- CSV import ----
+   Accepts a square matrix CSV: first row = destination headers, first col = origin names.
+   Cell = trips. Zone names are matched/created. */
+$('#btnImportCsv').addEventListener('click',()=>$('#csvFile').click());
+$('#csvFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const txt=await f.text(); importCsvMatrix(txt, f.name.replace(/\.csv$/i,''));
+  e.target.value='';
+});
+function importCsvMatrix(txt,name){
+  const delim = (txt.split('\n')[0].split(';').length > txt.split('\n')[0].split(',').length)?';':',';
+  const rows=txt.trim().split(/\r?\n/).map(r=>r.split(delim).map(c=>c.trim()));
+  if(rows.length<2){ toast('CSV lijkt leeg of ongeldig.',true); return; }
+  const headers=rows[0].slice(1);            // destination zone names
+  const originNames=rows.slice(1).map(r=>r[0]);
+  const allNames=[...new Set([...headers,...originNames])];
+  // ensure zones exist (match by name)
+  allNames.forEach(nm=>{ if(!state.zones.find(z=>z.name===nm)) state.zones.push({id:uid(),name:nm,fromEdge:'',toEdge:''}); });
+  const nameToId=Object.fromEntries(state.zones.map(z=>[z.name,z.id]));
+  const m={id:uid(),name:name||'imported',peak:'',values:{}};
+  rows.slice(1).forEach(r=>{
+    const oName=r[0];
+    r.slice(1).forEach((cell,ci)=>{
+      const dName=headers[ci]; const v=num(cell,0);
+      if(v>0 && nameToId[oName] && nameToId[dName]) m.values[nameToId[oName]+'>'+nameToId[dName]]=v;
+    });
+  });
+  state.matrices.push(m); state._curMatrix=m.id; touch();
+  renderOD(); toast('Matrix geïmporteerd: '+allNames.length+' zones.');
+}
+
+/* ---- vtypes ---- */
+function renderVtypes(){
+  const tb=$('#vtypeTable tbody'); tb.innerHTML='';
+  state.vtypes.forEach(v=>{
+    const tr=document.createElement('tr');
+    const cls=['passenger','trailer','truck','bus','motorcycle','bicycle','delivery','emergency'];
+    tr.innerHTML=`<td><input value="${esc(v.id)}" data-f="id"></td>
+      <td><select data-f="vClass">${cls.map(c=>`<option ${c===v.vClass?'selected':''}>${c}</option>`).join('')}</select></td>
+      <td><input type="number" value="${v.share}" data-f="share" style="text-align:right"></td>
+      <td><input type="number" value="${v.accel}" data-f="accel" step="0.1"></td>
+      <td><input type="number" value="${v.decel}" data-f="decel" step="0.1"></td>
+      <td><input type="number" value="${v.length}" data-f="length" step="0.1"></td>
+      <td><input type="number" value="${v.maxSpeed}" data-f="maxSpeed" step="0.1"></td>
+      <td><button class="btn danger sm">✕</button></td>`;
+    tr.querySelectorAll('input,select').forEach(inp=>inp.addEventListener('input',()=>{
+      v[inp.dataset.f] = inp.type==='number'? num(inp.value,0) : inp.value; touch();
+    }));
+    tr.querySelector('button').addEventListener('click',()=>{ state.vtypes=state.vtypes.filter(x=>x!==v); touch(); renderVtypes(); });
+    tb.appendChild(tr);
+  });
+}
+$('#btnAddVtype').addEventListener('click',()=>{ state.vtypes.push({id:'type'+(state.vtypes.length+1),vClass:'passenger',share:0,accel:2.6,decel:4.5,length:5,maxSpeed:13.9}); touch(); renderVtypes(); });
+
+/* ---- generate rou.xml ---- */
+function renderGenMatrixSelect(){
+  const sel=$('#genMatrix'); if(!sel) return;
+  const prev=sel.value;
+  sel.innerHTML=state.matrices.map(m=>`<option value="${m.id}">${esc(m.name)}${m.peak?' ('+esc(m.peak)+')':''}</option>`).join('');
+  if(prev && state.matrices.some(m=>m.id===prev)) sel.value=prev;   // keep selection across re-renders
+  syncGenFilename();
+}
+function syncGenFilename(){
+  const sel=$('#genMatrix'); if(!sel) return;
+  const m=state.matrices.find(x=>x.id===sel.value);
+  if(m) $('#genFilename').value=(m.name||'demand').trim().replace(/[^\w.\-]+/g,'_')+'.rou.xml';
+}
+$('#genMatrix').addEventListener('change', syncGenFilename);
+let lastRou=null, lastRouName=null;
+function rouFilename(m){ return (m.name||m.peak||'demand').trim().replace(/[^\w.\-]+/g,'_')+'.rou.xml'; }
+// Build a .rou.xml for one matrix using the current period/pattern settings.
+// Returns {xml, nFlows, totVeh, warn:[...]}.
+function buildRou(m){
+  const zonesById=Object.fromEntries(state.zones.map(z=>[z.id,z]));
+  const begin=num($('#genBegin').value,0), end=num($('#genEnd').value,3600);
+  const dur=Math.max(1,end-begin);
+  const pattern=$('#genPattern').value;
+  const totShare=state.vtypes.reduce((a,v)=>a+num(v.share,0),0)||100;
+
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml+='<!-- '+esc(m.name||'demand')+' — gegenereerd door SUMO Simulation Manager op '+new Date().toISOString().slice(0,16).replace('T',' ')+' -->\n';
+  xml+='<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">\n';
+  state.vtypes.forEach(v=>{
+    xml+=`    <vType id="${esc(v.id)}" vClass="${esc(v.vClass)}" accel="${v.accel}" decel="${v.decel}" length="${v.length}" maxSpeed="${v.maxSpeed}"/>\n`;
+  });
+  xml+='\n';
+  let nFlows=0, totVeh=0, warn=[];
+  const cells=[];
+  Object.entries(m.values).forEach(([k,v])=>{ if(v>0){ const [o,d]=k.split('>'); cells.push([o,d,v]); } });
+  const order=state.zones.map(z=>z.id);
+  cells.sort((a,b)=>(order.indexOf(a[0])-order.indexOf(b[0]))||(order.indexOf(a[1])-order.indexOf(b[1])));
+  cells.forEach(([o,d,vol])=>{
+    const oz=zonesById[o], dz=zonesById[d];
+    if(!oz||!dz) return;
+    if(!oz.fromEdge||!dz.toEdge){ warn.push(`${oz?.name||o}→${dz?.name||d}`); return; }
+    state.vtypes.forEach(v=>{
+      const share=num(v.share,0)/totShare;
+      const veh=vol*share;
+      if(veh<=0) return;
+      const perHour=veh*3600/dur;
+      const id=`f_${esc(oz.name)}_${esc(dz.name)}_${esc(v.id)}`.replace(/[^A-Za-z0-9_]/g,'');
+      let attr;
+      if(pattern==='vehsPerHour') attr=`vehsPerHour="${perHour.toFixed(2)}"`;
+      else if(pattern==='exp') attr=`period="exp(${(veh/dur).toFixed(5)})"`;
+      else attr=`period="${(dur/Math.max(1,veh)).toFixed(3)}"`;
+      xml+=`    <flow id="${id}" type="${esc(v.id)}" begin="${begin}" end="${end}" from="${esc(oz.fromEdge)}" to="${esc(dz.toEdge)}" ${attr} departLane="best" departSpeed="max"/>\n`;
+      nFlows++; totVeh+=veh;
+    });
+  });
+  xml+='</routes>\n';
+  return {xml, nFlows, totVeh, warn};
+}
+$('#btnGenRou').addEventListener('click',()=>{
+  const m=state.matrices.find(x=>x.id===$('#genMatrix').value)||currentMatrix();
+  if(!m){ toast('Geen matrix geselecteerd.',true); return; }
+  const r=buildRou(m);
+  lastRou=r.xml;
+  if(!$('#genFilename').value) $('#genFilename').value=rouFilename(m);
+  lastRouName=$('#genFilename').value||rouFilename(m);
+  $('#rouPreview').style.display='block'; $('#rouPreview').textContent=r.xml;
+  $('#btnSaveRou').disabled=false; $('#btnDownloadRou').disabled=false;
+  let stat=`${r.nFlows} flows · ~${Math.round(r.totVeh)} vtg`;
+  if(r.warn.length) stat+=` · ⚠️ ${r.warn.length} cellen zonder edge-koppeling overgeslagen`;
+  $('#rouStats').textContent=stat;
+  $('#rouStats').className='pill'+(r.warn.length?' warn':' ok');
+});
+$('#btnGenAll').addEventListener('click', async ()=>{
+  if(!state.matrices.length){ toast('Geen matrices gedefinieerd.',true); return; }
+  let saved=0, downloaded=0, totWarn=0, lines=[];
+  for(const m of state.matrices){
+    const r=buildRou(m); const name=rouFilename(m);
+    const ok=await writeFile('traffic/'+name, r.xml);
+    if(ok) saved++; else { download(name, r.xml, 'application/xml'); downloaded++; }
+    totWarn+=r.warn.length;
+    lines.push(`${name}: ${r.nFlows} flows · ~${Math.round(r.totVeh)} vtg${r.warn.length?' · ⚠️ '+r.warn.length+' overgeslagen':''}`);
+  }
+  if(saved) scanFolders();
+  $('#rouPreview').style.display='block';
+  $('#rouPreview').textContent='// '+state.matrices.length+' matrices verwerkt\n'+lines.join('\n');
+  $('#rouStats').textContent = (saved? saved+' opgeslagen in traffic/':'') + (downloaded? (saved?' · ':'')+downloaded+' gedownload':'');
+  $('#rouStats').className='pill'+(totWarn?' warn':' ok');
+  toast(`${state.matrices.length} matrices → ${saved?saved+' in traffic/':''}${downloaded?(saved?', ':'')+downloaded+' gedownload':''}.`);
+});
+$('#btnDownloadRou').addEventListener('click',()=>{ if(lastRou) download(lastRouName||'demand.rou.xml',lastRou,'application/xml'); });
+$('#btnSaveRou').addEventListener('click', async ()=>{
+  if(!lastRou) return;
+  const name=$('#genFilename').value||lastRouName||'demand.rou.xml';
+  const ok=await writeFile('traffic/'+name, lastRou);
+  if(ok){ toast('Opgeslagen: traffic/'+name); scanFolders(); } else { download(name,lastRou,'application/xml'); toast('Geen schrijftoegang — gedownload i.p.v. opgeslagen.'); }
+});
+
+/* =============================================================
+ *  TAB 3 — CONFIG & OUTPUT
+ * ============================================================= */
+// Fill a <select> from [{v,l}] options, preserving current selection(s).
+function fillSelect(sel, opts, multi){
+  if(!sel) return;
+  const prev = multi ? Array.from(sel.selectedOptions).map(o=>o.value) : [sel.value];
+  if(!opts.length){ sel.innerHTML='<option value="" disabled selected>— geen bestanden — open/scan de projectmap —</option>'; return; }
+  sel.innerHTML=opts.map(o=>`<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('');
+  Array.from(sel.options).forEach(o=>{ o.selected = prev.includes(o.value); });
+  if(!multi && sel.selectedIndex<0) sel.selectedIndex=0;
+}
+// a gui-settings (viewsettings) file is NOT an additional — keep it out of additional-files
+const isGuiSettings = n => /viewsettings|gui[-_ ]?settings|\.view\.xml$/i.test(n);
+// Populate the Invoer selects from the scanned project folders.
+function populateCfgSelects(){
+  fillSelect($('#cfgNet'),   (state._netFiles||[]).map(n=>({v:'../network/'+n,l:n})), false);
+  fillSelect($('#cfgRoutes'),(state._rouFiles||[]).map(n=>({v:'../traffic/'+n,l:n})), true);
+  fillSelect($('#cfgAdd'), [
+    ...(state._bgFiles||[]).filter(n=>!isGuiSettings(n)).map(n=>({v:'../background/'+n,l:'background/'+n})),
+    ...(state._vriFiles||[]).map(n=>({v:'../VRI/'+n,l:'VRI/'+n})),
+    ...(state._cfgAddFiles||[]).filter(n=>!isGuiSettings(n)).map(n=>({v:n,l:'config/'+n})),
+  ], true);
+  // gui-settings-file candidates (viewsettings) — single-select with a "(geen)" option
+  const guiOpts=[{v:'',l:'(geen)'}].concat(
+    (state._bgFiles||[]).filter(isGuiSettings).map(n=>({v:'../background/'+n,l:'background/'+n})),
+    (state._cfgAddFiles||[]).filter(isGuiSettings).map(n=>({v:n,l:'config/'+n})));
+  const gsel=$('#cfgGui'); if(gsel){ const prev=gsel.value;
+    gsel.innerHTML=guiOpts.map(o=>`<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('');
+    // keep prior selection, else auto-pick the first viewsettings file if present
+    if(prev && guiOpts.some(o=>o.v===prev)) gsel.value=prev;
+    else { const first=guiOpts.find(o=>o.v); if(first) gsel.value=first.v; }
+  }
+  if(typeof syncCfgNaming==='function') syncCfgNaming(false);   // fill name/out-submap if still empty
+}
+if($('#btnRefreshCfgFiles')) $('#btnRefreshCfgFiles').addEventListener('click', async ()=>{ if(dirHandle) await scanFolders(); else populateCfgSelects(); toast('Bestandslijsten vernieuwd.'); });
+function renderConfigTab(){
+  // output toggles
+  const box=$('#outToggles');
+  if(!box.dataset.built){
+    box.innerHTML=OUTPUTS.map(o=>`<div class="checkline"><input type="checkbox" id="out_${o.key}" ${o.on?'checked':''}><label for="out_${o.key}">${esc(o.label)}</label></div>`).join('');
+    box.dataset.built='1';
+  }
+  populateCfgSelects();
+  renderCfgList();
+}
+let lastCfg=null, lastCfgName=null, lastEdgeAdd=null, lastEdgeAddName='edgedata.add.xml', lastAddNonEdge=[];
+
+// ---- naming helpers (config = <netbase>_<matrixbase>.sumocfg) ----
+function baseNoExt(p, ext){ let n=(p||'').split('/').pop(); return (ext && n.endsWith(ext)) ? n.slice(0,-ext.length) : n.replace(/\.[^.]+$/,''); }
+function netBase(net){ return baseNoExt(net,'.net.xml'); }
+function matrixBase(rou){ return baseNoExt(rou,'.rou.xml'); }
+function cfgAutoBase(net, firstRoute){
+  const nb=netBase(net)||'net', mb=matrixBase(firstRoute)||'sim';
+  return `${nb}_${mb}`.replace(/[^\w.\-]+/g,'_');
+}
+// keep the config filename + output-submap in sync with net + first route selection
+function syncCfgNaming(force){
+  const net=($('#cfgNet').value||'').trim();
+  const firstRoute=(Array.from($('#cfgRoutes').selectedOptions).map(o=>o.value)[0])||'';
+  if(!net && !firstRoute) return;
+  const mb=matrixBase(firstRoute);
+  if(force || !$('#cfgFilename').value) $('#cfgFilename').value=cfgAutoBase(net,firstRoute)+'.sumocfg';
+  if(mb && (force || !$('#cfgOutDir').value)) $('#cfgOutDir').value='runs_'+mb.replace(/[^\w.\-]+/g,'_');
+}
+$('#cfgNet').addEventListener('change',()=>syncCfgNaming(true));
+$('#cfgRoutes').addEventListener('change',()=>syncCfgNaming(true));
+
+// ---- read the shared (matrix-independent) settings from the form ----
+function cfgFormSettings(){
+  const outputs={}; OUTPUTS.forEach(o=>{ const cb=$('#out_'+o.key); if(cb&&cb.checked) outputs[o.key]=true; });
+  return {
+    outputs,
+    addFilesSel:Array.from($('#cfgAdd').selectedOptions).map(o=>o.value).filter(Boolean),
+    guiSettings:($('#cfgGui')&&$('#cfgGui').value||'').trim(),
+    begin:num($('#cfgBegin').value,0), end:num($('#cfgEnd').value,3600), step:num($('#cfgStep').value,1),
+    teleport:$('#cfgTeleport').value.trim(), lateral:$('#cfgLateral').value.trim(),
+  };
+}
+// ---- pure builder: returns {xml, edgeAdd, edgeAddName, routes} ----
+function buildCfgXml(o){
+  const outDir=(o.outDir||'').trim();
+  // Config outputs are config-relative (../output/<outDir>/) — correct for a STANDALONE run.
+  // The run-script overrides tripinfo/summary/… per seed×scale with explicit CLI paths (CWD-relative).
+  const outPrefix='../output/'+(outDir?outDir+'/':'');
+  const net=(o.net||'').trim()||'../network/net.net.xml';
+  const routes=(o.routeFiles||[]).filter(Boolean).join(',');
+  let addFiles=[...(o.addFilesSel||[])];
+  let edgeAdd=null, edgeAddName=null;
+  if(o.outputs.edgedata){
+    edgeAddName='edgedata.add.xml';
+    // BARE edgeData file path: resolves next to the .add.xml itself. The run-script COPIES this file
+    // into each per-run folder so edgeData is written there (per seed×scale, never overwritten).
+    edgeAdd='<?xml version="1.0" encoding="UTF-8"?>\n<additional>\n    <edgeData id="edgedata" file="edgedata.xml" freq="300" excludeEmpty="true"/>\n</additional>\n';
+    if(!addFiles.includes(edgeAddName)) addFiles.push(edgeAddName);
+  }
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml+='<!-- gegenereerd door SUMO Simulation Manager -->\n';
+  xml+='<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">\n';
+  xml+='    <input>\n';
+  xml+=`        <net-file value="${esc(net)}"/>\n`;
+  if(routes) xml+=`        <route-files value="${esc(routes)}"/>\n`;
+  if(addFiles.length) xml+=`        <additional-files value="${esc(addFiles.join(','))}"/>\n`;
+  xml+='    </input>\n';
+  if(o.guiSettings) xml+=`    <gui_only>\n        <gui-settings-file value="${esc(o.guiSettings)}"/>\n    </gui_only>\n`;
+  xml+='    <time>\n';
+  xml+=`        <begin value="${o.begin}"/>\n`;
+  xml+=`        <end value="${o.end}"/>\n`;
+  xml+=`        <step-length value="${o.step}"/>\n`;
+  xml+='    </time>\n';
+  if(o.teleport!==''||o.lateral!==''){
+    xml+='    <processing>\n';
+    if(o.teleport!=='') xml+=`        <time-to-teleport value="${num(o.teleport,-1)}"/>\n`;
+    if(o.lateral!=='') xml+=`        <lateral-resolution value="${num(o.lateral,0.8)}"/>\n`;
+    xml+='    </processing>\n';
+  }
+  const outLines=[];
+  OUTPUTS.forEach(x=>{ if(!o.outputs[x.key]||x.key==='edgedata') return; outLines.push(`        <${x.flag.replace('--','')} value="${outPrefix}${x.file}"/>`); });
+  if(outLines.length) xml+='    <output>\n'+outLines.join('\n')+'\n    </output>\n';
+  xml+='    <report>\n        <no-step-log value="true"/>\n        <verbose value="true"/>\n    </report>\n';
+  xml+='</configuration>\n';
+  return {xml, edgeAdd, edgeAddName, routes, net, outDir, guiSettings:o.guiSettings||'', addNonEdge: addFiles.filter(a=>a!==edgeAddName)};
+}
+
+$('#btnBuildCfg').addEventListener('click',()=>{
+  const net=($('#cfgNet').value||'').trim();
+  const routeFiles=Array.from($('#cfgRoutes').selectedOptions).map(o=>o.value).filter(Boolean);
+  const r=buildCfgXml(Object.assign({net, routeFiles, outDir:$('#cfgOutDir').value.trim()}, cfgFormSettings()));
+  lastCfg=r.xml; lastEdgeAdd=r.edgeAdd; lastEdgeAddName=r.edgeAddName||'edgedata.add.xml'; lastAddNonEdge=r.addNonEdge;
+  const suggested=cfgAutoBase(net, routeFiles[0])+'.sumocfg';
+  if(!$('#cfgFilename').value) $('#cfgFilename').value=suggested;
+  lastCfgName=$('#cfgFilename').value||suggested;
+  $('#cfgPreview').style.display='block'; $('#cfgPreview').textContent=r.xml;
+  if(r.edgeAdd){ $('#edgeAddPreview').style.display='block'; $('#edgeAddPreview').textContent='// '+lastEdgeAddName+'\n'+r.edgeAdd; }
+  else { $('#edgeAddPreview').style.display='none'; }
+  $('#btnSaveCfg').disabled=false; $('#btnDownloadCfg').disabled=false;
+  toast('Config opgebouwd.');
+});
+$('#btnBuildAllCfg').addEventListener('click', async ()=>{
+  const net=($('#cfgNet').value||'').trim();
+  if(!net){ toast('Kies eerst een net-file.',true); return; }
+  const rous=state._rouFiles||[];
+  if(!rous.length){ toast('Geen .rou.xml in traffic/ — genereer eerst routes.',true); return; }
+  const s=cfgFormSettings();
+  // ---- peak-awareness: TLS/edgeData additionals are spits-specific (AS/OS), network+background are not.
+  // A filename token that appears in SOME but not ALL route files is a "spits-token" (bv. AS, OS).
+  const tok = str => (str||'').toLowerCase().split(/[^a-z0-9]+/i).filter(Boolean);
+  const rouBases = rous.map(matrixBase);
+  const freq={}; rouBases.forEach(b=>{ new Set(tok(b)).forEach(t=>freq[t]=(freq[t]||0)+1); });
+  const varying = new Set(Object.keys(freq).filter(t=>freq[t]<rouBases.length));   // spits-tokens
+  function peakFilterAdds(addSel, rouBase){
+    const mine=new Set(tok(rouBase));
+    const thisVar=[...varying].filter(t=>mine.has(t));
+    const otherVar=[...varying].filter(t=>!mine.has(t));
+    return addSel.filter(a=>{
+      const at=new Set(tok(a.split('/').pop()));
+      if(thisVar.some(t=>at.has(t))) return true;    // matches this peak (bv. tls_var_AS voor AS)
+      if(otherVar.some(t=>at.has(t))) return false;  // hoort bij een andere spits → weglaten
+      return true;                                    // gemeenschappelijk (netwerk/achtergrond)
+    });
+  }
+  let saved=0, downloaded=0, lines=[];
+  for(const rou of rous){
+    const mb=matrixBase(rou), cfgBase=cfgAutoBase(net, rou);
+    const outDir='runs_'+mb.replace(/[^\w.\-]+/g,'_');
+    const addFilesSel = peakFilterAdds(s.addFilesSel, mb);
+    const r=buildCfgXml(Object.assign({}, s, {net, routeFiles:['../traffic/'+rou], outDir, addFilesSel}));
+    const fname=cfgBase+'.sumocfg';
+    const ok=await writeFile('config/'+fname, r.xml);
+    if(r.edgeAdd) await writeFile('config/'+r.edgeAddName, r.edgeAdd);   // single shared edgedata.add.xml (bare)
+    if(ok) saved++; else { download(fname,r.xml,'application/xml'); if(r.edgeAdd) download(r.edgeAddName,r.edgeAdd,'application/xml'); downloaded++; }
+    const rec={id:uid(),filename:fname,net,routes:'../traffic/'+rou,begin:s.begin,end:s.end,outDir,outputs:Object.assign({},s.outputs),add:r.addNonEdge,guiSettings:s.guiSettings};
+    state.configs=state.configs.filter(c=>c.filename!==fname); state.configs.push(rec);
+    const addNames=(addFilesSel.map(a=>a.split('/').pop())).concat(s.outputs.edgedata?['edgedata.add.xml (per-run)']:[]);
+    lines.push(`${fname}   ←   ${rou}   (out: ${outDir})\n     additional: ${addNames.join(', ')||'(geen)'}`);
+  }
+  touch();
+  if(saved) scanFolders();
+  $('#cfgPreview').style.display='block';
+  $('#cfgPreview').textContent='// '+rous.length+' configs opgebouwd\n'+lines.join('\n');
+  $('#edgeAddPreview').style.display='none';
+  renderCfgList(); renderRunTab();
+  toast(`${rous.length} configs → ${saved?saved+' in config/':''}${downloaded?(saved?', ':'')+downloaded+' gedownload':''}.`);
+});
+$('#btnDownloadCfg').addEventListener('click',()=>{
+  if(lastCfg) download(lastCfgName||'sim.sumocfg',lastCfg,'application/xml');
+  if(lastEdgeAdd) download(lastEdgeAddName||'edgedata.add.xml',lastEdgeAdd,'application/xml');
+});
+$('#btnSaveCfg').addEventListener('click', async ()=>{
+  if(!lastCfg) return;
+  const name=$('#cfgFilename').value||lastCfgName||'sim.sumocfg';
+  const ok=await writeFile('config/'+name,lastCfg);
+  if(lastEdgeAdd) await writeFile('config/'+(lastEdgeAddName||'edgedata.add.xml'),lastEdgeAdd);
+  // register config
+  const cfg={id:uid(),filename:name,net:$('#cfgNet').value,
+    routes:Array.from($('#cfgRoutes').selectedOptions).map(o=>o.value).filter(Boolean).join(','),
+    begin:num($('#cfgBegin').value,0),end:num($('#cfgEnd').value,3600),outDir:$('#cfgOutDir').value.trim(),
+    outputs:Object.fromEntries(OUTPUTS.filter(o=>$('#out_'+o.key)?.checked).map(o=>[o.key,true])), add:lastAddNonEdge, guiSettings:($('#cfgGui')&&$('#cfgGui').value||'')};
+  state.configs=state.configs.filter(c=>c.filename!==name); state.configs.push(cfg); touch();
+  if(ok){ toast('Opgeslagen: config/'+name); scanFolders(); } else { download(name,lastCfg,'application/xml'); }
+  renderCfgList();
+});
+function renderCfgList(){
+  const el=$('#cfgList');
+  if(!state.configs.length){ el.innerHTML='<div class="empty">Nog geen configs geregistreerd.</div>'; return; }
+  el.innerHTML=state.configs.map(c=>`<div class="list-item">
+    <div class="li-main"><div class="li-title">${esc(c.filename)}</div>
+      <div class="li-sub">${esc(c.routes||'')} · ${c.begin}–${c.end}s${c.outDir?' · out: '+esc(c.outDir):''}</div></div>
+    <div>${Object.keys(c.outputs||{}).map(k=>`<span class="tag">${k}</span>`).join(' ')}</div>
+    <button class="btn danger sm" data-id="${c.id}">✕</button></div>`).join('');
+  el.querySelectorAll('button[data-id]').forEach(b=>b.addEventListener('click',()=>{ state.configs=state.configs.filter(c=>c.id!==b.dataset.id); touch(); renderCfgList(); renderRunTab(); }));
+}
+
+/* =============================================================
+ *  TAB 4 — RUN SCRIPT GENERATION
+ * ============================================================= */
+function parseList(str){
+  // supports "1,2,3", "1-5", "0.8-1.2:0.05"
+  str=str.trim(); if(!str) return [];
+  const out=[];
+  str.split(',').forEach(part=>{
+    part=part.trim();
+    let mRange=part.match(/^(-?[\d.]+)-(-?[\d.]+)(?::([\d.]+))?$/);
+    if(mRange){
+      const a=parseFloat(mRange[1]),b=parseFloat(mRange[2]),step=mRange[3]?parseFloat(mRange[3]):1;
+      for(let x=a;x<=b+1e-9;x+=step) out.push(+x.toFixed(6));
+    } else if(part!=='') out.push(part.match(/^-?[\d.]+$/)?+part:part);
+  });
+  return out;
+}
+function renderRunTab(){
+  const sel=$('#runConfigs');
+  sel.innerHTML=state.configs.map(c=>`<option value="${c.filename}">${esc(c.filename)}</option>`).join('');
+  if(!state.configs.length) sel.innerHTML='<option disabled>— maak eerst configs in tab 3 —</option>';
+  const ms=$('#mediaConfig'); if(ms){ ms.innerHTML=state.configs.map(c=>`<option value="${c.filename}">${esc(c.filename)}</option>`).join('')||'<option disabled>— geen configs —</option>'; }
+}
+let lastBat=null, lastSh=null;
+// Per-run outputs: tripinfo/summary/etc get explicit CLI --…-output paths (CWD-relative → per-run
+// folder). edgeData's path lives in an additional file (can't be overridden per-run), so the script
+// copies edgedata.add.xml (bare file="edgedata.xml") into each per-run folder and points
+// --additional-files there; edgeData then lands per seed×scale and nothing is overwritten.
+$('#btnGenRun').addEventListener('click',()=>{
+  const bin=$('#runBinary').value;
+  const cfgs=Array.from($('#runConfigs').selectedOptions).map(o=>o.value).filter(v=>v);
+  const useCfgs = cfgs.length? cfgs : state.configs.map(c=>c.filename);
+  if(!useCfgs.length){ toast('Geen configs beschikbaar. Maak er in tab 3.',true); return; }
+  const seeds=parseList($('#runSeeds').value); if(!seeds.length) seeds.push(1);
+  const scales=parseList($('#runScales').value); if(!scales.length) scales.push(1.0);
+  const tail=num($('#runTail').value,0);
+  const parallel=$('#runParallel').checked;
+  const extra=$('#runExtra').value.trim();
+  const cfgByName=Object.fromEntries(state.configs.map(c=>[c.filename,c]));
+
+  const combos=[];
+  useCfgs.forEach(cf=>{ seeds.forEach(s=>{ scales.forEach(sc=>{ combos.push({cf,s,sc}); }); }); });
+
+  // config-relative additional (../background/x, or bare config-local) -> CWD-relative from project root
+  const cwdRel = p => p.startsWith('../') ? p.slice(3) : 'config/'+p;
+  // explicit CLI output flags (CWD-relative → per-run folder). edgeData handled separately below.
+  function outFlags(c, runOut){
+    const keys = c && c.outputs ? Object.keys(c.outputs) : [];
+    let flags = OUTPUTS.filter(o=>keys.includes(o.key) && o.key!=='edgedata');
+    if(!flags.length) flags = OUTPUTS.filter(o=>o.key==='tripinfo'||o.key==='summary');
+    return flags.map(o=>`${o.flag} ${runOut}/${o.file}`).join(' ');
+  }
+
+  // ---- .bat ----
+  let bat='@echo off\r\nREM ==== SUMO run-script — gegenereerd door SUMO Simulation Manager ====\r\n';
+  bat+='REM Dit script hoort in de batch/ map te staan; het springt zelf naar de projectwortel.\r\n';
+  bat+='REM Vereist SUMO op PATH (of zet SUMO_HOME).\r\n';
+  bat+='setlocal\r\ncd /d "%~dp0.."\r\nset BIN='+bin+'\r\n\r\n';
+  combos.forEach(({cf,s,sc})=>{
+    const c=cfgByName[cf]; const base=cf.replace('.sumocfg','');
+    const outDir=(c?.outDir? c.outDir : 'runs_'+base);
+    const tag=`s${s}_x${String(sc).replace('.','p')}`;
+    const runOut=`output/${outDir}/${tag}`;
+    const edge=!!(c && c.outputs && c.outputs.edgedata);
+    let line=`%BIN% -c config/${cf} --seed ${s} --scale ${sc}`;
+    if(tail>0 && c) line+=` --end ${c.end+tail}`;
+    line+=' '+outFlags(c,runOut);
+    if(edge){ const adds=(c.add||[]).map(cwdRel).concat([`${runOut}/edgedata.add.xml`]); line+=` --additional-files ${adds.join(',')}`; }
+    if(extra) line+=' '+extra;
+    bat+=`if not exist "output\\${outDir}\\${tag}" mkdir "output\\${outDir}\\${tag}"\r\n`;
+    if(edge) bat+=`copy /Y config\\edgedata.add.xml "output\\${outDir}\\${tag}\\edgedata.add.xml" >nul\r\n`;
+    bat+=`echo === ${cf} seed ${s} scale ${sc} ===\r\n`;
+    bat+= (parallel? 'start "sumo '+tag+'" /b '+line : line) + '\r\n';
+  });
+  if(parallel) bat+='\r\necho Alle runs gestart (parallel). Wacht tot de vensters sluiten.\r\n';
+  bat+='\r\necho Klaar.\r\npause\r\n';
+
+  // ---- .sh ----
+  let sh='#!/usr/bin/env bash\n# ==== SUMO run-script — gegenereerd door SUMO Simulation Manager ====\n# Dit script hoort in de batch/ map te staan; het springt zelf naar de projectwortel.\nset -e\ncd "$(dirname "$0")/.."\nBIN='+bin+'\n';
+  if(parallel) sh+='MAXPROC='+num($('#runMaxProc').value,6)+'\n';
+  sh+='\n';
+  combos.forEach(({cf,s,sc})=>{
+    const c=cfgByName[cf]; const base=cf.replace('.sumocfg','');
+    const outDir=(c?.outDir? c.outDir : 'runs_'+base);
+    const tag=`s${s}_x${String(sc).replace('.','p')}`;
+    const runOut=`output/${outDir}/${tag}`;
+    const edge=!!(c && c.outputs && c.outputs.edgedata);
+    let line=`"$BIN" -c config/${cf} --seed ${s} --scale ${sc}`;
+    if(tail>0 && c) line+=` --end ${c.end+tail}`;
+    line+=' '+outFlags(c,runOut);
+    if(edge){ const adds=(c.add||[]).map(cwdRel).concat([`${runOut}/edgedata.add.xml`]); line+=` --additional-files ${adds.join(',')}`; }
+    if(extra) line+=' '+extra;
+    sh+=`mkdir -p "${runOut}"\n`;
+    if(edge) sh+=`cp -f config/edgedata.add.xml "${runOut}/edgedata.add.xml"\n`;
+    sh+=`echo "=== ${cf} seed ${s} scale ${sc} ==="\n`;
+    sh+= (parallel? line+' &\n' : line+'\n');
+    if(parallel) sh+='while [ "$(jobs -r | wc -l)" -ge "$MAXPROC" ]; do wait -n; done\n';
+  });
+  if(parallel) sh+='wait\n';
+  sh+='echo "Klaar."\n';
+
+  lastBat=bat; lastSh=sh;
+  state.lastRun={combos:combos.length,seeds,scales,configs:useCfgs}; touch();
+  $('#runPreview').style.display='block'; $('#runPreview').textContent=bat;
+  $('#btnDownloadBat').disabled=false; $('#btnDownloadSh').disabled=false; $('#btnSaveRun').disabled=false;
+  $('#runStats').textContent=`${combos.length} runs (${useCfgs.length} cfg × ${seeds.length} seeds × ${scales.length} schalen)`;
+  $('#runStats').className='pill ok';
+
+  // manifest
+  let man='<div><b>'+combos.length+'</b> runs gepland:</div>';
+  man+='<div class="muted">configs: '+useCfgs.join(', ')+'</div>';
+  man+='<div class="muted">seeds: '+seeds.join(', ')+'</div>';
+  man+='<div class="muted">schalen (--scale): '+scales.join(', ')+'</div>';
+  if(scales.length>1) man+='<div class="banner info" style="margin-top:8px"><span>📈</span><div>Meerdere schalen → geschikt voor een <b>volume–vertraging (VDF)</b>-curve. Laad de tripinfo-outputs in tab 5 om de curve te fitten.</div></div>';
+  $('#runManifest').innerHTML=man;
+});
+$('#btnDownloadBat').addEventListener('click',()=>{ if(lastBat) download('run_sumo.bat',lastBat,'application/bat'); });
+$('#btnDownloadSh').addEventListener('click',()=>{ if(lastSh) download('run_sumo.sh',lastSh,'application/x-sh'); });
+$('#btnSaveRun').addEventListener('click', async ()=>{
+  if(!lastBat) return;
+  const a=await writeFile('batch/run_sumo.bat',lastBat); await writeFile('batch/run_sumo.sh',lastSh);
+  if(a){ toast('run_sumo.bat + .sh opgeslagen in batch/.'); scanFolders(); } else { download('run_sumo.bat',lastBat); download('run_sumo.sh',lastSh); }
+});
+
+/* ---- GUI-media generator: viewsettings.xml + make_gui_media.py ---- */
+let lastView=null, lastPy=null;
+$('#btnGenMedia').addEventListener('click', async ()=>{
+  const cfg=$('#mediaConfig').value||'sim.sumocfg';
+  const bg=$('#mediaBg').value.trim();
+  const bnd=$('#mediaBound').value.trim().split(/[\s,]+/).map(Number).filter(v=>!isNaN(v));
+  let bound=(bnd.length===4)?bnd:null;
+  if(!bound && netGeom){ const b=netGeom.bbox; bound=[b.minX,b.minY,b.maxX,b.maxY]; }
+  const warmup=num($('#mediaWarmup').value,400), frames=num($('#mediaFrames').value,60);
+  const gif=$('#mediaGif').value.trim()||(cfg.replace('.sumocfg','')+'.gif');
+  const still=cfg.replace('.sumocfg','')+'_still.png';
+
+  const delay=num($('#mediaDelay').value,200);
+  // Preserve decals (and viewport) you already tuned in sumo-gui: read the existing viewsettings.xml
+  // and reuse its <decals>/<viewport> so a regenerate never clobbers hand-placed coordinates.
+  let keepDecals=null, keepViewport=null;
+  if(dirHandle){
+    try{ const cur=await readFile('background/viewsettings.xml');
+      const dm=cur.match(/<decals>[\s\S]*?<\/decals>/i); if(dm) keepDecals=dm[0].trim();
+      const vm=cur.match(/<viewport\b[^>]*\/>/i);         if(vm) keepViewport=vm[0].trim();
+    }catch(e){}
+  }
+  // viewsettings.xml — scheme + delay + viewport + decals. NB: reference this via <gui-settings-file>
+  // in the .sumocfg (tab 3), NOT as an additional-file, or none of it applies.
+  let vs='<?xml version="1.0" encoding="UTF-8"?>\n<viewsettings>\n';
+  vs+='    <scheme name="real world"/>\n';
+  vs+=`    <delay value="${delay}"/>\n`;
+  if(keepViewport) vs+='    '+keepViewport+'\n';
+  else if(bound) vs+=`    <viewport zoom="100" x="${((bound[0]+bound[2])/2).toFixed(1)}" y="${((bound[1]+bound[3])/2).toFixed(1)}"/>\n`;
+  if(keepDecals){
+    vs+=keepDecals.split('\n').map(l=>'    '+l.trim()).join('\n')+'\n';   // reuse the tuned decals verbatim
+  } else if(bg){
+    const cx=bound?((bound[0]+bound[2])/2):0, cy=bound?((bound[1]+bound[3])/2):0;
+    const w=bound?(bound[2]-bound[0]):500, h=bound?(bound[3]-bound[1]):500;
+    // decal must sit inside <decals>; file path is relative to this viewsettings.xml (in background/) → bare name
+    vs+='    <decals>\n';
+    vs+=`        <decal file="${esc(bg)}" centerX="${cx.toFixed(1)}" centerY="${cy.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rotation="0.00"/>\n`;
+    vs+='    </decals>\n';
+    vs+='    <!-- Schatting uit de netgrenzen. Pas centerX/centerY/width/height/rotation in sumo-gui aan (Edit > Edit Decals) en sla de view opnieuw op; een volgende “genereren” behoudt jouw waarden. -->\n';
+  }
+  vs+='</viewsettings>\n';
+
+  // make_gui_media.py
+  const boundLine = bound ? `BOUND = (${bound.map(v=>Math.round(v)).join(', ')})` : 'BOUND = None   # vul in of laat None voor auto-kader';
+  const py = `# -*- coding: utf-8 -*-
+"""GUI-opname van ${cfg}: still-PNG + 2D-GIF via TraCI + sumo-gui + Pillow.
+Gegenereerd door SUMO Simulation Manager. Draai vanuit de projectwortel:
+    python make_gui_media.py
+Vereist: SUMO_HOME gezet, 'traci' en 'Pillow' geïnstalleerd (pip install traci pillow)."""
+import os, glob, traci
+from PIL import Image
+
+HERE   = os.path.dirname(os.path.abspath(__file__))
+CFG    = os.path.join(HERE, "config/${cfg}")
+GUISET = os.path.join(HERE, "background/viewsettings.xml")
+GUI    = os.path.join(os.environ["SUMO_HOME"], "bin", "sumo-gui")
+FRAMES = os.path.join(HERE, "_frames"); os.makedirs(FRAMES, exist_ok=True)
+for f in glob.glob(os.path.join(FRAMES, "*.png")): os.remove(f)
+
+${boundLine}
+V, NFRAMES, WARMUP = "View #0", ${frames}, ${warmup}
+still = os.path.join(HERE, "${still}")
+gif   = os.path.join(HERE, "${gif}")
+
+try:
+    traci.start([GUI, "-c", CFG, "--start", "--quit-on-end", "--window-size", "1200,920",
+                 "--gui-settings-file", GUISET, "--no-warnings", "true"])
+    for _ in range(WARMUP): traci.simulationStep()
+    if BOUND: traci.gui.setBoundary(V, *BOUND)
+    traci.gui.screenshot(V, still); traci.simulationStep()
+    for i in range(NFRAMES):
+        traci.gui.screenshot(V, os.path.join(FRAMES, f"f{i:03d}.png"))
+        traci.simulationStep()
+        if i % 10 == 0: print(f"frame {i}/{NFRAMES}", flush=True)
+    traci.close()
+except Exception as e:
+    print("opname afgebroken:", e)
+    try: traci.close()
+    except Exception: pass
+
+files = sorted(glob.glob(os.path.join(FRAMES, "*.png")))
+imgs = []
+for fp in files:
+    try:
+        im = Image.open(fp).convert("RGB"); w, h = im.size; nw = 820; nh = round(h*nw/w)
+        imgs.append(im.resize((nw, nh), Image.LANCZOS).convert("P", palette=Image.ADAPTIVE, colors=128))
+    except Exception: pass
+if len(imgs) >= 2:
+    imgs[0].save(gif, save_all=True, append_images=imgs[1:], duration=120, loop=0, optimize=True, disposal=2)
+    print("geschreven:", os.path.basename(gif), f"({len(imgs)} frames)")
+else:
+    print("te weinig frames voor een GIF")
+for f in files:
+    try: os.remove(f)
+    except Exception: pass
+try: os.rmdir(FRAMES)
+except Exception: pass
+`;
+  lastView=vs; lastPy=py;
+  $('#mediaViewPreview').style.display='block'; $('#mediaViewPreview').textContent='// background/viewsettings.xml\n'+vs;
+  $('#mediaPyPreview').style.display='block'; $('#mediaPyPreview').textContent='// make_gui_media.py\n'+py;
+  $('#btnSaveMedia').disabled=false; $('#btnDownloadMedia').disabled=false;
+  toast(keepDecals? 'viewsettings.xml opgebouwd — bestaande decals behouden.' : 'viewsettings.xml + make_gui_media.py opgebouwd.');
+});
+$('#btnDownloadMedia').addEventListener('click',()=>{ if(lastView) download('viewsettings.xml',lastView,'application/xml'); if(lastPy) download('make_gui_media.py',lastPy,'text/x-python'); });
+$('#btnSaveMedia').addEventListener('click', async ()=>{
+  if(!lastView) return;
+  const a=await writeFile('background/viewsettings.xml', lastView); await writeFile('make_gui_media.py', lastPy);
+  if(a){ toast('background/viewsettings.xml + make_gui_media.py opgeslagen.'); scanFolders(); } else { download('viewsettings.xml',lastView); download('make_gui_media.py',lastPy); }
+});
+
+/* =============================================================
+ *  TAB 5 — REPORT
+ * ============================================================= */
+let loaded=[];   // {name, kind, scale, seed, metrics}
+$('#btnUploadOutputs').addEventListener('click',()=>$('#outputFiles').click());
+$('#outputFiles').addEventListener('change', async e=>{
+  for(const f of e.target.files){ const txt=await f.text(); ingestOutput(f.name,txt); }
+  e.target.value=''; renderReport();
+});
+$('#btnLoadOutputs').addEventListener('click', async ()=>{
+  if(!dirHandle){ toast('Geen map open — gebruik “Bestanden kiezen”.',true); return; }
+  let count=0;
+  async function walk(dh,prefix){
+    for await (const [name,h] of dh.entries()){
+      if(h.kind==='directory'){ await walk(h,prefix+name+'/'); }
+      else if(name.endsWith('.xml') && /tripinfo|summary|edgedata|edgemean|meandata/i.test(name)){
+        const txt=await (await h.getFile()).text(); ingestOutput(prefix+name,txt); count++;
+      }
+    }
+  }
+  try{ const out=await dirHandle.getDirectoryHandle('output'); await walk(out,''); toast(count+' outputbestanden ingelezen.'); renderReport(); }
+  catch(e){ toast('Kon output/ niet lezen: '+e.message,true); }
+});
+$('#btnClearReport').addEventListener('click',()=>{ loaded=[]; renderReport(); });
+$('#delayMetric').addEventListener('change',e=>{ delayMetric=e.target.value; renderReport(); });
+$('#btnLoadNet').addEventListener('click', async ()=>{
+  if(dirHandle && state._netFiles && state._netFiles.length){ await parseNetIntoGeom(state._netFiles[0]); renderReport(); toast('Netwerk geladen: '+netGeomFile); }
+  else $('#netFileInput').click();
+});
+$('#netFileInput').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const g=parseNetGeom(await f.text());
+  if(g){ netGeom=g; netGeomFile=f.name; updateNetBadge(); renderReport(); toast('Netwerk geladen: '+f.name+' ('+g.edges.length+' edges)'); }
+  else toast('Kon netwerk niet lezen (geen edge-geometrie gevonden).',true);
+  e.target.value='';
+});
+
+function tagFromName(name){
+  const seed=(name.match(/s(?:eed)?[_\-]?(\d+)/i)||[])[1];
+  const scale=(name.match(/x([\d p.]+?)(?:[_/.]|$)/i)||[])[1];
+  return { seed: seed?+seed:null, scale: scale?parseFloat(String(scale).replace('p','.')):null };
+}
+function ingestOutput(name,txt){
+  let doc; try{ doc=new DOMParser().parseFromString(txt,'text/xml'); }catch(e){ toast('Kon '+name+' niet parsen',true); return; }
+  const t=tagFromName(name);
+  if(/tripinfo/i.test(name) || doc.querySelector('tripinfo')){
+    const trips=$$('tripinfo',doc);
+    if(!trips.length){ return; }
+    const flowMap=buildFlowMap();          // expected-flow-id -> {o,d} for current zones/vtypes
+    const od={}; let matched=0;
+    const dur=[],tl=[],wt=[],rl=[],dep=[];
+    trips.forEach(t=>{
+      dur.push(num(t.getAttribute('duration')));
+      tl.push(num(t.getAttribute('timeLoss')));
+      wt.push(num(t.getAttribute('waitingTime')));
+      rl.push(num(t.getAttribute('routeLength')));
+      dep.push(num(t.getAttribute('departDelay')));
+      // rebuild OD from the vehicle id (SUMO names flow vehicles "<flowid>.<n>")
+      const base=String(t.getAttribute('id')||'').replace(/\.\d+$/,'');
+      const mp=flowMap[base]; if(mp){ const k=mp.o+'>'+mp.d; od[k]=(od[k]||0)+1; matched++; }
+    });
+    const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+    loaded.push({name,kind:'tripinfo',seed:t.seed,scale:t.scale, odCounts:od, odMatched:matched, metrics:{
+      n:trips.length, meanDuration:mean(dur), meanTimeLoss:mean(tl), meanWait:mean(wt),
+      meanRouteLen:mean(rl), meanDepartDelay:mean(dep)
+    }});
+  } else if(/summary/i.test(name) || doc.querySelector('step')){
+    const steps=$$('step',doc); if(!steps.length) return;
+    let maxRunning=0, maxWaiting=0, maxHalting=0, teleports=0;
+    steps.forEach(s=>{
+      maxRunning=Math.max(maxRunning,num(s.getAttribute('running')));
+      maxWaiting=Math.max(maxWaiting,num(s.getAttribute('waiting')));   // insertion backlog
+      maxHalting=Math.max(maxHalting,num(s.getAttribute('halting')));
+      teleports+=num(s.getAttribute('teleports'));
+    });
+    const last=steps[steps.length-1];
+    loaded.push({name,kind:'summary',seed:t.seed,scale:t.scale,metrics:{
+      steps:steps.length, maxRunning, maxWaiting, maxHalting, endRunning:num(last.getAttribute('running')),
+      ended:num(last.getAttribute('ended')), inserted:num(last.getAttribute('inserted')), teleports
+    }});
+  } else if(doc.querySelector('meandata') || (doc.querySelector('interval') && doc.querySelector('edge'))){
+    // edgeData: per-edge measurements per interval -> aggregate over intervals per edge
+    const acc={};
+    $$('interval',doc).forEach(iv=>{
+      $$('edge',iv).forEach(e=>{
+        const id=e.getAttribute('id'); if(!id) return;
+        const ss=num(e.getAttribute('sampledSeconds'));
+        const o=acc[id]||(acc[id]={id, ss:0, spdRelW:0, srN:0, tl:0, wait:0, denW:0, maxDen:0, left:0, entered:0});
+        o.ss+=ss;
+        const sr=e.getAttribute('speedRelative'); if(sr!=null){ o.spdRelW+=num(sr)*ss; o.srN+=ss; }
+        o.tl+=num(e.getAttribute('timeLoss'));
+        o.wait+=num(e.getAttribute('waitingTime'));
+        const den=num(e.getAttribute('density')); o.denW+=den*ss; o.maxDen=Math.max(o.maxDen,den);
+        o.left+=num(e.getAttribute('left')); o.entered+=num(e.getAttribute('entered'));
+      });
+    });
+    const edges=Object.values(acc).map(o=>({ id:o.id, timeLoss:o.tl, wait:o.wait,
+      speedRel:o.srN?o.spdRelW/o.srN:null, meanDensity:o.ss?o.denW/o.ss:0, maxDensity:o.maxDen,
+      left:o.left, entered:o.entered }));
+    if(edges.length) loaded.push({name,kind:'edgedata',seed:t.seed,scale:t.scale,edges});
+  }
+}
+// config group = top-level folder under output/  ("runs_AS/s1_x1/tripinfo.xml" -> "runs_AS")
+function configGroupOf(name){ const p=String(name).split('/').filter(Boolean); return p.length>1?p[0]:'(losse bestanden)'; }
+function configLabel(g){ return g.replace(/^runs_/,''); }
+function meanOf(arr,f){ return arr.reduce((a,t)=>a+f(t),0)/arr.length; }
+// delay metric: 'total' = timeLoss + departDelay (reveals insertion backlog / oversaturation), or 'timeloss'
+let delayMetric='total';
+function fileDelay(t){ return delayMetric==='total' ? (t.metrics.meanTimeLoss + (t.metrics.meanDepartDelay||0)) : t.metrics.meanTimeLoss; }
+function metricLabel(){ return delayMetric==='total' ? 'totale vertraging' : 'tijdverlies'; }
+// map every expected flow-id -> {o,d} using the SAME id recipe as the .rou.xml generator,
+// so simulated vehicle ids ("<flowid>.<n>") can be traced back to origin/destination zones.
+function buildFlowMap(){
+  const map={};
+  (state.zones||[]).forEach(oz=>(state.zones||[]).forEach(dz=>(state.vtypes||[]).forEach(v=>{
+    const id=`f_${esc(oz.name)}_${esc(dz.name)}_${esc(v.id)}`.replace(/[^A-Za-z0-9_]/g,'');
+    map[id]={o:oz.id,d:dz.id};
+  })));
+  return map;
+}
+// aggregate edgeData across seeds at base scale -> [{id,timeLoss,speedRel,maxDensity,left,wait}]
+function groupEdges(g, base){
+  let eds=loaded.filter(f=>f.kind==='edgedata' && configGroupOf(f.name)===g);
+  if(base!=null){ const f=eds.filter(s=>s.scale===base||s.scale==null); if(f.length) eds=f; }
+  if(!eds.length) return null;
+  const acc={};
+  eds.forEach(f=>f.edges.forEach(e=>{
+    const o=acc[e.id]||(acc[e.id]={id:e.id, tl:0, wait:0, srSum:0, srN:0, den:0, maxDen:0, left:0, n:0});
+    o.tl+=e.timeLoss; o.wait+=e.wait; if(e.speedRel!=null){ o.srSum+=e.speedRel; o.srN++; }
+    o.den+=e.meanDensity; o.maxDen=Math.max(o.maxDen,e.maxDensity); o.left+=e.left; o.n++;
+  }));
+  return Object.values(acc).map(o=>({ id:o.id, timeLoss:o.tl/o.n, wait:o.wait/o.n,
+    speedRel:o.srN?o.srSum/o.srN:null, maxDensity:o.maxDen, left:o.left/o.n }));
+}
+// edgeData bottleneck table (top edges by total time loss)
+function edgeDataSection(g, gt){
+  const {base}=baseScaleTrips(gt);
+  const edges=groupEdges(g, base);
+  if(!edges||!edges.length) return '';
+  const top=edges.slice().sort((a,b)=>b.timeLoss-a.timeLoss).slice(0,15);
+  let h='<div class="divider"></div><h3>🚧 Knelpunten <span class="hint" style="font-weight:400">(edgeData — top 15 wegvakken op tijdverlies'+(base!=null?', schaal '+base:'')+')</span></h3>';
+  h+='<div style="overflow:auto"><table><thead><tr><th>#</th><th>edge</th><th>tijdverlies (vtg·s)</th><th>gem. snelheid</th><th>max. dichtheid (vtg/km)</th><th>voertuigen</th><th>wachttijd (vtg·s)</th></tr></thead><tbody>';
+  top.forEach((e,i)=>{
+    const cong = e.speedRel!=null && e.speedRel<0.5;
+    const sr = e.speedRel!=null ? (e.speedRel*100).toFixed(0)+'% v/vrij' : '—';
+    h+=`<tr${cong?' style="background:#fbe4e0"':''}><td>${i+1}</td><td class="mono">${esc(e.id)}</td><td style="text-align:right">${Math.round(e.timeLoss)}</td><td style="text-align:right">${sr}</td><td style="text-align:right">${e.maxDensity.toFixed(0)}</td><td style="text-align:right">${Math.round(e.left)}</td><td style="text-align:right">${Math.round(e.wait)}</td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  h+='<p class="sub">Gerangschikt op totaal tijdverlies per wegvak. <span style="color:var(--err)">Rood = gem. snelheid &lt; 50% van de vrije snelheid</span> (structurele congestie).</p>';
+  // locate the knelpunten on the network
+  if(netGeom){
+    const hi={}, markers=[];
+    top.forEach((e,i)=>{
+      if(!edgeById(e.id)) return;
+      hi[e.id]={color:'#c0392b', width:Math.max(2.5,5.5-i*0.3), title:`#${i+1} ${e.id} — tijdverlies ${Math.round(e.timeLoss)} vtg·s`};
+      const m=edgeMid(e.id); if(m && i<8) markers.push({x:m[0],y:m[1],color:'#c0392b',label:''+(i+1)});
+    });
+    const map=networkMapSVG({highlight:hi, markers});
+    if(map && Object.keys(hi).length) h+='<h4 style="margin:14px 0 4px;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Locatie knelpunten op netwerk</h4>'+map.svg;
+  }
+  return h;
+}
+// simulated OD matrix (arrived vehicles, mean over seeds at base scale), styled like the input
+function simulatedODSection(g, gt){
+  const z=state.zones||[];
+  if(!z.length) return '';
+  const {trips:bt, base}=baseScaleTrips(gt);
+  const withOd=bt.filter(t=>t.odCounts && Object.keys(t.odCounts).length);
+  if(!withOd.length) return '<div class="divider"></div><h3>Gesimuleerde OD-matrix</h3><p class="sub">Kon herkomst/bestemming niet uit de voertuig-id\'s afleiden — de id\'s matchen de huidige zones niet (rou.xml elders gemaakt?).</p>';
+  const sim={}; z.forEach(o=>z.forEach(d=>{ const k=o.id+'>'+d.id; sim[k]=meanOf(withOd,t=>t.odCounts[k]||0); }));
+  const label=configLabel(g);
+  const inMat=(state.matrices||[]).find(m=>m.name && m.name.toLowerCase()===label.toLowerCase());
+  let h='<div class="divider"></div><h3>Gesimuleerde OD-matrix <span class="hint" style="font-weight:400">(aangekomen voertuigen'+(base!=null?', schaal '+base:'')+(withOd.length>1?', gem. over '+withOd.length+' seeds':'')+')</span></h3>';
+  h+= inMat
+    ? '<p class="sub">Vergelijking met invoer «'+esc(inMat.name)+'»: hoofdgetal = gesimuleerd, <span class="muted">(invoer)</span> eronder. Cel gekleurd bij afwijking &gt;5% en &gt;2 vtg — <span style="color:var(--err)">rood = minder gesimuleerd</span>, <span style="color:var(--ok)">groen = meer</span>.</p>'
+    : '<p class="sub">Geen invoermatrix met naam «'+esc(label)+'» gevonden om mee te vergelijken.</p>';
+  h+='<div style="overflow:auto"><table class="matrix"><thead><tr><th class="rh">van \\ naar</th>';
+  z.forEach(c=>h+=`<th class="rh">${esc(c.name)}</th>`);
+  h+='<th class="rh">Σ rij</th></tr></thead><tbody>';
+  let totSim=0, totIn=0;
+  z.forEach(r=>{
+    h+=`<tr><th class="rh">${esc(r.name)}</th>`; let rowSim=0;
+    z.forEach(c=>{
+      const k=r.id+'>'+c.id; const s=Math.round(sim[k]||0); rowSim+=s;
+      let bg='', cell=(s||'');
+      if(inMat){
+        const inv=num(inMat.values[k],0);
+        if(inv>0||s>0){
+          const dev = inv>0 ? (s-inv)/inv : 1;
+          if(Math.abs(s-inv)>2 && Math.abs(dev)>0.05) bg = dev<0?'background:#fbe4e0;':'background:#e4f4ea;';
+          cell = `${s}<div style="font-size:9.5px;color:#8a97a5;line-height:1">(${inv})</div>`;
+        }
+      }
+      h+=`<td style="text-align:center;${bg}">${cell}</td>`;
+    });
+    h+=`<td class="rowsum">${rowSim||''}</td></tr>`; totSim+=rowSim;
+  });
+  h+='<tr><th class="rh">Σ kol</th>';
+  z.forEach(c=>{ let s=0; z.forEach(r=>s+=Math.round(sim[r.id+'>'+c.id]||0)); h+=`<td class="colsum">${s||''}</td>`; });
+  h+=`<td class="grandsum">${totSim}</td></tr></tbody></table></div>`;
+  if(inMat){ z.forEach(r=>z.forEach(c=>totIn+=num(inMat.values[r.id+'>'+c.id],0)));
+    h+=`<p class="sub">Totaal gesimuleerd: <b>${totSim}</b> vtg · invoer: <b>${totIn}</b> vtg${totIn>0?' ('+(totSim/totIn*100).toFixed(0)+'% aangekomen)':''}.</p>`; }
+  return h;
+}
+// pick the runs at the scale closest to 1.0 (the "base" demand); {trips, base}
+function baseScaleTrips(trips){
+  const scales=[...new Set(trips.map(t=>t.scale).filter(v=>v!=null))];
+  if(!scales.length) return {trips, base:null};
+  const base=scales.reduce((a,b)=>Math.abs(b-1)<Math.abs(a-1)?b:a);
+  return {trips:trips.filter(t=>t.scale===base), base};
+}
+// aggregate per scale -> boxplot stats over the per-seed timeLoss values
+function quantile(sorted,q){
+  if(sorted.length===1) return sorted[0];
+  const pos=(sorted.length-1)*q, lo=Math.floor(pos), hi=Math.ceil(pos);
+  return sorted[lo]+(sorted[hi]-sorted[lo])*(pos-lo);
+}
+function vdfCompute(trips){
+  const byScale={};
+  trips.forEach(t=>{ if(t.scale==null) return; (byScale[t.scale]=byScale[t.scale]||[]).push(fileDelay(t)); });
+  return Object.entries(byScale).map(([sc,arr])=>{
+    const v=arr.slice().sort((a,b)=>a-b);
+    return {x:+sc, vals:v, n:v.length, min:v[0], max:v[v.length-1],
+      q1:quantile(v,0.25), med:quantile(v,0.5), q3:quantile(v,0.75),
+      mean:v.reduce((a,b)=>a+b,0)/v.length}; }).sort((a,b)=>a.x-b.x);
+}
+// boxplot VDF: box=Q1–Q3, line=median, whiskers=min–max, dots=seeds; BPR fit through medians.
+// returns {svg, note} or null (needs >=2 scales)
+function vdfSvgAndNote(pts){
+  if(pts.length<2) return null;
+  const W=470,H=290,pad=50;
+  const xs=pts.map(p=>p.x);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs), ymin=0, ymax=Math.max(...pts.map(p=>p.max))*1.12||1;
+  const sx=x=>pad+(x-xmin)/(xmax-xmin||1)*(W-pad-14);
+  const sy=y=>H-pad-(y-ymin)/(ymax-ymin||1)*(H-pad-16);
+  const a0=Math.max(0.01,pts[0].med);
+  let numr=0,den=0; pts.forEach(p=>{ const phi=Math.pow(p.x,4); numr+=(p.med/a0-1)*phi; den+=phi*phi; });
+  const b=den>0?Math.max(0,numr/den):0;
+  const fit=x=>a0*(1+b*Math.pow(x,4));
+  let path=''; for(let i=0;i<=40;i++){ const x=xmin+(xmax-xmin)*i/40; path+=(i?'L':'M')+sx(x).toFixed(1)+','+sy(fit(x)).toFixed(1)+' '; }
+  // box half-width: ~40% of the gap between adjacent scales, capped
+  let gap=(W-pad-14)/Math.max(1,pts.length); const hw=Math.max(6,Math.min(16,gap*0.34));
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">`;
+  for(let i=0;i<=4;i++){ const y=H-pad-(i/4)*(H-pad-16); svg+=`<line class="grid" x1="${pad}" y1="${y}" x2="${W-14}" y2="${y}"/><text x="${pad-6}" y="${y+3}" text-anchor="end">${(ymax*i/4).toFixed(0)}</text>`; }
+  svg+=`<line class="axis" x1="${pad}" y1="${H-pad}" x2="${W-14}" y2="${H-pad}"/><line class="axis" x1="${pad}" y1="16" x2="${pad}" y2="${H-pad}"/>`;
+  xs.forEach(x=>{ svg+=`<text x="${sx(x)}" y="${H-pad+14}" text-anchor="middle">${x}</text>`; });
+  svg+=`<text x="${(W+pad)/2}" y="${H-6}" text-anchor="middle">schaalfactor (--scale)</text>`;
+  svg+=`<text transform="translate(13,${H/2}) rotate(-90)" text-anchor="middle">${metricLabel()} (s)</text>`;
+  svg+=`<path class="fit" d="${path}"/>`;
+  pts.forEach(p=>{
+    const cx=sx(p.x), yQ1=sy(p.q1), yQ3=sy(p.q3), yMed=sy(p.med), yMin=sy(p.min), yMax=sy(p.max);
+    svg+=`<line class="bp-w" x1="${cx}" y1="${yMin}" x2="${cx}" y2="${Math.min(yQ1,yMin)}"/>`;   // lower whisker
+    svg+=`<line class="bp-w" x1="${cx}" y1="${Math.max(yQ3,yMax)}" x2="${cx}" y2="${yMax}"/>`;    // upper whisker
+    svg+=`<line class="bp-w" x1="${cx-hw*0.6}" y1="${yMin}" x2="${cx+hw*0.6}" y2="${yMin}"/>`;    // min cap
+    svg+=`<line class="bp-w" x1="${cx-hw*0.6}" y1="${yMax}" x2="${cx+hw*0.6}" y2="${yMax}"/>`;    // max cap
+    svg+=`<rect class="bp-box" x="${(cx-hw).toFixed(1)}" y="${Math.min(yQ1,yQ3).toFixed(1)}" width="${(hw*2).toFixed(1)}" height="${Math.max(1,Math.abs(yQ1-yQ3)).toFixed(1)}"><title>scale ${p.x}: mediaan ${p.med.toFixed(1)}s · Q1 ${p.q1.toFixed(1)} · Q3 ${p.q3.toFixed(1)} · min ${p.min.toFixed(1)} · max ${p.max.toFixed(1)} · n=${p.n}</title></rect>`;
+    svg+=`<line class="bp-med" x1="${(cx-hw).toFixed(1)}" y1="${yMed.toFixed(1)}" x2="${(cx+hw).toFixed(1)}" y2="${yMed.toFixed(1)}"/>`;
+    p.vals.forEach(v=>{ svg+=`<circle class="bp-pt" cx="${cx.toFixed(1)}" cy="${sy(v).toFixed(1)}" r="2"/>`; });
+  });
+  svg+='</svg>';
+  const note=`Boxplot per schaal (spreiding over seeds: box = Q1–Q3, streep = mediaan, sprieten = min–max, stippen = seeds). Rode curve = BPR-fit door de medianen: <span class="mono">t = ${a0.toFixed(1)}·(1 + ${b.toExponential(2)}·scale⁴)</span>.`;
+  return {svg, note};
+}
+// base-scale statistics for one config group (mean + spread over seeds)
+function groupBaseStats(gt){
+  const {trips:bt, base}=baseScaleTrips(gt);
+  const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+  const sd=a=>{ const m=mean(a); return a.length?Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/a.length):0; };
+  const tl=bt.map(t=>t.metrics.meanTimeLoss);
+  const mv=bt.map(t=>fileDelay(t));            // selected metric (timeloss or total delay)
+  return { base, nSeeds:bt.length,
+    timeLoss:mean(tl), totalDelay:mean(bt.map(t=>t.metrics.meanTimeLoss+(t.metrics.meanDepartDelay||0))),
+    departDelay:mean(bt.map(t=>t.metrics.meanDepartDelay||0)),
+    metric:mean(mv), metricSd:sd(mv), metricMin:mv.length?Math.min(...mv):0, metricMax:mv.length?Math.max(...mv):0,
+    duration:mean(bt.map(t=>t.metrics.meanDuration)),
+    wait:mean(bt.map(t=>t.metrics.meanWait)), veh:mean(bt.map(t=>t.metrics.n)),
+    tlMin:tl.length?Math.min(...tl):0, tlMax:tl.length?Math.max(...tl):0, tlSd:sd(tl) };
+}
+// summary metrics for one config at base scale (mean over seeds)
+function groupSummary(g, base){
+  let sums=loaded.filter(f=>f.kind==='summary' && configGroupOf(f.name)===g);
+  if(base!=null){ const f=sums.filter(s=>s.scale===base||s.scale==null); if(f.length) sums=f; }
+  if(!sums.length) return null;
+  return {
+    maxRunning:meanOf(sums,s=>s.metrics.maxRunning),
+    maxWaiting:meanOf(sums,s=>s.metrics.maxWaiting||0),
+    maxHalting:meanOf(sums,s=>s.metrics.maxHalting||0),
+    teleports:meanOf(sums,s=>s.metrics.teleports),
+  };
+}
+// cross-config comparison table (Δ vs a chosen baseline)
+let reportBaseline=null;
+function comparisonHTML(keys, groups){
+  if(keys.length<2) return '';
+  if(!reportBaseline || !keys.includes(reportBaseline))
+    reportBaseline = keys.find(g=>/base|huidig|ref|bestaand|nul/i.test(g)) || keys[0];
+  const bs=groupBaseStats(groups[reportBaseline]);
+  const fmt=v=>(v>0?'+':'')+v.toFixed(1);
+  const col=v=> v>0.05?'color:var(--err)':v<-0.05?'color:var(--ok)':'';
+  let h='<div class="card"><h2>Vergelijking configs</h2>';
+  h+='<div class="field" style="max-width:260px;margin-bottom:8px"><label>Referentie (baseline)</label><select id="cmpBaseline">'+
+     keys.map(g=>`<option value="${esc(g)}" ${g===reportBaseline?'selected':''}>${esc(configLabel(g))}</option>`).join('')+'</select></div>';
+  h+=`<table><thead><tr><th>config</th><th>${metricLabel()} (s)</th><th>Δ (s)</th><th>Δ %</th><th>reistijd (s)</th><th>Δ (s)</th><th>Δ %</th></tr></thead><tbody>`;
+  keys.forEach(g=>{
+    const s=groupBaseStats(groups[g]); const isBase=g===reportBaseline;
+    const dTl=s.metric-bs.metric, dDur=s.duration-bs.duration;
+    const pTl=bs.metric?dTl/bs.metric*100:0, pDur=bs.duration?dDur/bs.duration*100:0;
+    h+=`<tr${isBase?' style="background:#eef3f8;font-weight:600"':''}><td>${esc(configLabel(g))}${isBase?' <span class="tag">ref</span>':''}</td>`+
+       `<td style="text-align:right">${s.metric.toFixed(1)}</td>`+
+       `<td style="text-align:right;${isBase?'':col(dTl)}">${isBase?'—':fmt(dTl)}</td>`+
+       `<td style="text-align:right;${isBase?'':col(dTl)}">${isBase?'—':fmt(pTl)+'%'}</td>`+
+       `<td style="text-align:right">${s.duration.toFixed(1)}</td>`+
+       `<td style="text-align:right;${isBase?'':col(dDur)}">${isBase?'—':fmt(dDur)}</td>`+
+       `<td style="text-align:right;${isBase?'':col(dDur)}">${isBase?'—':fmt(pDur)+'%'}</td></tr>`;
+  });
+  h+='</tbody></table><p class="sub">Δ t.o.v. referentie ('+metricLabel()+'), bij basisschaal. <span style="color:var(--err)">rood = trager</span>, <span style="color:var(--ok)">groen = sneller</span>.</p></div>';
+  return h;
+}
+// one report section per config
+function configSectionHTML(g, gt){
+  const scales=[...new Set(gt.map(t=>t.scale).filter(v=>v!=null))].sort((a,b)=>a-b);
+  const seeds=[...new Set(gt.map(t=>t.seed).filter(v=>v!=null))];
+  const bs=groupBaseStats(gt);
+  const pts=vdfCompute(gt); const vdf=vdfSvgAndNote(pts);
+  const kpis=[
+    {v:Math.round(bs.veh), l:'gem. voertuigen'},
+    {v:bs.timeLoss.toFixed(1)+' s', l:'gem. tijdverlies / vtg'},
+    {v:bs.totalDelay.toFixed(1)+' s', l:'gem. totale vertraging / vtg'},
+    {v:bs.duration.toFixed(1)+' s', l:'gem. reistijd / vtg'},
+    {v:bs.wait.toFixed(1)+' s', l:'gem. wachttijd / vtg'},
+  ];
+  let h='<div class="card">';
+  h+=`<h2>${esc(configLabel(g))} <span class="pill">${gt.length} run${gt.length>1?'s':''}${seeds.length?' · '+seeds.length+' seed'+(seeds.length>1?'s':''):''}${scales.length>1?' · '+scales.length+' schalen':''}</span></h2>`;
+  h+=`<div class="kpi">${kpis.map(k=>`<div class="k"><div class="v">${k.v}</div><div class="l">${k.l}</div></div>`).join('')}</div>`;
+  if(bs.base!=null) h+=`<p class="sub">Kerncijfers bij schaal ${bs.base}${bs.nSeeds>1?', gemiddeld over '+bs.nSeeds+' seeds':''}. Totale vertraging = tijdverlies + vertrekvertraging (wachtrij vóór insertie).</p>`;
+  // spreiding over seeds (op de gekozen metriek)
+  if(bs.nSeeds>1) h+=`<p class="sub">📉 <b>Spreiding ${metricLabel()} over seeds:</b> SD ${bs.metricSd.toFixed(1)} s · min–max ${bs.metricMin.toFixed(1)}–${bs.metricMax.toFixed(1)} s (n=${bs.nSeeds}).</p>`;
+  // gesimuleerde OD-matrix (vergelijk met invoer)
+  h+=simulatedODSection(g, gt);
+  // netwerkbelasting (summary)
+  const sm=groupSummary(g, bs.base);
+  if(sm){
+    h+='<div class="divider"></div><h3>Netwerkbelasting <span class="hint" style="font-weight:400">(uit summary)</span></h3>';
+    h+=`<div class="kpi">
+      <div class="k"><div class="v">${Math.round(sm.maxRunning)}</div><div class="l">max. voertuigen tegelijk in net</div></div>
+      <div class="k"><div class="v">${Math.round(sm.maxWaiting)}</div><div class="l">max. invoegwachtrij</div></div>
+      <div class="k"><div class="v">${Math.round(sm.maxHalting)}</div><div class="l">max. stilstaande voertuigen</div></div>
+      <div class="k"><div class="v">${sm.teleports.toFixed(1)}</div><div class="l">teleports (gridlock-indicator)</div></div>
+    </div>`;
+    if(sm.teleports>0) h+='<p class="sub">⚠️ Teleports &gt; 0: voertuigen zaten vast (gridlock) en werden verplaatst — interpreteer de KPI\'s met voorzichtigheid.</p>';
+    if(sm.maxWaiting>0.5*sm.maxRunning) h+='<p class="sub">⚠️ Grote invoegwachtrij t.o.v. voertuigen in net: het net kan de vraag niet tijdig opnemen (oververzadiging).</p>';
+  }
+  // knelpunten (edgeData)
+  h+=edgeDataSection(g, gt);
+  if(vdf){
+    h+=`<div class="divider"></div><h3>📈 Volume–vertraging (VDF) <span class="hint" style="font-weight:400">— ${metricLabel()}</span></h3>`;
+    h+='<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">';
+    h+='<div style="flex:1;min-width:320px">'+vdf.svg+'<p class="sub">'+vdf.note+'</p></div>';
+    h+='<div><table><thead><tr><th>schaal</th><th>mediaan (s)</th><th>Q1–Q3</th><th>min–max</th><th>n</th></tr></thead><tbody>';
+    pts.forEach(p=>{ h+=`<tr><td style="text-align:center">${p.x}</td><td style="text-align:right">${p.med.toFixed(1)}</td><td style="text-align:right">${p.q1.toFixed(1)}–${p.q3.toFixed(1)}</td><td style="text-align:right">${p.min.toFixed(1)}–${p.max.toFixed(1)}</td><td style="text-align:center">${p.n}</td></tr>`; });
+    h+='</tbody></table></div></div>';
+  }
+  // doorstroming vs. verzadiging
+  h+=throughputSection(g, gt);
+  h+='</div>';
+  return h;
+}
+// ---- throughput vs saturation: arrived + rest-in-net vs scale ----
+function throughputCompute(g, gt){
+  const arrivedByScale={};
+  gt.forEach(t=>{ if(t.scale==null) return; (arrivedByScale[t.scale]=arrivedByScale[t.scale]||[]).push(t.metrics.n); });
+  const sums=loaded.filter(f=>f.kind==='summary' && configGroupOf(f.name)===g);
+  const restByScale={};
+  sums.forEach(s=>{ if(s.scale==null) return; (restByScale[s.scale]=restByScale[s.scale]||[]).push(s.metrics.endRunning!=null?s.metrics.endRunning:Math.max(0,(s.metrics.inserted||0)-(s.metrics.ended||0))); });
+  const scales=[...new Set(Object.keys(arrivedByScale).map(Number))].sort((a,b)=>a-b);
+  return scales.map(x=>({ x,
+    arrived: meanOf(arrivedByScale[x].map(v=>({v})), o=>o.v),
+    rest: restByScale[x]? meanOf(restByScale[x].map(v=>({v})), o=>o.v) : null }));
+}
+function throughputSection(g, gt){
+  const pts=throughputCompute(g, gt);
+  if(pts.length<2) return '';
+  const hasRest=pts.some(p=>p.rest!=null);
+  const W=470,H=270,pad=52;
+  const xs=pts.map(p=>p.x);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs);
+  const ymax=Math.max(...pts.map(p=>Math.max(p.arrived||0,p.rest||0)))*1.12||1;
+  const sx=x=>pad+(x-xmin)/(xmax-xmin||1)*(W-pad-14);
+  const sy=y=>H-pad-(y-0)/(ymax||1)*(H-pad-16);
+  const line=(key,cls)=>{ let d=''; pts.forEach((p,i)=>{ if(p[key]==null) return; d+=(d?'L':'M')+sx(p.x).toFixed(1)+','+sy(p[key]).toFixed(1)+' '; }); return `<path d="${d}" fill="none" class="${cls}"/>`; };
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px">`;
+  for(let i=0;i<=4;i++){ const y=H-pad-(i/4)*(H-pad-16); svg+=`<line class="grid" x1="${pad}" y1="${y}" x2="${W-14}" y2="${y}"/><text x="${pad-6}" y="${y+3}" text-anchor="end">${Math.round(ymax*i/4)}</text>`; }
+  svg+=`<line class="axis" x1="${pad}" y1="${H-pad}" x2="${W-14}" y2="${H-pad}"/><line class="axis" x1="${pad}" y1="16" x2="${pad}" y2="${H-pad}"/>`;
+  xs.forEach(x=>{ svg+=`<text x="${sx(x)}" y="${H-pad+14}" text-anchor="middle">${x}</text>`; });
+  svg+=`<text x="${(W+pad)/2}" y="${H-6}" text-anchor="middle">schaalfactor (--scale)</text>`;
+  svg+=`<text transform="translate(13,${H/2}) rotate(-90)" text-anchor="middle">aantal voertuigen</text>`;
+  svg+=`<path d="${pts.map((p,i)=>(i?'L':'M')+sx(p.x).toFixed(1)+','+sy(p.arrived).toFixed(1)).join(' ')}" fill="none" stroke="#1a7f43" stroke-width="2"/>`;
+  pts.forEach(p=>{ svg+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.arrived).toFixed(1)}" r="3.5" fill="#1a7f43"><title>schaal ${p.x}: ${Math.round(p.arrived)} aangekomen</title></circle>`; });
+  if(hasRest){
+    svg+=`<path d="${pts.filter(p=>p.rest!=null).map((p,i)=>(i?'L':'M')+sx(p.x).toFixed(1)+','+sy(p.rest).toFixed(1)).join(' ')}" fill="none" stroke="#c0392b" stroke-width="2" stroke-dasharray="4 3"/>`;
+    pts.forEach(p=>{ if(p.rest==null) return; svg+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.rest).toFixed(1)}" r="3.5" fill="#c0392b"><title>schaal ${p.x}: ${Math.round(p.rest)} nog in net op einde</title></circle>`; });
+  }
+  svg+='</svg>';
+  let h='<div class="divider"></div><h3>🚦 Doorstroming vs. verzadiging</h3>';
+  h+='<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start"><div style="flex:1;min-width:320px">'+svg+
+     '<p class="sub"><span style="color:#1a7f43;font-weight:700">groen</span> = aangekomen voertuigen'+(hasRest?', <span style="color:#c0392b;font-weight:700">rood (stippel)</span> = nog in net op het einde van de uitloop':'')+'. Knikt de groene lijn af terwijl rood oploopt → capaciteit bereikt.</p></div>';
+  h+='<div><table><thead><tr><th>schaal</th><th>aangekomen</th>'+(hasRest?'<th>rest in net</th>':'')+'</tr></thead><tbody>';
+  pts.forEach(p=>{ h+=`<tr><td style="text-align:center">${p.x}</td><td style="text-align:right">${Math.round(p.arrived)}</td>${hasRest?`<td style="text-align:right">${p.rest!=null?Math.round(p.rest):'—'}</td>`:''}</tr>`; });
+  h+='</tbody></table></div></div>';
+  return h;
+}
+function groupedTrips(){
+  const trips=loaded.filter(f=>f.kind==='tripinfo');
+  const groups={}; trips.forEach(t=>{ const g=configGroupOf(t.name); (groups[g]=groups[g]||[]).push(t); });
+  return {trips, groups, keys:Object.keys(groups).sort()};
+}
+
+/* ---- network geometry (parsed from .net.xml) ---- */
+let netGeom=null, netGeomFile=null;      // {edges:[{id,pts}], bbox}
+function parseNetGeom(txt){
+  let doc; try{ doc=new DOMParser().parseFromString(txt,'text/xml'); }catch(e){ return null; }
+  const edges=[]; let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  $$('edge',doc).forEach(e=>{
+    if(e.getAttribute('function')==='internal') return;
+    let shape=e.getAttribute('shape');
+    if(!shape){ const lane=e.querySelector('lane'); shape=lane?lane.getAttribute('shape'):null; }
+    if(!shape) return;
+    const pts=shape.trim().split(/\s+/).map(p=>{ const xy=p.split(','); return [parseFloat(xy[0]),parseFloat(xy[1])]; }).filter(p=>!isNaN(p[0])&&!isNaN(p[1]));
+    if(pts.length<2) return;
+    pts.forEach(p=>{ if(p[0]<minX)minX=p[0]; if(p[0]>maxX)maxX=p[0]; if(p[1]<minY)minY=p[1]; if(p[1]>maxY)maxY=p[1]; });
+    edges.push({id:e.getAttribute('id'), pts});
+  });
+  if(!edges.length) return null;
+  return {edges, bbox:{minX,minY,maxX,maxY}};
+}
+async function parseNetIntoGeom(fname){
+  try{ const txt=await readFile('network/'+fname); const g=parseNetGeom(txt); if(g){ netGeom=g; netGeomFile=fname; updateNetBadge(); } }catch(e){}
+}
+function updateNetBadge(){ const b=$('#netBadge'); if(!b) return;
+  if(netGeom){ b.className='pill ok'; b.textContent='🗺️ '+(netGeomFile||'netwerk')+' ('+netGeom.edges.length+' edges)'; }
+  else { b.className='pill'; b.textContent='geen netwerk'; } }
+function edgeById(id){ return netGeom? netGeom.edges.find(e=>e.id===id):null; }
+function edgeMid(id){ const e=edgeById(id); if(!e||!e.pts.length) return null; return e.pts[Math.floor(e.pts.length/2)]; }
+// render the network as SVG with optional highlighted edges + point markers
+function networkMapSVG(opts){
+  opts=opts||{}; if(!netGeom||!netGeom.edges.length) return null;
+  const {minX,minY,maxX,maxY}=netGeom.bbox;
+  const W=560, pad=12, w=(maxX-minX)||1, hh=(maxY-minY)||1;
+  const H=Math.max(220, Math.min(560, W*hh/w));
+  const sx=x=>pad+(x-minX)/w*(W-2*pad);
+  const sy=y=>pad+(maxY-y)/hh*(H-2*pad);          // flip Y (SUMO y-up)
+  const poly=pts=>pts.map(p=>sx(p[0]).toFixed(1)+','+sy(p[1]).toFixed(1)).join(' ');
+  const hi=opts.highlight||{};
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;background:#fbfcfd;border:1px solid #dbe2e8;border-radius:8px">`;
+  netGeom.edges.forEach(e=>{ if(hi[e.id]) return; svg+=`<polyline points="${poly(e.pts)}" fill="none" stroke="#c7d0d8" stroke-width="1"/>`; });
+  netGeom.edges.forEach(e=>{ const H2=hi[e.id]; if(!H2) return; svg+=`<polyline points="${poly(e.pts)}" fill="none" stroke="${H2.color}" stroke-width="${H2.width||3}" stroke-linecap="round"><title>${esc(H2.title||e.id)}</title></polyline>`; });
+  (opts.markers||[]).forEach(m=>{ const X=sx(m.x),Y=sy(m.y);
+    svg+=`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${m.r||3.2}" fill="${m.color}" stroke="#fff" stroke-width="1"/>`;
+    if(m.label) svg+=`<text x="${(X+5).toFixed(1)}" y="${(Y+3.5).toFixed(1)}" style="font-size:10.5px;font-weight:700;fill:#1c2733">${esc(m.label)}</text>`; });
+  svg+='</svg>';
+  return {svg, W, H};
+}
+function odOverlay(){
+  const hi={}, markers=[];
+  (state.zones||[]).forEach(z=>{
+    if(z.fromEdge && edgeById(z.fromEdge)){ hi[z.fromEdge]={color:'#1a7f43',width:3.2,title:z.name+' — bron'}; const m=edgeMid(z.fromEdge); if(m) markers.push({x:m[0],y:m[1],color:'#1a7f43',label:z.name}); }
+    if(z.toEdge && z.toEdge!==z.fromEdge && edgeById(z.toEdge)){ hi[z.toEdge]={color:'#1f6feb',width:3.2,title:z.name+' — bestemming'}; }
+  });
+  return {highlight:hi, markers};
+}
+function networkOverviewCard(){
+  if(!netGeom) return '';
+  const map=networkMapSVG(odOverlay()); if(!map) return '';
+  return '<div class="card"><h2>Netwerk &amp; OD-zones</h2>'+
+    '<p class="sub"><span style="color:#1a7f43;font-weight:700">groen</span> = bron-edge (herkomst) met zonenaam · <span style="color:#1f6feb;font-weight:700">blauw</span> = bestemmings-edge. Beweeg over een lijn voor het edge-id.</p>'+
+    map.svg+'</div>';
+}
+function renderReport(){
+  $('#reportCount').textContent=loaded.length+' bestanden';
+  const host=$('#reportPerConfig');
+  const {trips, groups, keys}=groupedTrips();
+  if(!trips.length){
+    host.innerHTML = loaded.length ? '<div class="card"><div class="empty">Geen tripinfo-bestanden gevonden in de selectie.</div></div>' : '';
+    $('#reportResults').style.display='none'; return;
+  }
+  host.innerHTML = networkOverviewCard() + comparisonHTML(keys, groups) + keys.map(g=>configSectionHTML(g, groups[g])).join('');
+  const cb=$('#cmpBaseline'); if(cb) cb.addEventListener('change',e=>{ reportBaseline=e.target.value; renderReport(); });
+  $('#reportResults').style.display='block';
+}
+
+function buildReportHTML(){
+  const {trips, groups, keys}=groupedTrips();
+  if(!trips.length){ return null; }
+  const when=new Date().toISOString().slice(0,16).replace('T',' ');
+  let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>SUMO rapport — ${esc(state.name||'')}</title>
+  <style>body{font-family:Segoe UI,Arial,sans-serif;max-width:860px;margin:30px auto;color:#1c2733;line-height:1.5}
+  h1{font-size:22px} h2{font-size:17px;border-bottom:2px solid #1f6feb;padding-bottom:4px;margin-top:30px}
+  h3{font-size:14px;margin:18px 0 6px} table{border-collapse:collapse;font-size:12.5px;margin:10px 0} th,td{border:1px solid #ccc;padding:5px 9px}
+  th{background:#eef3f8} .kpi{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0}
+  .kpi div{background:#eef3f8;border-radius:8px;padding:10px 16px} .kpi b{font-size:20px;display:block}
+  .flex{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start} .muted{color:#6b7885;font-size:12px}
+  svg text{fill:#6b7885;font-size:10px} svg .grid{stroke:#eef2f5} svg .axis{stroke:#dbe2e8} svg .pt{fill:#1f6feb} svg .fit{stroke:#c0392b;fill:none;stroke-width:2}
+  svg .bp-box{fill:rgba(31,111,235,.16);stroke:#1f6feb;stroke-width:1.2} svg .bp-med{stroke:#1f6feb;stroke-width:2.2} svg .bp-w{stroke:#8a97a5;stroke-width:1} svg .bp-pt{fill:#1f6feb;opacity:.5}
+  .matrix th.rh{background:#e8eef4} .matrix td.rowsum,.matrix td.colsum,.matrix td.grandsum{font-weight:700;background:#e4e7ea;text-align:center} .sub{color:#6b7885;font-size:12px} .muted{color:#6b7885}</style></head><body>`;
+  html+=`<h1>SUMO-simulatierapport</h1><p class="muted">Project: <b>${esc(state.name||'—')}</b>${state.client?' · '+esc(state.client):''} · SUMO ${esc(state.sumoVer||'')} · gegenereerd ${when}</p>`;
+  if(state.desc) html+='<p>'+esc(state.desc)+'</p>';
+  html+='<p class="muted">Tijdverlies = gemiddelde per voertuig (niet totaal), conform methodologie.</p>';
+  // network overview with OD zones
+  if(netGeom){ const map=networkMapSVG(odOverlay()); if(map) html+='<h2>Netwerk &amp; OD-zones</h2><p class="muted">groen = bron-edge (herkomst) met zonenaam, blauw = bestemmings-edge.</p>'+map.svg; }
+  // config comparison (Δ)
+  if(keys.length>1){
+    if(!reportBaseline || !keys.includes(reportBaseline)) reportBaseline=keys.find(g=>/base|huidig|ref|bestaand|nul/i.test(g))||keys[0];
+    const bs=groupBaseStats(groups[reportBaseline]); const fmt=v=>(v>0?'+':'')+v.toFixed(1);
+    html+='<h2>Vergelijking configs</h2><p class="muted">Referentie: <b>'+esc(configLabel(reportBaseline))+'</b> · Δ ('+metricLabel()+') bij basisschaal.</p>';
+    html+=`<table><tr><th>config</th><th>${metricLabel()} (s)</th><th>Δ (s)</th><th>Δ %</th><th>reistijd (s)</th><th>Δ (s)</th><th>Δ %</th></tr>`;
+    keys.forEach(g=>{ const s=groupBaseStats(groups[g]); const isB=g===reportBaseline;
+      const dTl=s.metric-bs.metric,dDur=s.duration-bs.duration; const pTl=bs.metric?dTl/bs.metric*100:0,pDur=bs.duration?dDur/bs.duration*100:0;
+      html+=`<tr${isB?' style="background:#eef3f8;font-weight:600"':''}><td>${esc(configLabel(g))}${isB?' (ref)':''}</td><td style="text-align:right">${s.metric.toFixed(1)}</td><td style="text-align:right">${isB?'—':fmt(dTl)}</td><td style="text-align:right">${isB?'—':fmt(pTl)+'%'}</td><td style="text-align:right">${s.duration.toFixed(1)}</td><td style="text-align:right">${isB?'—':fmt(dDur)}</td><td style="text-align:right">${isB?'—':fmt(pDur)+'%'}</td></tr>`; });
+    html+='</table>';
+  }
+  keys.forEach(g=>{
+    const gt=groups[g]; const bs=groupBaseStats(gt);
+    html+=`<h2>Config: ${esc(configLabel(g))}</h2>`;
+    html+='<div class="kpi">';
+    html+=`<div><b>${bs.timeLoss.toFixed(1)} s</b>gem. tijdverlies/vtg</div>`;
+    html+=`<div><b>${bs.totalDelay.toFixed(1)} s</b>gem. totale vertraging/vtg</div>`;
+    html+=`<div><b>${bs.duration.toFixed(1)} s</b>gem. reistijd/vtg</div>`;
+    html+=`<div><b>${bs.wait.toFixed(1)} s</b>gem. wachttijd/vtg</div>`;
+    html+=`<div><b>${Math.round(bs.veh)}</b>gem. voertuigen</div></div>`;
+    if(bs.base!=null) html+=`<p class="muted">Kerncijfers bij schaal ${bs.base}${bs.nSeeds>1?', gemiddeld over '+bs.nSeeds+' seeds':''}. Totale vertraging = tijdverlies + vertrekvertraging.</p>`;
+    if(bs.nSeeds>1) html+=`<p class="muted">Spreiding ${metricLabel()} over seeds: SD ${bs.metricSd.toFixed(1)} s · min–max ${bs.metricMin.toFixed(1)}–${bs.metricMax.toFixed(1)} s (n=${bs.nSeeds}).</p>`;
+    html+=simulatedODSection(g, gt);
+    const sm=groupSummary(g, bs.base);
+    if(sm){
+      html+='<h3>Netwerkbelasting</h3><table><tr><th>max. voertuigen in net</th><th>max. invoegwachtrij</th><th>max. stilstaand</th><th>teleports</th></tr>';
+      html+=`<tr><td style="text-align:right">${Math.round(sm.maxRunning)}</td><td style="text-align:right">${Math.round(sm.maxWaiting)}</td><td style="text-align:right">${Math.round(sm.maxHalting)}</td><td style="text-align:right">${sm.teleports.toFixed(1)}</td></tr></table>`;
+      if(sm.teleports>0) html+='<p class="muted">Teleports &gt; 0: gridlock — interpreteer met voorzichtigheid.</p>';
+    }
+    html+=edgeDataSection(g, gt);
+    const pts=vdfCompute(gt); const vdf=vdfSvgAndNote(pts);
+    if(vdf){
+      html+=`<h3>Volume–vertraging (VDF) — ${metricLabel()}</h3><div class="flex"><div>`+vdf.svg+'<p class="muted">'+vdf.note+'</p></div>';
+      html+='<table><tr><th>schaal</th><th>mediaan (s)</th><th>Q1–Q3</th><th>min–max</th><th>n</th></tr>';
+      pts.forEach(p=>{ html+=`<tr><td style="text-align:center">${p.x}</td><td style="text-align:right">${p.med.toFixed(1)}</td><td style="text-align:right">${p.q1.toFixed(1)}–${p.q3.toFixed(1)}</td><td style="text-align:right">${p.min.toFixed(1)}–${p.max.toFixed(1)}</td><td style="text-align:center">${p.n}</td></tr>`; });
+      html+='</table></div>';
+    }
+    html+=throughputSection(g, gt);
+  });
+  html+='</body></html>';
+  return html;
+}
+$('#btnExportReport').addEventListener('click', async ()=>{
+  const html=buildReportHTML();
+  if(!html){ toast('Niets om te exporteren.',true); return; }
+  const name='SUMO_rapport_'+(state.name||'project').replace(/\s+/g,'_')+'.html';
+  const ok=await writeFile('report/'+name, html);
+  if(ok){ toast('HTML-rapport opgeslagen in report/'+name); scanFolders(); } else { download(name,html,'text/html'); toast('HTML-rapport gedownload.'); }
+});
+// ---- Word (.doc) export: rasterize SVG charts to PNG so Word renders them ----
+const SVG_CHART_CSS='.grid{stroke:#eef2f5;fill:none}.axis{stroke:#dbe2e8;fill:none}text{fill:#6b7885;font-size:10px}'
+  +'.pt{fill:#1f6feb}.fit{stroke:#c0392b;fill:none;stroke-width:2}.band{fill:rgba(31,111,235,.12)}'
+  +'.bp-box{fill:rgba(31,111,235,.16);stroke:#1f6feb;stroke-width:1.2}.bp-med{stroke:#1f6feb;stroke-width:2.2;fill:none}'
+  +'.bp-w{stroke:#8a97a5;stroke-width:1;fill:none}.bp-pt{fill:#1f6feb;opacity:.5}';
+async function svgToPngDataUrl(svgEl){
+  const vb=(svgEl.getAttribute('viewBox')||'0 0 560 300').split(/\s+/).map(Number);
+  const w=vb[2]||560, h=vb[3]||300, scale=2;
+  const clone=svgEl.cloneNode(true); clone.setAttribute('width',w); clone.setAttribute('height',h);
+  clone.removeAttribute('style');
+  // embed the class-based chart styles so the serialized SVG is self-contained (otherwise
+  // .bp-box etc. fall back to SVG defaults — solid black fills — when rasterized standalone)
+  const styleEl=document.createElementNS('http://www.w3.org/2000/svg','style');
+  styleEl.textContent=SVG_CHART_CSS;
+  clone.insertBefore(styleEl, clone.firstChild);
+  const xml=new XMLSerializer().serializeToString(clone);
+  const src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(xml)));
+  const img=new Image();
+  await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; img.src=src; });
+  const c=document.createElement('canvas'); c.width=w*scale; c.height=h*scale;
+  const ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(img,0,0,c.width,c.height);
+  return {url:c.toDataURL('image/png'), w};
+}
+async function buildReportDoc(){
+  const html=buildReportHTML(); if(!html) return null;
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  for(const s of Array.from(doc.querySelectorAll('svg'))){
+    try{ const {url,w}=await svgToPngDataUrl(s); const img=doc.createElement('img'); img.src=url; img.setAttribute('width', Math.min(640,w)); s.replaceWith(img); }
+    catch(e){ /* leave svg if rasterization fails */ }
+  }
+  const head='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta name="ProgId" content="Word.Document"><meta charset="utf-8">';
+  return head + doc.head.innerHTML + '</head>' + doc.body.outerHTML + '</html>';
+}
+$('#btnExportDoc').addEventListener('click', async ()=>{
+  toast('Word-rapport wordt opgebouwd…');
+  const docHtml=await buildReportDoc();
+  if(!docHtml){ toast('Niets om te exporteren.',true); return; }
+  const name='SUMO_rapport_'+(state.name||'project').replace(/\s+/g,'_')+'.doc';
+  const ok=await writeFile('report/'+name, docHtml);
+  if(ok){ toast('Word-rapport opgeslagen in report/'+name); scanFolders(); } else { download(name, docHtml, 'application/msword'); toast('Word-rapport (.doc) gedownload.'); }
+});
+
+/* -------------------- init -------------------- */
+loadLocal(); syncProjectFields(); updateFsBadge();
+renderOD(); renderConfigTab(); renderRunTab(); renderReport();
+window.addEventListener('beforeunload',saveLocal);
+</script>
+</body>
+</html>

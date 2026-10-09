@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SUMO Network Link Manager</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: #2c3e50;
+    color: white;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header h1 .brand { color: #F5C000; }
+  .file-controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .file-controls label { font-size: 11px; display: flex; flex-direction: column; gap: 3px; }
+  .file-controls input[type=file] {
+    font-size: 11px; color: white;
+    max-width: 220px;
+  }
+  .file-status {
+    font-size: 11px; opacity: 0.85;
+    font-family: 'Consolas', 'Monaco', monospace;
+    max-width: 240px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .file-status.ok { color: #2ecc71; }
+  .file-status.err { color: #e74c3c; }
+
+  .stats {
+    background: white; padding: 6px 16px;
+    border-bottom: 1px solid #ddd;
+    display: flex; gap: 8px; font-size: 11px; flex-wrap: wrap; align-items: center;
+  }
+  .stat { padding: 2px 7px; border-radius: 3px; background: #ecf0f1; }
+  .stat.added { background: #d5f5e3; color: #1e8449; }
+  .stat.removed { background: #fadbd8; color: #c0392b; }
+  .stat.modified { background: #fdebd0; color: #b9770e; }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .viz-panel {
+    background: white; border-right: 1px solid #ddd;
+    display: flex; flex-direction: column;
+    min-height: 0;
+  }
+  .viz-header {
+    padding: 6px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex; gap: 12px; align-items: center;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .legend { display: flex; gap: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-swatch { width: 16px; height: 3px; display: inline-block; }
+  .viz-hint { color: #888; margin-left: auto; font-size: 10px; }
+  #svg-wrap { flex: 1; min-height: 0; position: relative; }
+  #network-svg { width: 100%; height: 100%; background: #fafafa; cursor: grab; display: block; user-select: none; }
+  #network-svg.dragging { cursor: grabbing; }
+  #hover-tip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(44, 62, 80, 0.95);
+    color: white;
+    padding: 3px 7px;
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    border-radius: 3px;
+    display: none;
+    z-index: 10;
+  }
+
+  .diff-panel {
+    background: white;
+    display: flex; flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .tabs { display: flex; border-bottom: 1px solid #ddd; background: #ecf0f1; }
+  .tab {
+    padding: 8px 14px; cursor: pointer;
+    border: none; background: transparent;
+    font-size: 12px; font-weight: 500;
+    border-bottom: 2px solid transparent;
+    color: #555;
+  }
+  .tab.active { background: white; border-bottom-color: #2980b9; color: #2c3e50; font-weight: 600; }
+  .tab-count {
+    margin-left: 5px; font-size: 10px;
+    padding: 1px 5px; background: #e74c3c; color: white;
+    border-radius: 8px; font-weight: 600;
+  }
+  .tab-count.zero { background: #bdc3c7; }
+
+  .toolbar {
+    padding: 6px 10px;
+    border-bottom: 1px solid #eee;
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    background: #fafafa;
+  }
+  .toolbar button {
+    padding: 4px 9px; font-size: 11px;
+    border: 1px solid #ccc; background: white;
+    cursor: pointer; border-radius: 3px;
+    font-family: inherit;
+  }
+  .toolbar button:hover { background: #ecf0f1; }
+  .toolbar button:disabled { color: #aaa; cursor: not-allowed; }
+  .toolbar .sep { flex: 1; }
+  .toolbar .summary { font-size: 11px; color: #666; font-family: 'Consolas', monospace; }
+
+  .diff-list { flex: 1; overflow-y: auto; min-height: 0; }
+  .diff-section h3 {
+    margin: 0; padding: 5px 12px;
+    background: #f4f4f4; font-size: 10px;
+    text-transform: uppercase; color: #777;
+    letter-spacing: 0.5px;
+    border-top: 1px solid #eee;
+    position: sticky; top: 0;
+  }
+  .diff-item {
+    padding: 5px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: flex-start; gap: 8px;
+    cursor: pointer;
+  }
+  .diff-item:hover { background: #f9f9f9; }
+  .diff-item.selected { background: #d6eaf8; }
+  .diff-item.highlighted { background: #fef9e7; box-shadow: inset 3px 0 0 #F5C000; }
+  .diff-item.selected.highlighted { background: #b3d4f0; }
+  .diff-item input[type=checkbox] { margin: 2px 0 0 0; cursor: pointer; }
+  .diff-item-body { flex: 1; min-width: 0; }
+  .diff-item-id { font-family: 'Consolas', monospace; font-size: 12px; font-weight: 600; }
+  .diff-item-meta { font-size: 11px; color: #666; margin-top: 1px; word-break: break-word; }
+  .diff-item.added .diff-item-id::before { content: '+ '; color: #27ae60; }
+  .diff-item.modified .diff-item-id::before { content: '~ '; color: #e67e22; }
+  .diff-item.removed .diff-item-id::before { content: '− '; color: #c0392b; }
+  .diff-item.removed { opacity: 0.7; }
+  .toggle-xml { font-size: 10px; color: #2980b9; cursor: pointer; text-decoration: underline; margin-top: 2px; display: inline-block; }
+  pre.xml-preview {
+    background: #2c3e50; color: #ecf0f1;
+    padding: 8px; font-size: 10px;
+    overflow: auto; max-height: 220px;
+    border-radius: 3px; margin: 4px 0 0 0;
+    font-family: 'Consolas', monospace;
+    white-space: pre-wrap; word-break: break-all;
+  }
+
+  .footer {
+    padding: 8px 14px;
+    background: #2c3e50; color: white;
+    display: flex; gap: 10px; align-items: center; justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  .footer .info { font-size: 11px; opacity: 0.9; }
+  .footer button.export {
+    background: #F5C000; color: #2c3e50; font-weight: 700;
+    padding: 7px 16px; font-size: 13px;
+    border: none; cursor: pointer; border-radius: 3px;
+  }
+  .footer button.export:hover:not(:disabled) { background: #ffd633; }
+  .footer button.export:disabled { background: #5f6e7e; color: #95a5a6; cursor: not-allowed; }
+
+  .edge { fill: none; stroke-width: 1; stroke: #95a5a6; opacity: 0.5; }
+  .edge.added { stroke: #e74c3c; stroke-width: 2.8; opacity: 1; }
+  .edge.modified { stroke: #e67e22; stroke-width: 2; opacity: 0.95; }
+  .edge.is-selected { stroke: #27ae60; stroke-width: 3.2; opacity: 1; }
+  .edge.highlighted { stroke: #2980b9 !important; stroke-width: 4 !important; opacity: 1 !important; }
+  .junction { fill: #bdc3c7; stroke: #7f8c8d; stroke-width: 0.3; opacity: 0.7; }
+  .junction.added { fill: #e74c3c; stroke: #c0392b; opacity: 1; }
+  .junction.modified { fill: #e67e22; stroke: #d35400; opacity: 0.95; }
+  .junction.is-selected { fill: #27ae60; stroke: #1e8449; stroke-width: 0.6; opacity: 1; }
+  .junction.highlighted { fill: #2980b9 !important; stroke: #1f618d !important; opacity: 1 !important; }
+  .edge:hover, .junction:hover { stroke: #34495e; stroke-width: 3; }
+
+  .empty-state { padding: 40px 20px; text-align: center; color: #999; font-size: 12px; }
+  .empty-state code { background: #ecf0f1; padding: 2px 5px; border-radius: 3px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="brand">⌬</span> SUMO Network Link Manager</h1>
+  <div class="file-controls">
+    <label>
+      Source (modified) <input type="file" id="source-file" accept=".net.xml,.xml">
+      <span class="file-status" id="source-status">no file</span>
+    </label>
+    <label>
+      Target (to update) <input type="file" id="target-file" accept=".net.xml,.xml">
+      <span class="file-status" id="target-status">no file</span>
+    </label>
+  </div>
+</header>
+
+<div class="stats" id="stats">
+  <span class="stat">Load both .net.xml files to see what's different</span>
+</div>
+
+<div class="main">
+  <div class="viz-panel">
+    <div class="viz-header">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#95a5a6"></div>Target</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#e74c3c"></div>Added in source</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#e67e22"></div>Modified</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#27ae60"></div>Selected</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#2980b9"></div>Highlighted</div>
+      </div>
+      <span class="viz-hint">scroll = zoom · drag = pan · click = highlight · dbl-click = select · R = reset</span>
+    </div>
+    <div id="svg-wrap">
+      <svg id="network-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="hover-tip"></div>
+    </div>
+  </div>
+
+  <div class="diff-panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="edges">Edges <span class="tab-count zero" id="count-edges">0</span></button>
+      <button class="tab" data-tab="junctions">Junctions <span class="tab-count zero" id="count-junctions">0</span></button>
+      <button class="tab" data-tab="connections">Connections <span class="tab-count zero" id="count-connections">0</span></button>
+      <button class="tab" data-tab="tlLogics">TL Logic <span class="tab-count zero" id="count-tlLogics">0</span></button>
+    </div>
+    <div class="toolbar">
+      <button id="select-all-added">Select all added on this tab</button>
+      <button id="select-all-modified">+ all modified</button>
+      <button id="cascade-related" title="From currently selected edges/junctions, auto-select everything that depends on them: connections, endpoint junctions, internal edges/junctions, and modified tlLogic.">Add related ⤵</button>
+      <button id="clear-selection">Clear</button>
+      <span class="sep"></span>
+      <span class="summary" id="selection-summary">0 selected</span>
+    </div>
+    <div class="diff-list" id="diff-list">
+      <div class="empty-state">Load source and target <code>.net.xml</code> files to see differences.</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div class="info" id="footer-info">No selection — load files and pick items to copy.</div>
+  <button class="export" id="export-btn" disabled>⬇ Export merged target.net.xml</button>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const state = {
+  source: null,
+  target: null,
+  diff: null,
+  selected: { edges: new Set(), junctions: new Set(), connections: new Set(), tlLogics: new Set() },
+  currentTab: 'edges',
+  highlight: null,    // { kind, id }
+};
+
+// ============================================================
+//  XML PARSING
+// ============================================================
+function parseNet(xmlText, fileName) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+  const err = doc.querySelector('parsererror');
+  if (err) throw new Error('XML parse error: ' + err.textContent.slice(0, 200));
+  const root = doc.documentElement;
+  if (root.tagName !== 'net') throw new Error('Expected <net> root, got <' + root.tagName + '>');
+  return {
+    filename: fileName,
+    doc, root,
+    location: parseLocation(doc),
+    edges:       indexBy(doc.querySelectorAll('net > edge'),       e => e.getAttribute('id')),
+    junctions:   indexBy(doc.querySelectorAll('net > junction'),   j => j.getAttribute('id')),
+    connections: indexBy(doc.querySelectorAll('net > connection'), connectionKey),
+    tlLogics:    indexBy(doc.querySelectorAll('net > tlLogic'),    t => t.getAttribute('id') + '@' + (t.getAttribute('programID') || '0')),
+  };
+}
+
+function indexBy(nodeList, keyFn) {
+  const m = new Map();
+  Array.from(nodeList).forEach(el => m.set(keyFn(el), el));
+  return m;
+}
+
+function connectionKey(c) {
+  return [
+    c.getAttribute('from') || '',
+    c.getAttribute('to') || '',
+    c.getAttribute('fromLane') || '',
+    c.getAttribute('toLane') || ''
+  ].join('|');
+}
+
+function parseLocation(doc) {
+  const loc = doc.querySelector('location');
+  if (!loc) return null;
+  return {
+    netOffset: loc.getAttribute('netOffset'),
+    convBoundary: parseBoundary(loc.getAttribute('convBoundary')),
+    origBoundary: parseBoundary(loc.getAttribute('origBoundary')),
+    projParameter: loc.getAttribute('projParameter')
+  };
+}
+
+function parseBoundary(s) {
+  if (!s) return null;
+  const [a, b, c, d] = s.split(',').map(Number);
+  if ([a,b,c,d].some(n => !isFinite(n))) return null;
+  return { minX: a, minY: b, maxX: c, maxY: d };
+}
+
+function parseShape(s) {
+  if (!s) return [];
+  return s.trim().split(/\s+/).map(p => {
+    const [x, y] = p.split(',').map(Number);
+    return { x, y };
+  }).filter(p => isFinite(p.x) && isFinite(p.y));
+}
+
+// ============================================================
+//  DIFF
+// ============================================================
+function computeDiff(source, target) {
+  return {
+    edges:       classifyMap(source.edges,       target.edges,       sameXML),
+    junctions:   classifyMap(source.junctions,   target.junctions,   sameXML),
+    connections: classifyMap(source.connections, target.connections, sameXML),
+    tlLogics:    classifyMap(source.tlLogics,    target.tlLogics,    sameXML),
+  };
+}
+
+function sameXML(a, b) {
+  return normXML(a) === normXML(b);
+}
+function normXML(el) {
+  // Strip inter-tag whitespace so trivial formatting differences don't flag as modified
+  return el.outerHTML.replace(/>\s+</g, '><').trim();
+}
+
+function classifyMap(srcMap, tgtMap, sameFn) {
+  const added = [], removed = [], modified = [];
+  for (const [key, srcEl] of srcMap) {
+    const tgtEl = tgtMap.get(key);
+    if (!tgtEl) added.push({ key, src: srcEl });
+    else if (!sameFn(srcEl, tgtEl)) modified.push({ key, src: srcEl, tgt: tgtEl });
+  }
+  for (const [key, tgtEl] of tgtMap) {
+    if (!srcMap.has(key)) removed.push({ key, tgt: tgtEl });
+  }
+  return { added, removed, modified };
+}
+
+// ============================================================
+//  CASCADE: select related items
+// ============================================================
+function cascadeSelection() {
+  if (!state.diff || !state.source) return 0;
+  let added = 0;
+  const selE = state.selected.edges;
+  const selJ = state.selected.junctions;
+
+  // 1. Selected edges → endpoint junctions (added or modified)
+  const allJunctionDiffs = [...state.diff.junctions.added, ...state.diff.junctions.modified];
+  for (const item of allJunctionDiffs) {
+    const jid = item.key;
+    if (selJ.has(jid)) continue;
+    for (const eid of selE) {
+      const e = state.source.edges.get(eid);
+      if (!e) continue;
+      if (e.getAttribute('from') === jid || e.getAttribute('to') === jid) {
+        selJ.add(jid); added++;
+        break;
+      }
+    }
+  }
+
+  // 2. Selected edges → added connections involving them
+  for (const item of state.diff.connections.added) {
+    if (state.selected.connections.has(item.key)) continue;
+    const c = item.src;
+    if (selE.has(c.getAttribute('from')) || selE.has(c.getAttribute('to'))) {
+      state.selected.connections.add(item.key); added++;
+    }
+  }
+
+  // 3. Selected junctions → added internal edges belonging to them
+  for (const item of state.diff.edges.added) {
+    if (state.selected.edges.has(item.key)) continue;
+    const e = item.src;
+    if (e.getAttribute('function') !== 'internal') continue;
+    const id = e.getAttribute('id') || '';
+    if (!id.startsWith(':')) continue;
+    const jid = id.slice(1).replace(/_\d+$/, '');
+    if (selJ.has(jid)) {
+      state.selected.edges.add(item.key); added++;
+    }
+  }
+
+  // 4. Selected junctions → added internal junctions belonging to them
+  for (const item of state.diff.junctions.added) {
+    if (state.selected.junctions.has(item.key)) continue;
+    const j = item.src;
+    if (j.getAttribute('type') !== 'internal') continue;
+    const id = j.getAttribute('id') || '';
+    if (!id.startsWith(':')) continue;
+    const jid = id.slice(1).replace(/_\d+(_\d+)?$/, '');
+    if (selJ.has(jid)) {
+      state.selected.junctions.add(item.key); added++;
+    }
+  }
+
+  // 5. Selected junctions → modified connections passing through them
+  for (const item of state.diff.connections.modified) {
+    if (state.selected.connections.has(item.key)) continue;
+    const c = item.src;
+    const fromEdge = state.source.edges.get(c.getAttribute('from'));
+    const toEdge   = state.source.edges.get(c.getAttribute('to'));
+    let touches = false;
+    if (fromEdge && selJ.has(fromEdge.getAttribute('to'))) touches = true;
+    if (toEdge   && selJ.has(toEdge.getAttribute('from'))) touches = true;
+    if (touches) { state.selected.connections.add(item.key); added++; }
+  }
+
+  // 6. Selected junctions → added & modified tlLogic for those junctions
+  const allTlDiffs = [...state.diff.tlLogics.added, ...state.diff.tlLogics.modified];
+  for (const item of allTlDiffs) {
+    if (state.selected.tlLogics.has(item.key)) continue;
+    const tlid = item.src.getAttribute('id');
+    if (selJ.has(tlid)) {
+      state.selected.tlLogics.add(item.key); added++;
+    }
+  }
+
+  return added;
+}
+
+// ============================================================
+//  RENDERING — SVG network view
+// ============================================================
+function renderNetwork() {
+  const svg = document.getElementById('network-svg');
+  svg.innerHTML = '';
+  if (!state.target && !state.source) return;
+
+  const baseNet = state.target || state.source;
+  let loc = baseNet.location;
+  if (!loc || !loc.convBoundary) {
+    svg.innerHTML = '<text x="20" y="40" fill="#999" font-size="12">No location/boundary info in network — cannot draw map view</text>';
+    return;
+  }
+
+  // Combine boundaries from both nets
+  const b = { ...loc.convBoundary };
+  if (state.source && state.source.location && state.source.location.convBoundary) {
+    const sb = state.source.location.convBoundary;
+    b.minX = Math.min(b.minX, sb.minX); b.minY = Math.min(b.minY, sb.minY);
+    b.maxX = Math.max(b.maxX, sb.maxX); b.maxY = Math.max(b.maxY, sb.maxY);
+  }
+  const w = b.maxX - b.minX || 1;
+  const h = b.maxY - b.minY || 1;
+  const pad = Math.max(w, h) * 0.04;
+  // SUMO uses y-up, SVG y-down → flip y
+  svg.setAttribute('viewBox', `${b.minX - pad} ${-(b.maxY + pad)} ${w + 2*pad} ${h + 2*pad}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.dataset.initialViewBox = svg.getAttribute('viewBox');
+
+  // Draw order: target edges → modified edges → added edges → target junctions → modified junctions → added junctions
+  if (state.target) drawAllEdges(svg, state.target, '');
+  if (state.diff && state.source) {
+    state.diff.edges.modified.forEach(it => drawEdge(svg, it.src, 'modified'));
+    state.diff.edges.added.forEach(it => drawEdge(svg, it.src, 'added'));
+  }
+  if (state.target) drawAllJunctions(svg, state.target, '');
+  if (state.diff && state.source) {
+    state.diff.junctions.modified.forEach(it => drawJunction(svg, it.src, 'modified'));
+    state.diff.junctions.added.forEach(it => drawJunction(svg, it.src, 'added'));
+  }
+  applySelectionToSvg();
+}
+
+function drawAllEdges(svg, net, cls) {
+  for (const [, edge] of net.edges) drawEdge(svg, edge, cls);
+}
+function drawAllJunctions(svg, net, cls) {
+  for (const [, j] of net.junctions) drawJunction(svg, j, cls);
+}
+
+function drawEdge(svg, edge, cls) {
+  if (edge.getAttribute('function') === 'internal' && !cls) return; // hide target internals in base layer
+  const id = edge.getAttribute('id');
+  const lanes = edge.querySelectorAll('lane');
+  lanes.forEach(lane => {
+    const pts = parseShape(lane.getAttribute('shape')).map(p => `${p.x},${-p.y}`).join(' ');
+    if (!pts) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    line.setAttribute('points', pts);
+    line.setAttribute('class', 'edge ' + (cls || ''));
+    line.dataset.kind = 'edges';
+    line.dataset.id = id;
+    line.addEventListener('click', (e) => { e.stopPropagation(); highlight('edges', id); });
+    line.addEventListener('dblclick', (e) => { e.stopPropagation(); e.preventDefault(); toggleSelection('edges', id); });
+    line.addEventListener('mouseenter', () => showTip('edge ' + id));
+    line.addEventListener('mouseleave', hideTip);
+    svg.appendChild(line);
+  });
+}
+
+function drawJunction(svg, j, cls) {
+  if (j.getAttribute('type') === 'internal') return;
+  const id = j.getAttribute('id');
+  const shape = j.getAttribute('shape');
+  let el;
+  if (shape) {
+    const pts = parseShape(shape).map(p => `${p.x},${-p.y}`).join(' ');
+    if (!pts) return;
+    el = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    el.setAttribute('points', pts);
+  } else {
+    const x = parseFloat(j.getAttribute('x'));
+    const y = parseFloat(j.getAttribute('y'));
+    if (!isFinite(x) || !isFinite(y)) return;
+    el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', x); el.setAttribute('cy', -y); el.setAttribute('r', 1.5);
+  }
+  el.setAttribute('class', 'junction ' + (cls || ''));
+  el.dataset.kind = 'junctions';
+  el.dataset.id = id;
+  el.addEventListener('click', (e) => { e.stopPropagation(); highlight('junctions', id); });
+  el.addEventListener('dblclick', (e) => { e.stopPropagation(); e.preventDefault(); toggleSelection('junctions', id); });
+  el.addEventListener('mouseenter', () => showTip('junction ' + id));
+  el.addEventListener('mouseleave', hideTip);
+  svg.appendChild(el);
+}
+
+function showTip(text) {
+  const tip = document.getElementById('hover-tip');
+  tip.textContent = text;
+  tip.style.display = 'block';
+}
+function hideTip() {
+  document.getElementById('hover-tip').style.display = 'none';
+}
+
+// ============================================================
+//  HIGHLIGHTING (bidirectional: svg <-> diff list)
+// ============================================================
+function highlight(kind, id) {
+  // Clear previous
+  document.querySelectorAll('.highlighted').forEach(el => el.classList.remove('highlighted'));
+  // Highlight in SVG
+  document.querySelectorAll(`#network-svg [data-kind="${kind}"]`).forEach(el => {
+    if (el.dataset.id === id) el.classList.add('highlighted');
+  });
+  // Highlight in diff list
+  const listEl = document.getElementById('diff-list');
+  let firstMatch = null;
+  listEl.querySelectorAll('.diff-item').forEach(div => {
+    if (div.dataset.kind === kind && div.dataset.id === id) {
+      div.classList.add('highlighted');
+      if (!firstMatch) firstMatch = div;
+    }
+  });
+  if (firstMatch) firstMatch.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // If item is on a different tab, switch
+  if (!firstMatch && state.currentTab !== kind && state.diff) {
+    const inOtherTab = [...state.diff[kind].added, ...state.diff[kind].modified, ...state.diff[kind].removed]
+      .some(it => (it.src || it.tgt).getAttribute('id') === id || it.key === id);
+    if (inOtherTab) {
+      switchTab(kind);
+      // Re-highlight after tab switch
+      setTimeout(() => highlight(kind, id), 0);
+      return;
+    }
+  }
+  state.highlight = { kind, id };
+}
+
+// ============================================================
+//  SELECTION sync (SVG ⇄ diff list)
+// ============================================================
+function toggleSelection(kind, id) {
+  if (!state.diff || !state.selected[kind]) return;
+  const set = state.selected[kind];
+  if (set.has(id)) {
+    set.delete(id);
+  } else {
+    // Only items in added/modified are selectable (removed items can't be merged in)
+    const inDiff = [...state.diff[kind].added, ...state.diff[kind].modified]
+      .some(it => it.key === id);
+    if (!inDiff) return;
+    set.add(id);
+  }
+  applySelectionToSvg();
+  // Sync the diff-list checkbox without a full re-render (keeps scroll position)
+  document.querySelectorAll('#diff-list .diff-item').forEach(div => {
+    if (div.dataset.kind === kind && div.dataset.id === id) {
+      const cb = div.querySelector('input[type=checkbox]');
+      if (cb) cb.checked = set.has(id);
+      div.classList.toggle('selected', set.has(id));
+    }
+  });
+  updateSelectionSummary();
+}
+
+function applySelectionToSvg() {
+  document.querySelectorAll('#network-svg [data-kind]').forEach(el => {
+    const kind = el.dataset.kind;
+    const id = el.dataset.id;
+    const isSel = state.selected[kind] && state.selected[kind].has(id);
+    el.classList.toggle('is-selected', isSel);
+  });
+}
+
+// ============================================================
+//  RENDERING — stats and diff list
+// ============================================================
+function renderStats() {
+  const stats = document.getElementById('stats');
+  if (!state.diff) {
+    stats.innerHTML = '<span class="stat">Load both .net.xml files to see what\'s different</span>';
+    return;
+  }
+  const d = state.diff;
+  stats.innerHTML = `
+    <span class="stat added">+${d.edges.added.length}</span><span class="stat modified">~${d.edges.modified.length}</span><span class="stat removed">−${d.edges.removed.length}</span><span style="font-size:10px;color:#666">edges</span>
+    <span style="width:8px"></span>
+    <span class="stat added">+${d.junctions.added.length}</span><span class="stat modified">~${d.junctions.modified.length}</span><span class="stat removed">−${d.junctions.removed.length}</span><span style="font-size:10px;color:#666">junctions</span>
+    <span style="width:8px"></span>
+    <span class="stat added">+${d.connections.added.length}</span><span class="stat modified">~${d.connections.modified.length}</span><span class="stat removed">−${d.connections.removed.length}</span><span style="font-size:10px;color:#666">connections</span>
+    <span style="width:8px"></span>
+    <span class="stat added">+${d.tlLogics.added.length}</span><span class="stat modified">~${d.tlLogics.modified.length}</span><span class="stat removed">−${d.tlLogics.removed.length}</span><span style="font-size:10px;color:#666">tlLogic</span>
+  `;
+  for (const g of ['edges','junctions','connections','tlLogics']) {
+    const c = d[g].added.length + d[g].modified.length;
+    const span = document.getElementById('count-' + g);
+    span.textContent = c;
+    span.classList.toggle('zero', c === 0);
+  }
+}
+
+function renderDiffList() {
+  const list = document.getElementById('diff-list');
+  if (!state.diff) {
+    list.innerHTML = '<div class="empty-state">Load source and target <code>.net.xml</code> files to see differences.</div>';
+    return;
+  }
+  const tab = state.currentTab;
+  const d = state.diff[tab];
+  let html = '';
+  if (d.added.length === 0 && d.modified.length === 0 && d.removed.length === 0) {
+    html = `<div class="empty-state">No differences in <b>${tab}</b>.</div>`;
+  } else {
+    if (d.added.length > 0) {
+      html += `<div class="diff-section"><h3>Added in source — ${d.added.length}</h3></div>`;
+      d.added.forEach(it => html += renderDiffItem(tab, it, 'added'));
+    }
+    if (d.modified.length > 0) {
+      html += `<div class="diff-section"><h3>Modified — ${d.modified.length}</h3></div>`;
+      d.modified.forEach(it => html += renderDiffItem(tab, it, 'modified'));
+    }
+    if (d.removed.length > 0) {
+      html += `<div class="diff-section"><h3>Only in target — ${d.removed.length} (informational, not exported)</h3></div>`;
+      d.removed.forEach(it => html += renderDiffItem(tab, it, 'removed'));
+    }
+  }
+  list.innerHTML = html;
+
+  // Wire up handlers
+  list.querySelectorAll('.diff-item').forEach(div => {
+    const kind = div.dataset.kind;
+    const key = div.dataset.key;
+    const itemId = div.dataset.id;
+    const action = div.dataset.action;
+
+    const cb = div.querySelector('input[type=checkbox]');
+    if (cb) {
+      cb.addEventListener('click', (e) => e.stopPropagation());
+      cb.addEventListener('change', (e) => {
+        if (e.target.checked) state.selected[kind].add(key);
+        else state.selected[kind].delete(key);
+        div.classList.toggle('selected', e.target.checked);
+        applySelectionToSvg();
+        updateSelectionSummary();
+      });
+    }
+    div.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.classList.contains('toggle-xml')) return;
+      highlight(kind, itemId);
+    });
+    const xmlBtn = div.querySelector('.toggle-xml');
+    if (xmlBtn) {
+      xmlBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pre = div.querySelector('pre.xml-preview');
+        const showing = pre.style.display !== 'none';
+        pre.style.display = showing ? 'none' : 'block';
+        xmlBtn.textContent = showing ? 'show XML' : 'hide XML';
+      });
+    }
+  });
+}
+
+function renderDiffItem(kind, item, action) {
+  const el = item.src || item.tgt;
+  const id = el.getAttribute('id') || item.key;
+  const checked = state.selected[kind].has(item.key);
+  const selectable = action !== 'removed';
+  const meta = describeItem(kind, item, action);
+  const xml = el.outerHTML;
+  return `
+    <div class="diff-item ${action} ${checked ? 'selected' : ''}"
+         data-kind="${escAttr(kind)}" data-key="${escAttr(item.key)}" data-id="${escAttr(id)}" data-action="${action}">
+      ${selectable
+        ? `<input type="checkbox" ${checked ? 'checked' : ''}>`
+        : '<span style="width:13px;display:inline-block"></span>'}
+      <div class="diff-item-body">
+        <div class="diff-item-id">${escHtml(id)}</div>
+        <div class="diff-item-meta">${meta}</div>
+        <span class="toggle-xml">show XML</span>
+        <pre class="xml-preview" style="display:none">${escHtml(xml)}</pre>
+      </div>
+    </div>
+  `;
+}
+
+function describeItem(kind, item, action) {
+  const el = item.src || item.tgt;
+  if (kind === 'edges') {
+    const fn = el.getAttribute('function');
+    const from = el.getAttribute('from') || '';
+    const to = el.getAttribute('to') || '';
+    const lanes = el.querySelectorAll('lane').length;
+    const prio = el.getAttribute('priority') || '';
+    const speed = (() => {
+      const l = el.querySelector('lane');
+      const s = l ? parseFloat(l.getAttribute('speed')) : NaN;
+      return isFinite(s) ? `${(s*3.6).toFixed(0)}km/h` : '';
+    })();
+    const len = (() => {
+      const l = el.querySelector('lane');
+      const v = l ? parseFloat(l.getAttribute('length')) : NaN;
+      return isFinite(v) ? `${v.toFixed(1)}m` : '';
+    })();
+    return `${fn === 'internal' ? '<i style="color:#888">internal</i> · ' : ''}<b>${escHtml(from)}</b> → <b>${escHtml(to)}</b> · ${lanes} lane${lanes!==1?'s':''}${len?' · '+len:''}${speed?' · '+speed:''}${prio?' · prio '+prio:''}`;
+  }
+  if (kind === 'junctions') {
+    const type = el.getAttribute('type') || '';
+    const inc = (el.getAttribute('incLanes') || '').split(/\s+/).filter(Boolean).length;
+    const req = el.querySelectorAll('request').length;
+    return `type <b>${escHtml(type)}</b> · ${inc} incoming lane${inc!==1?'s':''} · ${req} request${req!==1?'s':''}`;
+  }
+  if (kind === 'connections') {
+    const from = el.getAttribute('from') || '';
+    const to = el.getAttribute('to') || '';
+    const fl = el.getAttribute('fromLane') || '';
+    const tl = el.getAttribute('toLane') || '';
+    const via = el.getAttribute('via') || '';
+    const st = el.getAttribute('state') || '';
+    const tlid = el.getAttribute('tl');
+    const li = el.getAttribute('linkIndex');
+    let extra = '';
+    if (action === 'modified' && item.tgt) {
+      const tgtVia = item.tgt.getAttribute('via') || '';
+      const tgtSt = item.tgt.getAttribute('state') || '';
+      const tgtTl = item.tgt.getAttribute('tl') || '';
+      const tgtLi = item.tgt.getAttribute('linkIndex') || '';
+      const diffs = [];
+      if (via !== tgtVia) diffs.push(`via: ${escHtml(tgtVia||'∅')}→${escHtml(via||'∅')}`);
+      if (st !== tgtSt) diffs.push(`state: ${escHtml(tgtSt||'∅')}→${escHtml(st||'∅')}`);
+      if ((tlid||'') !== tgtTl) diffs.push(`tl: ${escHtml(tgtTl||'∅')}→${escHtml(tlid||'∅')}`);
+      if ((li||'') !== tgtLi) diffs.push(`linkIndex: ${escHtml(tgtLi||'∅')}→${escHtml(li||'∅')}`);
+      if (diffs.length) extra = '<br><span style="color:#b9770e">' + diffs.join(' · ') + '</span>';
+    }
+    return `<b>${escHtml(from)}</b>:${fl} → <b>${escHtml(to)}</b>:${tl}${st?' · state '+escHtml(st):''}${tlid?' · tl '+escHtml(tlid)+'#'+(li||''):''}${via?' · via '+escHtml(via):''}${extra}`;
+  }
+  if (kind === 'tlLogics') {
+    const prog = el.getAttribute('programID') || '';
+    const type = el.getAttribute('type') || '';
+    const ph = el.querySelectorAll('phase').length;
+    return `program <b>${escHtml(prog)}</b> · type ${escHtml(type)} · ${ph} phase${ph!==1?'s':''}`;
+  }
+  return '';
+}
+
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateSelectionSummary() {
+  const c = ['edges','junctions','connections','tlLogics'].map(k => state.selected[k].size);
+  const total = c.reduce((a,b) => a+b, 0);
+  document.getElementById('selection-summary').textContent =
+    `${total} selected · E${c[0]} J${c[1]} C${c[2]} T${c[3]}`;
+  document.getElementById('footer-info').textContent = total === 0
+    ? 'No selection — load files and pick items to copy.'
+    : `Will copy from source to target: ${c[0]} edge(s), ${c[1]} junction(s), ${c[2]} connection(s), ${c[3]} tlLogic(s)`;
+  document.getElementById('export-btn').disabled = total === 0 || !state.target || !state.source;
+}
+
+// ============================================================
+//  FILE LOADING
+// ============================================================
+function setupFileLoaders() {
+  document.getElementById('source-file').addEventListener('change', e => handleFile(e.target.files[0], 'source'));
+  document.getElementById('target-file').addEventListener('change', e => handleFile(e.target.files[0], 'target'));
+}
+
+async function handleFile(file, which) {
+  if (!file) return;
+  const statusEl = document.getElementById(which + '-status');
+  statusEl.className = 'file-status';
+  statusEl.textContent = 'loading ' + file.name + '…';
+  try {
+    const text = await file.text();
+    const parsed = parseNet(text, file.name);
+    state[which] = parsed;
+    statusEl.className = 'file-status ok';
+    statusEl.textContent = `✓ ${file.name} (${parsed.edges.size}e / ${parsed.junctions.size}j / ${parsed.connections.size}c)`;
+    if (state.source && state.target) {
+      state.diff = computeDiff(state.source, state.target);
+      state.selected = { edges: new Set(), junctions: new Set(), connections: new Set(), tlLogics: new Set() };
+    }
+    renderStats();
+    renderDiffList();
+    renderNetwork();
+    updateSelectionSummary();
+  } catch (err) {
+    statusEl.className = 'file-status err';
+    statusEl.textContent = '✗ ' + err.message;
+    console.error(err);
+  }
+}
+
+// ============================================================
+//  TABS
+// ============================================================
+function setupTabs() {
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+}
+function switchTab(name) {
+  state.currentTab = name;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  renderDiffList();
+}
+
+// ============================================================
+//  TOOLBAR
+// ============================================================
+function setupToolbar() {
+  document.getElementById('select-all-added').addEventListener('click', () => {
+    if (!state.diff) return;
+    state.diff[state.currentTab].added.forEach(it => state.selected[state.currentTab].add(it.key));
+    renderDiffList(); applySelectionToSvg(); updateSelectionSummary();
+  });
+  document.getElementById('select-all-modified').addEventListener('click', () => {
+    if (!state.diff) return;
+    state.diff[state.currentTab].modified.forEach(it => state.selected[state.currentTab].add(it.key));
+    renderDiffList(); applySelectionToSvg(); updateSelectionSummary();
+  });
+  document.getElementById('cascade-related').addEventListener('click', (e) => {
+    if (!state.diff) return;
+    const added = cascadeSelection();
+    renderDiffList(); applySelectionToSvg(); updateSelectionSummary();
+    const btn = e.currentTarget;
+    const orig = btn.textContent;
+    btn.textContent = `+${added} added ✓`;
+    setTimeout(() => { btn.textContent = orig; }, 1400);
+  });
+  document.getElementById('clear-selection').addEventListener('click', () => {
+    state.selected = { edges: new Set(), junctions: new Set(), connections: new Set(), tlLogics: new Set() };
+    renderDiffList(); applySelectionToSvg(); updateSelectionSummary();
+  });
+}
+
+// ============================================================
+//  EXPORT — build merged XML
+// ============================================================
+function setupExport() {
+  document.getElementById('export-btn').addEventListener('click', () => {
+    try {
+      const xml = buildMergedNet();
+      const base = state.target.filename.replace(/\.net\.xml$|\.xml$/i, '');
+      downloadText(xml, `${base}.merged.net.xml`);
+    } catch (err) {
+      alert('Export failed: ' + err.message);
+      console.error(err);
+    }
+  });
+}
+
+function buildMergedNet() {
+  // Clone target doc so we don't mutate the loaded one
+  const targetXml = new XMLSerializer().serializeToString(state.target.doc);
+  const newDoc = new DOMParser().parseFromString(targetXml, 'application/xml');
+  const newRoot = newDoc.documentElement;
+
+  const newIdx = {
+    edges:       indexBy(newDoc.querySelectorAll('net > edge'),       e => e.getAttribute('id')),
+    junctions:   indexBy(newDoc.querySelectorAll('net > junction'),   j => j.getAttribute('id')),
+    connections: indexBy(newDoc.querySelectorAll('net > connection'), connectionKey),
+    tlLogics:    indexBy(newDoc.querySelectorAll('net > tlLogic'),    t => t.getAttribute('id') + '@' + (t.getAttribute('programID') || '0')),
+  };
+
+  let nAdded = 0, nReplaced = 0;
+  for (const group of ['edges','junctions','connections','tlLogics']) {
+    for (const key of state.selected[group]) {
+      const srcEl = state.source[group].get(key);
+      if (!srcEl) continue;
+      const imported = newDoc.importNode(srcEl, true);
+      const existing = newIdx[group].get(key);
+      if (existing) {
+        existing.parentNode.replaceChild(imported, existing);
+        nReplaced++;
+      } else {
+        insertGrouped(newRoot, imported);
+        nAdded++;
+      }
+      newIdx[group].set(key, imported);
+    }
+  }
+  console.log(`Merged: +${nAdded} new elements, ~${nReplaced} replaced`);
+
+  let out = new XMLSerializer().serializeToString(newDoc);
+  if (!out.startsWith('<?xml')) out = '<?xml version="1.0" encoding="UTF-8"?>\n' + out;
+  return out;
+}
+
+function insertGrouped(root, el) {
+  // Insert right after the last sibling of the same tag, to preserve SUMO's typical ordering
+  const tag = el.tagName;
+  const siblings = root.querySelectorAll(':scope > ' + tag);
+  if (siblings.length > 0) {
+    const last = siblings[siblings.length - 1];
+    if (last.nextSibling) root.insertBefore(el, last.nextSibling);
+    else root.appendChild(el);
+  } else {
+    // Fall back: insert before <connection> or <tlLogic> blocks if present, else append
+    const fallbackBefore = root.querySelector(':scope > connection, :scope > tlLogic, :scope > roundabout');
+    if (fallbackBefore) root.insertBefore(el, fallbackBefore);
+    else root.appendChild(el);
+  }
+}
+
+function downloadText(text, filename) {
+  const blob = new Blob([text], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ============================================================
+//  SVG pan/zoom + mouse-follow tooltip
+// ============================================================
+function setupPanZoom() {
+  const svg = document.getElementById('network-svg');
+  const wrap = document.getElementById('svg-wrap');
+  let dragging = false, sx = 0, sy = 0, vbStart = null;
+
+  svg.addEventListener('mousedown', e => {
+    if (e.target !== svg && !e.target.classList.contains('edge') && !e.target.classList.contains('junction')) {
+      // start drag
+    }
+    dragging = true;
+    sx = e.clientX; sy = e.clientY;
+    const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+    vbStart = { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
+    svg.classList.add('dragging');
+  });
+
+  wrap.addEventListener('mousemove', e => {
+    // Position the tooltip near cursor
+    const tip = document.getElementById('hover-tip');
+    if (tip.style.display === 'block') {
+      const rect = wrap.getBoundingClientRect();
+      tip.style.left = (e.clientX - rect.left + 12) + 'px';
+      tip.style.top  = (e.clientY - rect.top + 12) + 'px';
+    }
+    if (!dragging || !vbStart) return;
+    const rect = svg.getBoundingClientRect();
+    const dx = (e.clientX - sx) * vbStart.w / rect.width;
+    const dy = (e.clientY - sy) * vbStart.h / rect.height;
+    svg.setAttribute('viewBox', `${vbStart.x - dx} ${vbStart.y - dy} ${vbStart.w} ${vbStart.h}`);
+  });
+
+  window.addEventListener('mouseup', () => {
+    dragging = false; svg.classList.remove('dragging');
+  });
+
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+    const rect = svg.getBoundingClientRect();
+    const mx = vb[0] + (e.clientX - rect.left) * vb[2] / rect.width;
+    const my = vb[1] + (e.clientY - rect.top)  * vb[3] / rect.height;
+    const f = e.deltaY > 0 ? 1.15 : 1/1.15;
+    const w = vb[2] * f, h = vb[3] * f;
+    const x = mx - (mx - vb[0]) * f, y = my - (my - vb[1]) * f;
+    svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+  }, { passive: false });
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') {
+      if (svg.dataset.initialViewBox) svg.setAttribute('viewBox', svg.dataset.initialViewBox);
+    }
+  });
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+setupFileLoaders();
+setupTabs();
+setupToolbar();
+setupExport();
+setupPanZoom();
+updateSelectionSummary();
+renderStats();
+</script>
+
+</body>
+</html>

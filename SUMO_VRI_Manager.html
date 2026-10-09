@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUMO VRI Manager</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --ink:#1c2733; --muted:#6b7885;
+    --line:#dbe2e8; --accent:#7b3fbf; --accent-d:#642f9e;
+    --ok:#1a7f43; --warn:#b26a00; --err:#c0392b;
+    --chip:#f0ecf6; --green:#1a9c3c; --amber:#f4b400; --red:#d0d0d0;
+    --radius:8px; --shadow:0 1px 3px rgba(20,40,60,.08),0 1px 2px rgba(20,40,60,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;
+    display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
+  header h1{font-size:16px;margin:0;font-weight:650}
+  header .logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#7b3fbf,#c471ed);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px}
+  header .spacer{flex:1}
+  nav.tabs{display:flex;gap:2px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:47px;z-index:19}
+  nav.tabs button{border:none;background:none;padding:11px 15px;cursor:pointer;font-size:13.5px;color:var(--muted);
+    border-bottom:2.5px solid transparent;font-weight:550;display:flex;align-items:center;gap:7px}
+  nav.tabs button .n{width:19px;height:19px;border-radius:50%;background:var(--chip);color:var(--muted);
+    font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  nav.tabs button:hover{color:var(--ink)}
+  nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  nav.tabs button.active .n{background:var(--accent);color:#fff}
+  main{padding:18px;max-width:1240px;margin:0 auto}
+  .tab{display:none} .tab.active{display:block;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .card h2{margin:0 0 4px;font-size:15px}
+  .card h3{margin:14px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .card .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+  .field label{font-size:12px;font-weight:600;color:var(--muted)}
+  .field .hint{font-size:11px;color:var(--muted);font-weight:400}
+  input[type=text],input[type=number],select,textarea{padding:7px 9px;border:1px solid var(--line);
+    border-radius:6px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(123,63,191,.12)}
+  textarea{font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.5;resize:vertical}
+  button.btn{background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-size:13px;
+    font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  button.btn:hover{background:var(--accent-d)}
+  button.btn.ghost{background:var(--chip);color:var(--ink)} button.btn.ghost:hover{background:#e6ddf1}
+  button.btn.sm{padding:5px 9px;font-size:12px}
+  button.btn.danger{background:#fbe9e7;color:var(--err)} button.btn.danger:hover{background:#f7d7d3}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;background:var(--chip);color:var(--muted)}
+  .pill.ok{background:#e4f4ea;color:var(--ok)} .pill.warn{background:#fbf0dd;color:var(--warn)} .pill.err{background:#fbe4e0;color:var(--err)}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left}
+  th{background:var(--chip);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+  td input{width:100%;border:none;padding:3px 4px;background:transparent}
+  td input:focus{background:#fff;box-shadow:inset 0 0 0 1px var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  code,.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  pre.xml{background:#22103a;color:#e7d8f7;padding:12px;border-radius:6px;overflow:auto;font-size:11.5px;line-height:1.5;max-height:360px;margin:0}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .empty{text-align:center;padding:30px;color:var(--muted)} .empty .big{font-size:30px;margin-bottom:6px;opacity:.5}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+  .kpi .k{background:var(--chip);border-radius:8px;padding:11px 13px}
+  .kpi .k .v{font-size:20px;font-weight:700} .kpi .k .l{font-size:11px;color:var(--muted);margin-top:2px}
+  .banner{padding:10px 14px;border-radius:8px;font-size:12.5px;margin-bottom:14px;display:flex;gap:9px;align-items:flex-start}
+  .banner.info{background:#f1eafc;color:#642f9e;border:1px solid #e0d0f5}
+  .banner.warn{background:#fdf6e6;color:#8a5a00;border:1px solid #f2e0b5}
+  .toast{position:fixed;bottom:18px;right:18px;background:#22103a;color:#fff;padding:10px 15px;border-radius:8px;
+    font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.2);opacity:0;transform:translateY(8px);transition:.25s;z-index:50;max-width:360px}
+  .toast.show{opacity:1;transform:none} .toast.err{background:#7a1c14}
+  .matrix-tbl td{text-align:center;font-variant-numeric:tabular-nums} .matrix-tbl th.rh{background:#efe8f8}
+  .matrix-tbl td.diag{background:#f0f0f0} .matrix-tbl td.has{background:#fbeede;font-weight:600}
+  .tag{font-size:10.5px;padding:1px 6px;border-radius:4px;background:var(--chip);color:var(--muted);font-weight:600}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend i{width:16px;height:11px;border-radius:2px;display:inline-block}
+  .scrollx{overflow-x:auto}
+  .filerow{display:flex;align-items:center;gap:10px;padding:8px 11px;border:1px solid var(--line);border-radius:7px;margin-bottom:7px;background:#fff}
+  .filerow .nm{font-weight:600;flex:1}
+  .step-grid{font-size:10px;border-collapse:collapse}
+  .step-grid th{padding:2px 3px;position:sticky;top:0;background:#efe8f8;font-size:9.5px;text-transform:none;letter-spacing:0}
+  .step-grid td.sn{padding:0 5px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:600}
+  .step-grid td.st{width:15px;min-width:15px;height:15px;padding:0;border:1px solid #fff}
+  .step-grid td.st.g{background:#1a9c3c} .step-grid td.st.y{background:#f4b400} .step-grid td.st.r{background:#eef0f2}
+  .step-grid tbody tr:hover td.st{outline:1px solid #642f9e}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">VRI</div>
+  <h1>SUMO VRI Manager</h1>
+  <span class="pill" id="loadBadge">geen bestand</span>
+  <div class="spacer"></div>
+  <span class="sub" style="font-size:11px;color:var(--muted)">Cyclon ↔ SUMO tlLogic · browser-only</span>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="inspect" class="active"><span class="n">1</span> Cyclon inspecteren</button>
+  <button data-tab="csv"><span class="n">2</span> SG-koppeling</button>
+  <button data-tab="vplan"><span class="n">3</span> V-plan</button>
+  <button data-tab="convert"><span class="n">4</span> Cyclon → SUMO</button>
+</nav>
+
+<main>
+  <!-- ========== TAB 1: INSPECT ========== -->
+  <section class="tab active" id="tab-inspect">
+    <div class="card">
+      <h2>Cyclon-configuratiebestand inladen</h2>
+      <p class="sub">Laad het Siemens-Cyclon hoofdbestand (<code>K3xx…XML</code>). Een <code>.zip</code> mag ook — de tool pakt de <code>.XML</code> eruit. De <code>_S</code>/<code>_SO</code>-bestanden (detector-hiaten / hardware-I/O) zijn niet nodig voor v1.</p>
+      <div class="toolbar">
+        <button class="btn" id="btnLoadCyclon">📂 Cyclon .XML / .zip kiezen</button>
+        <input type="file" id="cyclonFile" accept=".xml,.XML,.zip" style="display:none">
+        <span class="pill" id="cyclonStat"></span>
+      </div>
+    </div>
+    <div id="inspectArea"><div class="card"><div class="empty"><div class="big">🚦</div>Nog geen Cyclon-bestand geladen.</div></div></div>
+  </section>
+
+  <!-- ========== TAB 2: SG-KOPPELING (CSV) ========== -->
+  <section class="tab" id="tab-csv">
+    <div class="card">
+      <h2>SG-koppeling (input_sumo.csv) bouwen</h2>
+      <p class="sub">Laad de SUMO <code>.net.xml</code>. De tool leest de door de VRI gestuurde <code>&lt;connection&gt;</code>-verbindingen (elk met <code>linkIndex</code> + van/naar-edge + richting) en maakt een tabel. Ken elke link een SUMO-signaalgroep toe (dezelfde namen als in de conversie, bv. <code>A</code>, <code>A1</code>, <code>B1</code>…) en exporteer als <code>input_sumo.csv</code> — of gebruik ze meteen in tab 3 &amp; 4.</p>
+      <div class="toolbar">
+        <button class="btn" id="btnLoadNet">📂 .net.xml kiezen</button>
+        <input type="file" id="netFileIn" accept=".xml,.net.xml" style="display:none">
+        <select id="csvTlsSelect" style="display:none;min-width:120px"></select>
+        <span class="pill" id="csvNetStat">geen net</span>
+      </div>
+    </div>
+    <div class="card" id="csvBuildCard" style="display:none">
+      <h2>Links → signaalgroep</h2>
+      <div class="toolbar">
+        <button class="btn ghost sm" id="btnFillDown">↓ lege cellen invullen vanaf boven</button>
+        <button class="btn" id="btnExportCsv">⇩ input_sumo.csv</button>
+        <button class="btn ghost" id="btnUseCsv">→ Gebruik in V-plan &amp; Convert</button>
+        <span class="pill" id="csvBuildStat"></span>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:0 0 auto;position:sticky;top:96px">
+          <div id="csvJunction"></div>
+          <div id="csvJunctionLegend" class="legend" style="margin-top:6px;max-width:380px"></div>
+          <p class="sub" style="max-width:380px;margin-top:4px">Cijfer = <code>linkIndex</code> (= rijnummer). Kleur = toegekende SG; grijs = nog niet toegekend. Beweeg over een tabelrij om de beweging op te lichten.</p>
+        </div>
+        <div style="flex:1;min-width:280px">
+          <div class="scrollx"><table id="csvTable"><thead><tr><th>#</th><th>van (edge)</th><th>naar (edge)</th><th>ri</th><th>SUMO-SG</th></tr></thead><tbody></tbody></table></div>
+          <p class="sub" style="margin-top:8px">ri = richting (s=rechtdoor, l=links, r=rechts, t=keren). Meerdere rijstroken met dezelfde <code>linkIndex</code> worden samengenomen tot één link.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== TAB 3: V-PLAN ========== -->
+  <section class="tab" id="tab-vplan">
+    <div class="card">
+      <h2>V-plan tekenen uit een SUMO tlLogic</h2>
+      <p class="sub">Laad een SUMO <code>tls_var…add.xml</code> (mag meerdere <code>&lt;tlLogic&gt;</code> bevatten) en de SG-koppeling <code>input_sumo.csv</code> (kolommen <code>Id;…;SG</code>). Het klassieke V-plan wordt getekend: signaalgroepen × cyclustijd, met variabele (actuated) fasen gearceerd.</p>
+      <div class="row">
+        <div class="toolbar" style="margin:0">
+          <button class="btn" id="btnLoadTls">📂 tlLogic .add.xml</button>
+          <input type="file" id="tlsFile" accept=".xml" style="display:none">
+          <button class="btn ghost" id="btnLoadCsv">📂 input_sumo.csv</button>
+          <input type="file" id="csvFile" accept=".csv" style="display:none">
+          <span class="pill" id="vplanStat">geen tlLogic/CSV</span>
+        </div>
+      </div>
+    </div>
+    <div id="vplanArea"></div>
+  </section>
+
+  <!-- ========== TAB 3: CONVERT ========== -->
+  <section class="tab" id="tab-convert">
+    <div class="card" style="padding:12px 16px">
+      <div class="row" style="align-items:center;gap:18px">
+        <b style="font-size:13px">Conversiemodus:</b>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="radio" name="cvMode" value="reparam" checked> Herparametriseer basis-tlLogic</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="radio" name="cvMode" value="light"> Waarschijnlijke cyclus uit Cyclon-logica <span class="tag">controller-light</span></label>
+      </div>
+    </div>
+    <div class="banner info" id="cvBannerReparam"><span>ℹ️</span><div>Deze conversie <b>herparametriseert een bestaande, gevalideerde SUMO-fasevolgorde</b> (de <code>state</code>-strings + nominale duren) met de groentijden/min-groen uit het Cyclon-bestand. Ze verzint de fasevolgorde dus niet — je levert die als “basis-tlLogic”. Elke volwaardige groenfase krijgt <code>minDur</code>=min-groen en <code>maxDur</code>=programma-groen; gele/overgangs- en korte opbouwfasen blijven vast.</div></div>
+    <div class="banner info" id="cvBannerLight" style="display:none"><span>🧪</span><div><b>Controller-light</b> — bouwt een <b>plausibele cyclus</b> uit de Cyclon-<b>conflictmatrix</b> + min-groen + programma-groentijden, zonder basis-tlLogic. Niet-conflicterende signaalgroepen worden samengevoegd tot fasen (graafkleuring), elke SG krijgt <b>minstens één keer</b> groen, en tussen conflicterende fasen komt geel + ontruiming (all-red) volgens de ontruimingstijden. Fictieve “alle groepen hebben vraag”-situatie. <b>Benadering</b> — de fasevolgorde is een geldige, niet dé echte volgorde; controleer/tune vóór gebruik.
+      <label style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-weight:600"><input type="checkbox" id="cvLightActuated"> Actuated groenfasen (rekbaar: minDur=min-groen, maxDur=programma-groen, gap-out) i.p.v. vaste cyclus</label></div></div>
+
+    <div class="card">
+      <h2>Invoer</h2>
+      <div class="grid2">
+        <div>
+          <div class="filerow"><span class="nm">1 · Cyclon .XML</span><span class="pill" id="cvCyclon">niet geladen</span><button class="btn ghost sm" id="cvLoadCyclon">kies</button></div>
+          <div class="filerow"><span class="nm">2 · Basis-tlLogic (.add.xml)</span><span class="pill" id="cvTls">niet geladen</span><button class="btn ghost sm" id="cvLoadTls">kies</button></div>
+          <div class="filerow"><span class="nm">3 · SG-koppeling (input_sumo.csv)</span><span class="pill" id="cvCsv">niet geladen</span><button class="btn ghost sm" id="cvLoadCsv">kies</button></div>
+          <input type="file" id="cvCyclonFile" accept=".xml,.XML,.zip" style="display:none">
+          <input type="file" id="cvTlsFile" accept=".xml" style="display:none">
+          <input type="file" id="cvCsvFile" accept=".csv" style="display:none">
+          <p class="sub" style="margin-top:8px">De basis-tlLogic mag gerust een reeds geconverteerde <code>tls_var_AS.add.xml</code> zijn — enkel de <code>state</code>-strings + duren worden hergebruikt.</p>
+        </div>
+        <div>
+          <h3>Parameters</h3>
+          <div class="row">
+            <div class="field"><label>max-gap (s) <span class="hint">Cyclon-hiaat</span></label><input type="number" id="pGap" value="3.0" step="0.1" style="width:90px"></div>
+            <div class="field"><label>handover-max (s) <span class="hint">≤ blijft vast</span></label><input type="number" id="pHandover" value="2" style="width:100px"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>min-groen fallback</label><input type="number" id="pMinGreen" value="5" style="width:110px"></div>
+            <div class="field"><label>geel fallback</label><input type="number" id="pGeel" value="3" style="width:90px"></div>
+          </div>
+          <div class="field"><label>tlLogic id</label><input type="text" id="pTlsId" value="tls"></div>
+        </div>
+      </div>
+
+      <h3>SG-samenvoeging (SUMO-SG → Cyclon-SG's)</h3>
+      <p class="sub">In het net kunnen meerdere Cyclon-signaalgroepen op één SUMO-signaalgroep zitten (bv. rechtsaf+doorgaand). Standaard = identiteit uit de CSV; voeg samen waar nodig (komma-gescheiden).</p>
+      <table id="mergeTable"><thead><tr><th style="width:30%">SUMO-SG (uit CSV)</th><th>Cyclon-SG's</th></tr></thead><tbody></tbody></table>
+
+      <h3>Programma-koppeling (SUMO-suffix → Cyclon-programma)</h3>
+      <table id="progTable"><thead><tr><th style="width:30%">Suffix (→ tls_var_&lt;suffix&gt;.add.xml)</th><th>Cyclon ProgNaam</th><th style="width:60px"></th></tr></thead><tbody></tbody></table>
+      <div class="toolbar" style="margin-top:8px"><button class="btn sm" id="btnAddProg">+ Programma</button></div>
+
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn" id="btnConvert">⚙️ Converteren</button>
+        <button class="btn ghost" id="btnDownloadAll" disabled>⇩ Download alle</button>
+        <span class="pill" id="convStat"></span>
+      </div>
+    </div>
+    <div id="convOut"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=(v,d=0)=>{const n=parseFloat(v);return isNaN(n)?d:n;};
+let toastT; function toast(m,e){const t=$('#toast');t.textContent=m;t.className='toast show'+(e?' err':'');clearTimeout(toastT);toastT=setTimeout(()=>t.className='toast',2800);}
+function download(fn,txt,mime='application/xml'){const b=new Blob([txt],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),800);}
+
+/* shared state */
+let cyclon=null;      // parsed cyclon
+let tlsList=[];       // parsed tlLogic list (vplan tab)
+let idx2sg={};        // link index -> SG (vplan tab)
+// convert tab state
+let cvCyclon=null, cvPhases=null, cvIdx2sg=null, cvProg=null, cvTlsMeta=null;
+let lastConversions=[];
+
+/* -------- tabs -------- */
+$$('#tabs button').forEach(b=>b.addEventListener('click',()=>{
+  $$('#tabs button').forEach(x=>x.classList.remove('active'));
+  $$('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $('#tab-'+b.dataset.tab).classList.add('active');
+}));
+
+/* =============================================================
+ *  FILE READERS (zip-aware, ISO-8859-1 for Cyclon)
+ * ============================================================= */
+function decodeBytes(u8, latin1){ return new TextDecoder(latin1?'iso-8859-1':'utf-8').decode(u8); }
+// minimal ZIP reader via the central directory (robust for data-descriptor entries)
+async function unzip(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); const out=[];
+  // find End Of Central Directory (signature 0x06054b50), scanning backwards
+  let eocd=-1;
+  for(let i=u8.length-22;i>=0 && i>u8.length-22-65536;i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) throw new Error('geen ZIP (EOCD niet gevonden)');
+  let cdOff=dv.getUint32(eocd+16,true), n=dv.getUint16(eocd+10,true), p=cdOff;
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), compSize=dv.getUint32(p+20,true);
+    const nameLen=dv.getUint16(p+28,true), extraLen=dv.getUint16(p+30,true), cmtLen=dv.getUint16(p+32,true);
+    const lho=dv.getUint32(p+42,true);
+    const name=decodeBytes(u8.subarray(p+46,p+46+nameLen),false);
+    // local header at lho: skip its variable fields to reach data
+    const lNameLen=dv.getUint16(lho+26,true), lExtraLen=dv.getUint16(lho+28,true);
+    const dataStart=lho+30+lNameLen+lExtraLen;
+    const comp=u8.subarray(dataStart, dataStart+compSize);
+    let bytes;
+    if(method===0) bytes=comp;
+    else if(method===8){ const ab=await new Response(new Blob([comp]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer(); bytes=new Uint8Array(ab); }
+    else { p+=46+nameLen+extraLen+cmtLen; continue; }
+    out.push({name, bytes});
+    p+=46+nameLen+extraLen+cmtLen;
+  }
+  return out;
+}
+// pick a file, return {name, text}. For Cyclon, decode ISO-8859-1. Handles .zip.
+async function readPicked(file, latin1){
+  if(/\.zip$/i.test(file.name)){
+    const entries=await unzip(await file.arrayBuffer());
+    // prefer the main Cyclon file (not _S / _SO), else first .XML
+    const xmls=entries.filter(e=>/\.xml$/i.test(e.name));
+    if(!xmls.length) throw new Error('geen .XML in het zip-bestand');
+    const main=xmls.find(e=>!/_S\.|_SO\./i.test(e.name)) || xmls[0];
+    return {name:main.name, text:decodeBytes(main.bytes, latin1)};
+  }
+  const buf=await file.arrayBuffer();
+  return {name:file.name, text:decodeBytes(new Uint8Array(buf), latin1)};
+}
+
+/* =============================================================
+ *  CYCLON PARSER
+ * ============================================================= */
+function xmlDoc(txt){ const d=new DOMParser().parseFromString(txt,'text/xml'); if(d.querySelector('parsererror')) throw new Error('XML-parsefout'); return d; }
+function T(el,tag,d=''){ const x=el?el.querySelector(':scope>'+tag):null; return x&&x.textContent?x.textContent.trim():d; }
+function parseCyclon(txt){
+  const doc=xmlDoc(txt); const root=doc.documentElement;
+  const inst=root.querySelector('Installatie');
+  const installatie={
+    sleutel:T(inst,'Sleutel'), gemeente:T(inst,'Gemeente'), kruispunt:T(inst,'Kruispunt'),
+    vplan:T(inst,'Vplan'), index:T(inst,'Index'),
+    software:T(root.querySelector('Algemeen'),'SoftwareVersie')
+  };
+  // signal groups
+  const sgGroepen=[], sgNames=[], sgdef={};
+  $$('SgGroepen > SgGroep',root).forEach(sg=>{
+    const naam=T(sg,'Naam');
+    const o={naam, id:T(sg,'Id'), enabled:T(sg,'Enabled')==='1',
+      mingroen:parseInt(T(sg,'MinGroen','0'))||0, mingeel:parseInt(T(sg,'MinGeel','0'))||0,
+      roodgeel:parseInt(T(sg,'RoodGeel','0'))||0, sgtype:T(sg,'SgType')};
+    sgGroepen.push(o); sgNames.push(naam); sgdef[naam]={mingroen:o.mingroen, mingeel:o.mingeel};
+  });
+  // detectors
+  const detectoren=$$('Detector',root).map(d=>({naam:T(d,'Naam'), id:T(d,'Id'), type:T(d,'DetType')||T(d,'Type')}))
+    .filter(d=>d.naam);
+  // conflict matrix (Ontruiming: Af/Op/T)
+  const conflicts=$$('Ontruiming',root).map(o=>({af:T(o,'Af'), op:T(o,'Op'), t:parseInt(T(o,'T','0'))||0}))
+    .filter(c=>c.af&&c.op);
+  // programs: Groentijden > SgGroepenTijden(order=sgNames) > SgTijden > SgTijd[0]=min,[1]=prog
+  const programmas=[];
+  $$('Programma',root).forEach(p=>{
+    const naam=T(p,'ProgNaam'); if(!naam) return;
+    const gt=p.querySelector(':scope > Groentijden'); if(!gt) return;
+    const groepen=$$(':scope > SgGroepenTijden',gt);
+    const green={};
+    groepen.forEach((g,i)=>{
+      const vals=$$('SgTijd',g).map(t=>parseInt(t.textContent)||0);
+      const sgn=sgNames[i]; if(sgn==null) return;
+      green[sgn]={min:vals[0]||0, prog:(vals.length>1&&vals[1]>0)?vals[1]:0, eff:(vals.length>1&&vals[1]>0)?vals[1]:(vals[0]||0)};
+    });
+    programmas.push({naam, green});
+  });
+  // step scheme (Structuur/Stappen/Stap): each step = per-SG state (sgNames order) + min time.
+  // NB: this is a runtime step TABLE (no stored order/duration), not a fixed cycle.
+  const steps=[];
+  $$('Stap',root).forEach(st=>{
+    const sgt=st.querySelector(':scope > SgToestanden'); if(!sgt) return;
+    const codes=$$(':scope > Toestand',sgt).map(t=>t.textContent.trim());
+    if(!codes.length) return;
+    const states={}; sgNames.forEach((nm,j)=>{ states[nm]=codes[j]; });
+    steps.push({n:steps.length+1, min:parseInt(T(st,'MinimumTijd','0'))||0, breedte:T(st,'Breedte'), states});
+  });
+  // id -> name map (to decode the #id# references in condition expressions)
+  const idName={};
+  $$('*',doc).forEach(el=>{ const i=el.querySelector(':scope>Id'), n=el.querySelector(':scope>Naam');
+    if(i&&n&&i.textContent&&n.textContent) idName[i.textContent.trim()]=n.textContent.trim(); });
+  sgGroepen.forEach(s=>{ if(s.id) idName[s.id]=s.naam; });
+  // condition objects (<Voorwaarde>): the explicit if-logic, as expressions in <VrwRegels>
+  const voorwaarden=$$('Voorwaarde',root).map(v=>{
+    const r=v.querySelector(':scope>VrwRegels'); const expr=r?r.textContent.replace(/\s+/g,' ').trim():'';
+    const hdr=v.querySelector(':scope>Header');
+    return {id:T(hdr,'Id'), parent:T(hdr,'Parentnummer'), vrwtype:T(v,'VrwType'), expr};
+  }).filter(v=>v.expr);
+  return {installatie, sgGroepen, sgNames, sgdef, detectoren, conflicts, programmas, steps, voorwaarden, idName};
+}
+
+/* =============================================================
+ *  TAB 1 — INSPECT
+ * ============================================================= */
+$('#btnLoadCyclon').addEventListener('click',()=>$('#cyclonFile').click());
+$('#cyclonFile').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f)return; try{
+  const {name,text}=await readPicked(f,true); cyclon=parseCyclon(text); cyclon._file=name;
+  $('#cyclonStat').className='pill ok'; $('#cyclonStat').textContent=name+' · '+cyclon.sgGroepen.length+' SG';
+  $('#loadBadge').className='pill ok'; $('#loadBadge').textContent='🚦 '+(cyclon.installatie.sleutel||name);
+  renderInspect();
+  // feed convert tab if not yet loaded
+  if(!cvCyclon){ cvCyclon=cyclon; $('#cvCyclon').className='pill ok'; $('#cvCyclon').textContent=name; refreshConvertInputs(); }
+  toast('Cyclon geladen: '+(cyclon.installatie.kruispunt||name)); e.target.value='';
+}catch(err){ toast('Kon niet lezen: '+err.message,true); } });
+
+function renderInspect(){
+  const c=cyclon; const a=$('#inspectArea'); if(!c){ return; }
+  let h='';
+  // installatie
+  h+='<div class="card"><h2>Installatie</h2><div class="kpi">'+
+    kpi(c.installatie.sleutel,'sleutel')+kpi(c.sgGroepen.length,'signaalgroepen')+
+    kpi(c.detectoren.length,'detectoren')+kpi(c.conflicts.length,'conflictparen')+
+    kpi(c.programmas.length,'programma\'s')+'</div>'+
+    '<p class="sub" style="margin-top:10px">'+esc(c.installatie.kruispunt||'')+' · Vplan '+esc(c.installatie.vplan||'')+' · Cyclon '+esc(c.installatie.software||'')+'</p></div>';
+  // signal groups
+  h+='<div class="card"><h2>Signaalgroepen</h2><div class="scrollx"><table><thead><tr><th>Naam</th><th>Id</th><th>min-groen</th><th>min-geel</th><th>rood-geel</th><th>SgType</th><th>actief</th></tr></thead><tbody>';
+  c.sgGroepen.forEach(s=>{ h+=`<tr><td><b>${esc(s.naam)}</b></td><td>${esc(s.id)}</td><td>${s.mingroen}</td><td>${s.mingeel}</td><td>${s.roodgeel}</td><td>${esc(s.sgtype)}</td><td>${s.enabled?'✓':'—'}</td></tr>`; });
+  h+='</tbody></table></div></div>';
+  // programs
+  if(c.programmas.length){
+    h+='<div class="card"><h2>Programma\'s — groentijden per signaalgroep</h2>';
+    h+='<p class="sub">min-groen / <b>programma-groen</b> (s). 0 = niet in dit programma toegekend (dan geldt min-groen).</p><div class="scrollx"><table><thead><tr><th>SG</th>';
+    c.programmas.forEach(p=>h+=`<th>${esc(p.naam)}</th>`);
+    h+='</tr></thead><tbody>';
+    c.sgNames.forEach(sgn=>{
+      h+=`<tr><td><b>${esc(sgn)}</b></td>`;
+      c.programmas.forEach(p=>{ const g=p.green[sgn]||{min:0,prog:0}; const has=g.prog>0;
+        h+=`<td style="text-align:center${has?';font-weight:600;color:#642f9e':''}">${g.min}${g.prog>0?' / '+g.prog:''}</td>`; });
+      h+='</tr>';
+    });
+    h+='</tbody></table></div></div>';
+  }
+  // step scheme (stappendiagram)
+  if(c.steps && c.steps.length){
+    h+='<div class="card"><h2>Stappenschema <span class="tag">'+c.steps.length+' stappen</span></h2>';
+    h+='<p class="sub">De voertuigafhankelijke Cyclon-regeling: elke <b>rij</b> is een stap, elke <b>kolom</b> een signaalgroep — <span style="color:#1a9c3c;font-weight:600">groen</span>, <span style="color:#c9960a;font-weight:600">geel</span>, rood. Dit is een <b>stappen-tabel</b> (geen vaste cyclus): volgorde en duur bepaalt de regelaar tijdens het draaien uit detectoren + conflictmatrix. Daarom is dit géén 1-op-1 SUMO-fasereeks — gebruik daarvoor tab 3 (herparametrisering van een gevalideerde basis).</p>';
+    h+='<div class="scrollx"><table class="step-grid"><thead><tr><th>#</th><th>min</th>';
+    c.sgNames.forEach(n=>h+=`<th title="${esc(n)}">${esc(n)}</th>`);
+    h+='</tr></thead><tbody>';
+    c.steps.forEach(s=>{ h+=`<tr><td class="sn">${s.n}</td><td class="sn">${s.min}</td>`;
+      c.sgNames.forEach(n=>{ const v=s.states[n]; const cls=v==='1'?'g':(v==='2'?'y':'r'); h+=`<td class="st ${cls}" title="${esc(n)} · stap ${s.n}"></td>`; });
+      h+='</tr>'; });
+    h+='</tbody></table></div>';
+    h+='<div class="legend"><span><i style="background:#1a9c3c"></i>groen (1)</span><span><i style="background:#f4b400"></i>geel (2)</span><span><i style="background:#eef0f2"></i>rood (3)</span></div></div>';
+  }
+  // logic conditions (Voorwaarden)
+  if(c.voorwaarden && c.voorwaarden.length){
+    h+='<div class="card"><h2>Logica — voorwaarden <span class="tag">'+c.voorwaarden.length+'</span></h2>';
+    h+='<p class="sub">Dit is de expliciete “if”-logica van de regeling: <b>voorwaarde-expressies</b> met verwijzingen <code>#id#</code> (signaalgroep / detector / timer) en ingebouwde functies <code>fn80xx</code>. De regelaar evalueert deze continu — samen met de <b>conflictmatrix</b> (ontruimingstijden) en de <b>min/max-groentijden</b> — om groenaanvragen, groenverlenging en stapovergangen te bepalen. Er is dus geen lineaire “stap X → stap Y”-lijst; de volgorde volgt uit deze voorwaarden op elk moment.</p>';
+    h+='<div class="scrollx"><table><thead><tr><th>id</th><th>expressie (gedecodeerd — «naam» waar bekend)</th></tr></thead><tbody>';
+    c.voorwaarden.forEach(v=>{ const dec=v.expr.replace(/#(\d+)#/g,(m,id)=> c.idName[id]?('«'+c.idName[id]+'»'):((id.length>=4&&id[0]==='8')?('fn'+id):('#'+id+'#')));
+      h+=`<tr><td>${esc(v.id)}</td><td class="mono">${esc(dec)}</td></tr>`; });
+    h+='</tbody></table></div>';
+    h+='<p class="sub" style="margin-top:8px"><code>fn80xx</code> = ingebouwde Cyclon-functies (hiaat/aanvraag/verlenging); die zijn niet in het bestand benoemd. «naam» = gekoppeld object uit dit bestand.</p></div>';
+  }
+  // conflict matrix
+  if(c.conflicts.length){
+    const sgs=c.sgNames;
+    const cm={}; c.conflicts.forEach(x=>{ cm[x.af+'|'+x.op]=x.t; });
+    h+='<div class="card"><h2>Conflictmatrix — ontruimingstijden (s)</h2><p class="sub">rij = ontruimende groep (Af), kolom = oprukkende groep (Op). Waarde = ontruimingstijd.</p><div class="scrollx"><table class="matrix-tbl"><thead><tr><th class="rh">Af \\ Op</th>';
+    sgs.forEach(s=>h+=`<th class="rh">${esc(s)}</th>`);
+    h+='</tr></thead><tbody>';
+    sgs.forEach(af=>{ h+=`<tr><th class="rh">${esc(af)}</th>`;
+      sgs.forEach(op=>{ if(af===op){ h+='<td class="diag"></td>'; return; } const v=cm[af+'|'+op];
+        h+= v!=null? `<td class="has" title="${esc(af)}→${esc(op)}">${v}</td>` : '<td></td>'; });
+      h+='</tr>'; });
+    h+='</tbody></table></div></div>';
+  }
+  // detectors
+  if(c.detectoren.length){
+    h+='<div class="card"><h2>Detectoren <span class="tag">'+c.detectoren.length+'</span></h2><div class="scrollx"><table><thead><tr><th>Naam</th><th>Id</th><th>Type</th></tr></thead><tbody>';
+    c.detectoren.forEach(d=>h+=`<tr><td>${esc(d.naam)}</td><td>${esc(d.id)}</td><td>${esc(d.type)}</td></tr>`);
+    h+='</tbody></table></div></div>';
+  }
+  a.innerHTML=h;
+}
+function kpi(v,l){ return `<div class="k"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div></div>`; }
+
+/* =============================================================
+ *  TLLOGIC + CSV PARSERS
+ * ============================================================= */
+function parseTls(txt){
+  const doc=xmlDoc(txt);
+  return $$('tlLogic',doc).map(tl=>{
+    const phases=$$('phase',tl).map(ph=>{
+      const o={duration:parseInt(ph.getAttribute('duration'))||0, state:ph.getAttribute('state')||''};
+      if(ph.getAttribute('minDur')!=null) o.minDur=parseInt(ph.getAttribute('minDur'));
+      if(ph.getAttribute('maxDur')!=null) o.maxDur=parseInt(ph.getAttribute('maxDur'));
+      return o;
+    });
+    const params={}; $$('param',tl).forEach(p=>params[p.getAttribute('key')]=p.getAttribute('value'));
+    return {id:tl.getAttribute('id'), programID:tl.getAttribute('programID')||'', type:tl.getAttribute('type')||'static',
+      offset:tl.getAttribute('offset')||'0', params, phases};
+  });
+}
+function parseSgCsv(txt){
+  const lines=txt.replace(/^﻿/,'').trim().split(/\r?\n/);
+  const delim=(lines[0].split(';').length>=lines[0].split(',').length)?';':',';
+  const head=lines[0].split(delim).map(s=>s.trim().toLowerCase());
+  const idCol=head.indexOf('id')>=0?head.indexOf('id'):0;
+  const sgCol=head.indexOf('sg')>=0?head.indexOf('sg'):head.length-1;
+  const map={};
+  lines.slice(1).forEach(l=>{ const r=l.split(delim); if(r.length<=Math.max(idCol,sgCol))return;
+    const id=parseInt(r[idCol]); const sg=(r[sgCol]||'').trim(); if(!isNaN(id)&&sg) map[id]=sg; });
+  return map;
+}
+
+/* =============================================================
+ *  TAB 2 — V-PLAN
+ * ============================================================= */
+$('#btnLoadTls').addEventListener('click',()=>$('#tlsFile').click());
+$('#tlsFile').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f)return; try{
+  const {text}=await readPicked(f,false); tlsList=parseTls(text);
+  if(!cvPhases){ /* also offer to convert tab */ }
+  updateVplanStat(); renderVplan(); toast(tlsList.length+' tlLogic geladen.'); e.target.value='';
+}catch(err){ toast('Kon tlLogic niet lezen: '+err.message,true); } });
+$('#btnLoadCsv').addEventListener('click',()=>$('#csvFile').click());
+$('#csvFile').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f)return; try{
+  const {text}=await readPicked(f,false); idx2sg=parseSgCsv(text);
+  updateVplanStat(); renderVplan(); toast(Object.keys(idx2sg).length+' links gekoppeld.'); e.target.value='';
+}catch(err){ toast('Kon CSV niet lezen: '+err.message,true); } });
+function updateVplanStat(){ const s=$('#vplanStat'); const nT=tlsList.length, nC=Object.keys(idx2sg).length;
+  s.className='pill'+((nT&&nC)?' ok':''); s.textContent=`${nT} tlLogic · ${nC} links`; }
+
+function sgStateInPhase(state, idxs){
+  let hasG=false,hasY=false;
+  idxs.forEach(i=>{ const c=state[i]; if(c==='G'||c==='g')hasG=true; else if(c==='y'||c==='Y')hasY=true; });
+  return hasG?'G':(hasY?'y':'r');
+}
+function vplanSVG(tl, idx2sg){
+  const phases=tl.phases.map(p=>Object.assign({},p));
+  let t=0; phases.forEach(p=>{ p.start=t; t+=p.duration; p.var=(p.minDur!=null&&p.maxDur!=null&&(p.minDur!==p.duration||p.maxDur!==p.duration)); });
+  const cycle=t;
+  const sgOrder=[...new Set(Object.values(idx2sg))].sort();
+  const sgIdxs={}; sgOrder.forEach(sg=>sgIdxs[sg]=Object.keys(idx2sg).map(Number).filter(i=>idx2sg[i]===sg));
+  // green min-nom per SG
+  const gmin={}, gnom={};
+  sgOrder.forEach(sg=>{ let mn=0,nm=0; phases.forEach(ph=>{ if(sgStateInPhase(ph.state,sgIdxs[sg])==='G'){ nm+=ph.duration; mn+=ph.var?ph.minDur:ph.duration; } }); gmin[sg]=mn; gnom[sg]=nm; });
+
+  const nrow=sgOrder.length;
+  const padL=54, padR=140, padT=42, rowH=26, padB=30;
+  const plotW=Math.max(360, cycle*5.0);
+  const W=padL+plotW+padR, H=padT+nrow*rowH+padB;
+  const sx=x=>padL+x/cycle*plotW;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;background:#fff">`;
+  svg+=`<defs><pattern id="hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="${'#1a9c3c'}"/><line x1="0" y1="0" x2="0" y2="6" stroke="#fff" stroke-width="2"/></pattern></defs>`;
+  // title
+  svg+=`<text x="${padL}" y="18" font-size="13" font-weight="700" fill="#1c2733">V-plan — ${esc(tl.id)} · programma ${esc(tl.programID||'?')} · cyclus ${cycle}s</text>`;
+  // time grid
+  const step=cycle<=120?10:20;
+  for(let x=0;x<=cycle;x+=step){ svg+=`<line x1="${sx(x)}" y1="${padT-4}" x2="${sx(x)}" y2="${padT+nrow*rowH}" stroke="#e6e6e6" stroke-width="1"/><text x="${sx(x)}" y="${padT+nrow*rowH+14}" font-size="9" fill="#8a97a5" text-anchor="middle">${x}</text>`; }
+  svg+=`<text x="${padL+plotW/2}" y="${H-4}" font-size="10" fill="#6b7885" text-anchor="middle">tijd in cyclus (s)</text>`;
+  // variable-phase bands + labels
+  phases.forEach((ph,k)=>{ if(!ph.var)return; const x0=sx(ph.start),x1=sx(ph.start+ph.duration);
+    svg+=`<rect x="${x0}" y="${padT-2}" width="${x1-x0}" height="${nrow*rowH+2}" fill="#9c27b0" opacity="0.06"/>`;
+    svg+=`<line x1="${x0}" y1="${padT-2}" x2="${x0}" y2="${padT+nrow*rowH}" stroke="#9c27b0" opacity="0.25" stroke-width="0.7"/>`;
+    svg+=`<line x1="${x1}" y1="${padT-2}" x2="${x1}" y2="${padT+nrow*rowH}" stroke="#9c27b0" opacity="0.25" stroke-width="0.7"/>`;
+    svg+=`<text x="${(x0+x1)/2}" y="${padT-6}" font-size="8" fill="#6a1b9a" font-weight="700" text-anchor="middle">${ph.minDur}–${ph.maxDur}s</text>`;
+  });
+  // rows
+  sgOrder.forEach((sg,row)=>{
+    const y=padT+row*rowH;
+    svg+=`<text x="${padL-8}" y="${y+rowH/2+3}" font-size="11" font-weight="700" fill="#1c2733" text-anchor="end">${esc(sg)}</text>`;
+    svg+=`<rect x="${padL}" y="${y+rowH/2-1.5}" width="${plotW}" height="3" fill="#d0d0d0"/>`;
+    phases.forEach(ph=>{ const st=sgStateInPhase(ph.state,sgIdxs[sg]); if(st==='r')return;
+      const x0=sx(ph.start), w=sx(ph.start+ph.duration)-x0;
+      const fill = st==='G' ? (ph.var?'url(#hatch)':'#1a9c3c') : '#f4b400';
+      svg+=`<rect x="${x0}" y="${y+3}" width="${w}" height="${rowH-8}" fill="${fill}" ${st==='G'&&ph.var?'stroke="#1a9c3c" stroke-width="0.5"':''}/>`; });
+    // right label green min-nom
+    svg+=`<text x="${padL+plotW+10}" y="${y+rowH/2+3}" font-size="10" font-weight="700" fill="#1a6b2c">${gmin[sg]}–${gnom[sg]} s</text>`;
+  });
+  svg+=`<text x="${padL+plotW+10}" y="${padT-6}" font-size="8.5" font-weight="700" fill="#333">groen min–nom</text>`;
+  svg+='</svg>';
+  return svg;
+}
+function vplanLegend(){ return '<div class="legend"><span><i style="background:#1a9c3c"></i>groen (vast)</span><span><i style="background:repeating-linear-gradient(45deg,#1a9c3c,#1a9c3c 3px,#fff 3px,#fff 5px)"></i>groen (variabel/actuated)</span><span><i style="background:#f4b400"></i>geel</span><span><i style="background:#d0d0d0"></i>rood</span><span><i style="background:#9c27b0;opacity:.15"></i>variabele fase (band)</span></div>'; }
+function renderVplan(){
+  const a=$('#vplanArea');
+  if(!tlsList.length){ a.innerHTML='<div class="card"><div class="empty">Laad een tlLogic-bestand.</div></div>'; return; }
+  const haveMap=Object.keys(idx2sg).length>0;
+  let h='';
+  tlsList.forEach((tl,i)=>{
+    h+='<div class="card"><h2>'+esc(tl.id)+' <span class="pill">'+esc(tl.programID||'?')+' · '+esc(tl.type)+' · '+tl.phases.length+' fasen</span></h2>';
+    if(haveMap) h+='<div class="scrollx">'+vplanSVG(tl, idx2sg)+'</div>'+vplanLegend();
+    else h+='<div class="banner warn" style="margin:0"><span>⚠️</span><div>Laad de <code>input_sumo.csv</code> (tab SG-koppeling) voor het V-plan.'+(connsByTls[tl.id]?' Het kruispunt hieronder werkt al zonder koppeling.':'')+'</div></div>';
+    // junction visualisation (if a net with matching tls geometry is loaded)
+    if(connsByTls[tl.id] && connsByTls[tl.id].length){
+      h+='<div class="divider" style="height:1px;background:var(--line);margin:14px 0"></div>';
+      h+='<h3 style="margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)">Kruispunt — fase <span id="jlbl'+i+'">1</span>/'+tl.phases.length+' <span class="pill" id="jdur'+i+'"></span></h3>';
+      h+='<input type="range" id="jsl'+i+'" min="0" max="'+(tl.phases.length-1)+'" value="0" step="1" style="width:100%;max-width:460px;accent-color:var(--accent)">';
+      h+='<div id="jsvg'+i+'"></div>';
+      h+='<div class="legend"><span><i style="background:#1a9c3c"></i>groen</span><span><i style="background:#f4b400"></i>geel</span><span><i style="background:#d0424a"></i>rood</span><span class="sub">cijfer = linkIndex</span></div>';
+    }
+    h+='</div>';
+  });
+  a.innerHTML=h;
+  // wire the junction phase sliders
+  tlsList.forEach((tl,i)=>{
+    const sl=$('#jsl'+i); if(!sl) return;
+    const draw=ph=>{ const st=tl.phases[ph]?tl.phases[ph].state:''; const svg=junctionSVG(tl.id, st, 460, 380);
+      $('#jsvg'+i).innerHTML=svg||'<p class="sub">Geen kruispuntgeometrie voor «'+esc(tl.id)+'» in dit net.</p>';
+      $('#jlbl'+i).textContent=(ph+1); const d=tl.phases[ph]; $('#jdur'+i).textContent=d?(d.duration+'s'+(d.minDur!=null?' · '+d.minDur+'–'+d.maxDur:'')):''; };
+    sl.addEventListener('input',e=>draw(+e.target.value));
+    draw(0);
+  });
+}
+
+/* =============================================================
+ *  TAB 2b — SG-KOPPELING (build input_sumo.csv from a .net.xml)
+ * ============================================================= */
+let netLinks={}, curTls=null;
+// full net geometry (for the junction visualisation)
+let laneMap={}, internalNextLane={}, connsByTls={};
+function parseShape(str){ if(!str||!str.trim())return[]; return str.trim().split(/\s+/).map(s=>s.split(',').map(Number)).filter(p=>isFinite(p[0])&&isFinite(p[1])); }
+function parseNet(txt){
+  const doc=xmlDoc(txt); laneMap={}; internalNextLane={}; connsByTls={}; const edgeLaneIds={};
+  $$('edge > lane',doc).forEach(lane=>{ const id=lane.getAttribute('id'); const eid=lane.parentElement.getAttribute('id');
+    laneMap[id]={shape:parseShape(lane.getAttribute('shape')||''), width:parseFloat(lane.getAttribute('width'))||3.2};
+    (edgeLaneIds[eid]=edgeLaneIds[eid]||[]).push({id, idx:parseInt(lane.getAttribute('index'))||0}); });
+  Object.values(edgeLaneIds).forEach(a=>a.sort((x,y)=>x.idx-y.idx));
+  const laneAt=(e,i)=>{ const a=edgeLaneIds[e]; return (a&&a[i])?a[i].id:(e+'_'+i); };
+  const links={};
+  $$('connection',doc).forEach(c=>{ const tl=c.getAttribute('tl'), li=c.getAttribute('linkIndex');
+    if(tl!=null&&li!=null){
+      const conn={from:c.getAttribute('from')||'', to:c.getAttribute('to')||'', fromLane:parseInt(c.getAttribute('fromLane'))||0, linkIndex:parseInt(li), dir:c.getAttribute('dir')||'', via:c.getAttribute('via')||''};
+      (connsByTls[tl]=connsByTls[tl]||[]).push(conn);
+      (links[tl]=links[tl]||[]).push({idx:conn.linkIndex, from:conn.from, to:conn.to, dir:conn.dir});
+    }
+    const from=c.getAttribute('from')||''; if(from.startsWith(':')){ const via=c.getAttribute('via')||'', to=c.getAttribute('to')||''; const flid=laneAt(from, parseInt(c.getAttribute('fromLane'))||0);
+      if(via.startsWith(':')&&laneMap[via]) internalNextLane[flid]=via;
+      else if(to.startsWith(':')) internalNextLane[flid]=laneAt(to, parseInt(c.getAttribute('toLane'))||0); }
+  });
+  Object.keys(links).forEach(tl=>{ const seen={}; links[tl]=links[tl].sort((a,b)=>a.idx-b.idx).filter(x=>{ if(seen[x.idx])return false; seen[x.idx]=1; return true; }); });
+  return links;
+}
+function getFullViaShape(startId){ const pts=[]; let lid=startId; const seen=new Set();
+  while(lid&&laneMap[lid]&&!seen.has(lid)){ seen.add(lid); const sh=laneMap[lid].shape; if(!sh||sh.length<2)break;
+    if(!pts.length) pts.push(...sh); else { const [lx,ly]=pts[pts.length-1],[fx,fy]=sh[0]; pts.push(...(Math.hypot(fx-lx,fy-ly)<0.5?sh.slice(1):sh)); }
+    lid=internalNextLane[lid]||null; } return pts; }
+const SIG_COLORS={G:'#1a9c3c',g:'#15803d',r:'#d0424a',R:'#d0424a',u:'#8b5cf6',y:'#f4b400',Y:'#ca8a04',o:'#f97316',O:'#c2410c',s:'#06b6d4'};
+const SG_PALETTE=['#1f6feb','#1a9c3c','#e0662b','#8b5cf6','#0891b2','#c2410c','#be185d','#4d7c0f','#b45309','#0f766e','#7c3aed','#a16207','#dc2626','#2563eb','#059669','#db2777'];
+function sgColorMap(links){ const sgs=[...new Set((links||[]).map(l=>l.sg).filter(Boolean))]; const m={}; sgs.forEach((s,i)=>m[s]=SG_PALETTE[i%SG_PALETTE.length]); return m; }
+// core: draw the junction; styleOf(linkIndex) -> {color,label,glow,order,dim}
+function junctionSVGcore(tlId, W, H, styleOf){
+  const conns=(connsByTls[tlId]||[]).slice().sort((a,b)=>a.linkIndex-b.linkIndex); if(!conns.length) return null;
+  const viaInfo={};
+  conns.forEach(c=>{ const startId=(c.via&&laneMap[c.via])?c.via:(':'+tlId+'_'+c.linkIndex+'_0'); if(!laneMap[startId])return; const shape=getFullViaShape(startId); if(shape.length>=2) viaInfo[startId]={li:c.linkIndex, shape}; });
+  const allPts=[]; Object.values(viaInfo).forEach(v=>allPts.push(...v.shape)); if(allPts.length<2) return null;
+  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity; allPts.forEach(([x,y])=>{xmin=Math.min(xmin,x);xmax=Math.max(xmax,x);ymin=Math.min(ymin,y);ymax=Math.max(ymax,y);});
+  const PAD=W*0.08, dW=W-2*PAD, dH=H-2*PAD, rX=xmax-xmin||1, rY=ymax-ymin||1, scale=Math.min(dW/rX,dH/rY);
+  const offX=PAD+(dW-rX*scale)/2, offY=PAD+(dH-rY*scale)/2;
+  const tx=x=>offX+(x-xmin)*scale, ty=y=>H-offY-(y-ymin)*scale;
+  const line=pts=>pts.map((p,i)=>(i?'L':'M')+tx(p[0]).toFixed(1)+','+ty(p[1]).toFixed(1)).join('');
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;background:#f5f6f8;border:1px solid var(--line);border-radius:8px">`;
+  Object.values(viaInfo).map(v=>({...v, st:styleOf(v.li)})).sort((a,b)=>(a.st.order||0)-(b.st.order||0)).forEach(({li,shape,st})=>{
+    const col=st.color, glow=st.glow, dim=st.dim;
+    const lw=Math.max(glow?3.5:2.4, scale*(glow?0.75:0.55)), op=dim?0.3:(glow?0.97:0.85);
+    if(glow) s+=`<path d="${line(shape)}" fill="none" stroke="${col}" stroke-width="${(lw*3.5).toFixed(1)}" stroke-linecap="round" opacity="0.13"/>`;
+    s+=`<path data-li="${li}" data-main="1" d="${line(shape)}" fill="none" stroke="${col}" stroke-width="${lw.toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+    const n=shape.length, ex=tx(shape[n-1][0]), ey=ty(shape[n-1][1]); const ang=Math.atan2(ty(shape[n-1][1])-ty(shape[n-2][1]), tx(shape[n-1][0])-tx(shape[n-2][0])); const AS=Math.max(5,lw*2.2);
+    s+=`<polygon points="${ex.toFixed(1)},${ey.toFixed(1)} ${(ex-Math.cos(ang-0.38)*AS).toFixed(1)},${(ey-Math.sin(ang-0.38)*AS).toFixed(1)} ${(ex-Math.cos(ang+0.38)*AS).toFixed(1)},${(ey-Math.sin(ang+0.38)*AS).toFixed(1)}" fill="${col}" opacity="${op}"/>`;
+    const mid=shape[Math.floor(n/2)], bx=tx(mid[0]), by=ty(mid[1]), BR=Math.max(6,Math.min(11,lw*1.7));
+    s+=`<circle data-badge="${li}" cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${BR.toFixed(1)}" fill="#fff" stroke="${col}" stroke-width="1.3" opacity="${dim?0.6:0.97}"/>`;
+    s+=`<text x="${bx.toFixed(1)}" y="${(by+0.5).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" fill="${col}" font-size="${Math.max(6,BR*0.82).toFixed(1)}" font-family="monospace" font-weight="bold" opacity="${dim?0.6:0.97}">${esc(st.label)}</text>`;
+  });
+  s+='</svg>'; return s;
+}
+// junction coloured by phase signal state (V-plan tab)
+function junctionSVG(tlId, stateStr, W, H){
+  const ORD={r:0,R:0,u:0,y:1,Y:1,s:1,g:2,G:2,o:3,O:3};
+  return junctionSVGcore(tlId, W, H, li=>{ const sig=stateStr[li]||'r'; const isG='gGoO'.includes(sig), isR='rRuU'.includes(sig);
+    return {color:SIG_COLORS[sig]||'#9aa4b2', label:li, glow:isG, order:ORD[sig]??0, dim:isR}; });
+}
+// junction coloured by assigned SG (SG-koppeling tab) — badge stays the linkIndex
+function junctionSVGbySG(tlId, links, W, H){
+  const cmap=sgColorMap(links); const byIdx={}; (links||[]).forEach(l=>byIdx[l.idx]=l.sg);
+  return junctionSVGcore(tlId, W, H, li=>{ const sg=byIdx[li];
+    return sg? {color:cmap[sg], label:li, glow:true, order:1, dim:false} : {color:'#9aa4b2', label:li, glow:false, order:0, dim:true}; });
+}
+$('#btnLoadNet').addEventListener('click',()=>$('#netFileIn').click());
+$('#netFileIn').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f)return; try{
+  const {text}=await readPicked(f,false); netLinks=parseNet(text);
+  const ids=Object.keys(netLinks); if(!ids.length) throw new Error('geen VRI-verbindingen (tl="…") gevonden');
+  if(tlsList.length) renderVplan();   // enable junction view if a tlLogic is already loaded
+  const sel=$('#csvTlsSelect'); sel.innerHTML=ids.map(t=>`<option>${esc(t)}</option>`).join(''); sel.style.display=ids.length>1?'':'none';
+  curTls=ids[0]; sel.value=curTls;
+  $('#csvNetStat').className='pill ok'; $('#csvNetStat').textContent=ids.map(t=>t+': '+netLinks[t].length+' links').join(' · ');
+  renderCsvTable(); toast('Net geladen: '+ids.length+' VRI.'); e.target.value='';
+}catch(err){ toast('Kon net niet lezen: '+err.message,true); } });
+$('#csvTlsSelect').addEventListener('change',e=>{ curTls=e.target.value; renderCsvTable(); });
+function renderCsvTable(){
+  const links=netLinks[curTls]||[]; $('#csvBuildCard').style.display=links.length?'':'none';
+  let dl=$('#sgDatalist'); if(!dl){ dl=document.createElement('datalist'); dl.id='sgDatalist'; document.body.appendChild(dl); }
+  dl.innerHTML=(cyclon?[...new Set(cyclon.sgNames)]:[]).map(s=>`<option value="${esc(s)}">`).join('');
+  const tb=$('#csvTable tbody'); tb.innerHTML='';
+  links.forEach(l=>{ const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="text-align:right;color:var(--muted);font-weight:600">${l.idx}</td><td class="mono" style="font-size:11px">${esc(l.from)}</td><td class="mono" style="font-size:11px">${esc(l.to)}</td><td style="text-align:center">${esc(l.dir)}</td><td><input list="sgDatalist" value="${esc(l.sg||'')}" placeholder="SG" style="width:100px"></td>`;
+    tr.querySelector('input').addEventListener('input',ev=>{ l.sg=ev.target.value.trim(); $('#csvBuildStat').textContent=links.length+' links · '+links.filter(x=>x.sg).length+' toegekend'; renderCsvJunction(); });
+    tr.addEventListener('mouseenter',()=>highlightLink(l.idx,true)); tr.addEventListener('mouseleave',()=>highlightLink(l.idx,false));
+    tb.appendChild(tr); });
+  $('#csvBuildStat').textContent=links.length+' links · '+links.filter(l=>l.sg).length+' toegekend';
+  renderCsvJunction();
+}
+function renderCsvJunction(){
+  const cont=$('#csvJunction'), leg=$('#csvJunctionLegend'); if(!cont) return;
+  const links=netLinks[curTls]||[];
+  if(!(connsByTls[curTls]&&connsByTls[curTls].length)){ cont.innerHTML='<p class="sub" style="max-width:300px">Geen kruispuntgeometrie in dit net voor «'+esc(curTls||'')+'» — de tabel werkt wel.</p>'; leg.innerHTML=''; return; }
+  cont.innerHTML=junctionSVGbySG(curTls, links, 380, 340)||'<p class="sub">Geen geometrie.</p>';
+  const cmap=sgColorMap(links);
+  leg.innerHTML=Object.keys(cmap).map(s=>`<span><i style="background:${cmap[s]}"></i>${esc(s)}</span>`).join('')+(links.some(l=>!l.sg)?'<span><i style="background:#9aa4b2"></i>niet toegekend</span>':'');
+}
+function highlightLink(idx,on){ const p=$('#csvJunction svg path[data-main="1"][data-li="'+idx+'"]'); if(p){ p.style.filter=on?'drop-shadow(0 0 4px #642f9e)':''; p.setAttribute('stroke-width', on? (parseFloat(p.getAttribute('stroke-width'))+3):(parseFloat(p.getAttribute('stroke-width'))-3)); }
+  const b=$('#csvJunction svg circle[data-badge="'+idx+'"]'); if(b) b.setAttribute('stroke-width', on?3:1.3); }
+$('#btnFillDown').addEventListener('click',()=>{ const links=netLinks[curTls]||[]; let last=''; links.forEach(l=>{ if(l.sg) last=l.sg; else if(last) l.sg=last; }); renderCsvTable(); });
+$('#btnExportCsv').addEventListener('click',()=>{ const links=netLinks[curTls]||[]; if(!links.length){ toast('Laad eerst een net.',true); return; }
+  const csv='Id;Gorg;SG\n'+links.map(l=>`${l.idx};g;${l.sg||''}`).join('\n')+'\n'; download('input_sumo.csv',csv,'text/csv'); toast('input_sumo.csv gedownload.'); });
+$('#btnUseCsv').addEventListener('click',()=>{ const links=netLinks[curTls]||[]; const m={}; links.forEach(l=>{ if(l.sg) m[l.idx]=l.sg; });
+  if(!Object.keys(m).length){ toast('Ken eerst SG\'s toe.',true); return; }
+  idx2sg=m; cvIdx2sg=Object.assign({},m);
+  updateVplanStat(); renderVplan();
+  $('#cvCsv').className='pill ok'; $('#cvCsv').textContent=Object.keys(m).length+' links (uit net)';
+  if(typeof refreshConvertInputs==='function') refreshConvertInputs();
+  toast('SG-koppeling actief in V-plan & Convert ('+Object.keys(m).length+' links).'); });
+
+/* =============================================================
+ *  TAB 3 — CONVERT  (faithful port of cyclon_to_sumo_actuated.py)
+ * ============================================================= */
+$('#cvLoadCyclon').addEventListener('click',()=>$('#cvCyclonFile').click());
+$('#cvCyclonFile').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f)return; try{
+  const {name,text}=await readPicked(f,true); cvCyclon=parseCyclon(text);
+  $('#cvCyclon').className='pill ok'; $('#cvCyclon').textContent=name; refreshConvertInputs();
+  if(!cyclon){ cyclon=cvCyclon; renderInspect(); $('#loadBadge').className='pill ok'; $('#loadBadge').textContent='🚦 '+(cyclon.installatie.sleutel||name); }
+  toast('Cyclon geladen.'); e.target.value='';
+}catch(err){ toast('Fout: '+err.message,true); } });
+$('#cvLoadTls').addEventListener('click',()=>$('#cvTlsFile').click());
+$('#cvTlsFile').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f)return; try{
+  const {text}=await readPicked(f,false); const list=parseTls(text);
+  if(!list.length) throw new Error('geen tlLogic gevonden');
+  cvPhases=list[0].phases; cvTlsMeta={id:list[0].id};
+  $('#cvTls').className='pill ok'; $('#cvTls').textContent=list[0].id+' · '+cvPhases.length+' fasen'+(list.length>1?' (+'+(list.length-1)+' meer, 1e gebruikt)':'');
+  if($('#pTlsId').value==='tls'&&list[0].id) $('#pTlsId').value=list[0].id;
+  refreshConvertInputs(); toast('Basis-tlLogic geladen.'); e.target.value='';
+}catch(err){ toast('Fout: '+err.message,true); } });
+$('#cvLoadCsv').addEventListener('click',()=>$('#cvCsvFile').click());
+$('#cvCsvFile').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f)return; try{
+  const {text}=await readPicked(f,false); cvIdx2sg=parseSgCsv(text);
+  $('#cvCsv').className='pill ok'; $('#cvCsv').textContent=Object.keys(cvIdx2sg).length+' links';
+  refreshConvertInputs(); toast('SG-koppeling geladen.'); e.target.value='';
+}catch(err){ toast('Fout: '+err.message,true); } });
+
+let mergeRows=[];   // [{sumo, cyclon:'A2,A3'}]
+let progRows=[];    // [{suffix, prog}]
+function refreshConvertInputs(){
+  // merge table from unique SUMO-SGs in CSV
+  if(cvIdx2sg){
+    const sumoSgs=[...new Set(Object.values(cvIdx2sg))].sort();
+    const prev=Object.fromEntries(mergeRows.map(r=>[r.sumo,r.cyclon]));
+    mergeRows=sumoSgs.map(s=>({sumo:s, cyclon: prev[s]!=null?prev[s]:s}));
+  }
+  renderMergeTable();
+  // program table from cyclon programs
+  if(cvCyclon && !progRows.length){
+    const names=cvCyclon.programmas.map(p=>p.naam);
+    const guess=(re)=>names.find(n=>re.test(n))||'';
+    progRows=[{suffix:'OS',prog:guess(/os|ochtend|osp/i)},{suffix:'AS',prog:guess(/as|avond|asp/i)}].filter(r=>r.prog);
+    if(!progRows.length) progRows=names.slice(0,2).map((n,i)=>({suffix:['OS','AS'][i]||('P'+i), prog:n}));
+  }
+  renderProgTable();
+}
+function renderMergeTable(){
+  const tb=$('#mergeTable tbody'); tb.innerHTML='';
+  mergeRows.forEach(r=>{ const tr=document.createElement('tr');
+    tr.innerHTML=`<td><b>${esc(r.sumo)}</b></td><td><input value="${esc(r.cyclon)}" placeholder="bv. A2,A3"></td>`;
+    tr.querySelector('input').addEventListener('input',e=>r.cyclon=e.target.value);
+    tb.appendChild(tr); });
+  if(!mergeRows.length) tb.innerHTML='<tr><td colspan="2" class="sub" style="text-align:center">Laad eerst de input_sumo.csv.</td></tr>';
+}
+function renderProgTable(){
+  const tb=$('#progTable tbody'); tb.innerHTML='';
+  const opts=cvCyclon?cvCyclon.programmas.map(p=>p.naam):[];
+  progRows.forEach((r,i)=>{ const tr=document.createElement('tr');
+    const sel = opts.length? `<select>${opts.map(o=>`<option ${o===r.prog?'selected':''}>${esc(o)}</option>`).join('')}</select>` : `<input value="${esc(r.prog)}">`;
+    tr.innerHTML=`<td><input value="${esc(r.suffix)}" style="width:110px"></td><td>${sel}</td><td><button class="btn danger sm">✕</button></td>`;
+    tr.querySelector('td input').addEventListener('input',e=>r.suffix=e.target.value);
+    tr.querySelector('td:nth-child(2) select,td:nth-child(2) input').addEventListener('input',e=>r.prog=e.target.value);
+    tr.querySelector('button').addEventListener('click',()=>{ progRows.splice(i,1); renderProgTable(); });
+    tb.appendChild(tr); });
+}
+$('#btnAddProg').addEventListener('click',()=>{ progRows.push({suffix:'',prog:cvCyclon?(cvCyclon.programmas[0]||{}).naam||'':''}); renderProgTable(); });
+
+// --- algorithm port ---
+function greenSgsInState(state, idx2sg){
+  const per={};
+  for(let li=0;li<state.length;li++){ const sg=idx2sg[li]; if(sg){ (per[sg]=per[sg]||[]).push(state[li]); } }
+  const greens=new Set();
+  for(const sg in per){ if(per[sg].every(c=>c==='G'||c==='g')) greens.add(sg); }
+  return greens;
+}
+function sumoSgParam(sg, sgdef, prog, sumo2cyc, P){
+  let comps=sumo2cyc[sg]||[sg];
+  const inDef=comps.filter(c=>sgdef[c]); const use=inDef.length?inDef:comps;
+  const mgVals=comps.filter(c=>sgdef[c]).map(c=>sgdef[c].mingroen);
+  const geelVals=comps.filter(c=>sgdef[c]).map(c=>sgdef[c].mingeel);
+  const grnVals=comps.map(c=>(prog[c]!=null?prog[c]:0));
+  const mingr=mgVals.length?Math.min(...mgVals):P.minGroen;
+  const geel=geelVals.length?Math.max(...geelVals):P.geel;
+  const grn=grnVals.length?Math.max(...grnVals):0;
+  return {mingr, geel, grn};
+}
+function buildProgram(phases, idx2sg, sgdef, prog, sumo2cyc, P){
+  return phases.map(ph=>{
+    const state=ph.state, dur=ph.duration;
+    if(/[yY]/.test(state)) return `<phase duration="${dur}" state="${state}"/>`;
+    const greens=[...greenSgsInState(state, idx2sg)];
+    const mingrs=greens.map(sg=>sumoSgParam(sg,sgdef,prog,sumo2cyc,P).mingr);
+    const progGrns=greens.map(sg=>sumoSgParam(sg,sgdef,prog,sumo2cyc,P).grn);
+    const mingr=mingrs.length?Math.min(...mingrs):P.minGroen;
+    const progGrn=progGrns.length?Math.max(...progGrns):0;
+    if(dur<=P.handover) return `<phase duration="${dur}" state="${state}"/>`;
+    const mx=Math.max(progGrn, mingr);
+    return `<phase duration="${dur}" state="${state}" minDur="${mingr}" maxDur="${mx}"/>`;
+  });
+}
+// mode toggle
+function cvMode(){ const el=document.querySelector('input[name=cvMode]:checked'); return el?el.value:'reparam'; }
+$$('input[name=cvMode]').forEach(r=>r.addEventListener('change',()=>{
+  const light=cvMode()==='light';
+  $('#cvBannerReparam').style.display=light?'none':'flex';
+  $('#cvBannerLight').style.display=light?'flex':'none';
+  const tlsRow=$('#cvTls').closest('.filerow'); if(tlsRow) tlsRow.style.opacity=light?'0.45':'1';
+}));
+
+// --- controller-light: build a plausible fixed cycle from conflict matrix + min-green + program-green ---
+function buildLikelyCycle(cyclon, idx2sg, sumo2cyc, prog, P, tlsId, suffix, progName, opt){
+  opt=opt||{}; const actuated=!!opt.actuated, gap=opt.gap!=null?opt.gap:3.0;
+  const nLinks=Math.max(...Object.keys(idx2sg).map(Number))+1;
+  const sumoSgs=[...new Set(Object.values(idx2sg))];
+  const comps=sg=>(sumo2cyc[sg]||[sg]);
+  const confMap={}; (cyclon.conflicts||[]).forEach(c=>{ confMap[c.af+'|'+c.op]=c.t; });
+  const clearFromTo=(A,B)=>{ let t=0,f=false; comps(A).forEach(ca=>comps(B).forEach(cb=>{ const v=confMap[ca+'|'+cb]; if(v!=null){f=true;t=Math.max(t,v);} })); return f?t:null; };
+  const conflict=(A,B)=> clearFromTo(A,B)!=null || clearFromTo(B,A)!=null;
+  const adj={}; sumoSgs.forEach(s=>adj[s]=new Set());
+  for(let i=0;i<sumoSgs.length;i++)for(let j=i+1;j<sumoSgs.length;j++){ if(conflict(sumoSgs[i],sumoSgs[j])){ adj[sumoSgs[i]].add(sumoSgs[j]); adj[sumoSgs[j]].add(sumoSgs[i]); } }
+  // greedy graph-colouring (Welsh–Powell): non-conflicting groups share a stage; every SG gets a stage
+  const order=[...sumoSgs].sort((a,b)=>adj[b].size-adj[a].size);
+  const stages=[];
+  order.forEach(sg=>{ let placed=false; for(const st of stages){ if(st.every(x=>!adj[sg].has(x))){ st.push(sg); placed=true; break; } } if(!placed) stages.push([sg]); });
+  const sgGreen=sg=>{ const cs=comps(sg); const g=Math.max(0,...cs.map(c=>prog[c]!=null?prog[c]:0));
+    const mn=Math.min(P.minGroen,...cs.filter(c=>cyclon.sgdef[c]).map(c=>cyclon.sgdef[c].mingroen)); return Math.max(g,mn,P.minGroen); };
+  const sgGeel=list=>{ let g=P.geel; list.forEach(sg=>comps(sg).forEach(c=>{ if(cyclon.sgdef[c]) g=Math.max(g,cyclon.sgdef[c].mingeel); })); return g; };
+  const stateStr=(greenSet,amberSet)=>{ let s=''; for(let L=0;L<nLinks;L++){ const sg=idx2sg[L]; s+=(amberSet&&amberSet.has(sg))?'y':((greenSet&&greenSet.has(sg))?'G':'r'); } return s; };
+  // per-group min green ("vast groen") = program SgTijd[0] if set, else SgGroep MinGroen, else fallback
+  const grpMin=c=>{ const pm=opt.progMin&&opt.progMin[c]; if(pm>0) return pm; return cyclon.sgdef[c]?cyclon.sgdef[c].mingroen:P.minGroen; };
+  // per-stage min-groen (max over the stage's groups so each is satisfied) and program-groen
+  const stageMin=list=>Math.round(Math.max(P.minGroen,...list.map(sg=>Math.max(...comps(sg).map(c=>grpMin(c))))));
+  const stageMax=list=>Math.round(Math.max(stageMin(list),...list.map(sgGreen)));
+  const phases=[];
+  for(let i=0;i<stages.length;i++){
+    const cur=stages[i], nxt=stages[(i+1)%stages.length], curSet=new Set(cur);
+    const gmin=stageMin(cur), gmax=stageMax(cur);
+    phases.push({dur:gmax, min:gmin, max:gmax, state:stateStr(curSet,null), kind:'groen', stage:cur.join('+')});
+    const geel=sgGeel(cur);
+    phases.push({dur:geel, state:stateStr(null,curSet), kind:'geel'});
+    let clr=0; cur.forEach(a=>nxt.forEach(b=>{ const t=clearFromTo(a,b); if(t!=null) clr=Math.max(clr,t); }));
+    clr=Math.max(0, Math.round(clr-geel));
+    if(clr>0) phases.push({dur:clr, state:stateStr(null,null), kind:'ontruiming'});
+  }
+  const cycle=phases.reduce((a,p)=>a+p.dur,0);
+  const body=phases.map(p=>{
+    const cmt=p.kind==='groen'?' <!-- '+esc(p.stage)+' -->':'';
+    if(actuated && p.kind==='groen') return `<phase duration="${p.dur}" state="${p.state}" minDur="${p.min}" maxDur="${p.max}"/>${cmt}`;
+    return `<phase duration="${p.dur}" state="${p.state}"/>${cmt}`;
+  });
+  const type=actuated?'actuated':'static';
+  const bronExtra=actuated?` — actuated (minDur=min-groen, maxDur=programma-groen, gap ${gap}s)`:' (plausibele vaste cyclus)';
+  const xml='<?xml version="1.0" encoding="UTF-8"?>\n'+
+    '<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">\n'+
+    `<tlLogic id="${esc(tlsId)}" type="${type}" programID="${esc(suffix)}" offset="0">\n`+
+    (actuated?`  <param key="max-gap" value="${gap}"/>\n`:'')+
+    `  <param key="bron" value="controller-light uit Cyclon ${esc(progName)}: conflictmatrix + min-groen + programma-groen — ${stages.length} fasen, cyclus ${cycle}s${bronExtra}"/>\n`+
+    body.join('\n')+'\n</tlLogic>\n</additional>\n';
+  return {xml, nPhases:body.length, nStages:stages.length, cycle, stages, actuated};
+}
+
+$('#btnConvert').addEventListener('click',()=>{
+  const mode=cvMode();
+  if(!cvCyclon){ toast('Laad het Cyclon-bestand.',true); return; }
+  if(!cvIdx2sg||!Object.keys(cvIdx2sg).length){ toast('Laad de input_sumo.csv.',true); return; }
+  if(mode==='reparam' && !cvPhases){ toast('Laad de basis-tlLogic (of kies modus controller-light).',true); return; }
+  if(mode==='light' && !(cvCyclon.conflicts&&cvCyclon.conflicts.length)){ toast('Geen conflictmatrix in het Cyclon-bestand — controller-light kan geen fasen bepalen.',true); return; }
+  const P={gap:num($('#pGap').value,3.0), handover:num($('#pHandover').value,2), minGroen:num($('#pMinGreen').value,5), geel:num($('#pGeel').value,3)};
+  const tlsId=$('#pTlsId').value.trim()||'tls';
+  const sumo2cyc={}; mergeRows.forEach(r=>{ sumo2cyc[r.sumo]=(r.cyclon||r.sumo).split(',').map(s=>s.trim()).filter(Boolean); });
+  const progByName=Object.fromEntries(cvCyclon.programmas.map(p=>[p.naam,p]));
+  lastConversions=[];
+  const rows=progRows.filter(r=>r.suffix&&r.prog);
+  if(!rows.length){ toast('Definieer minstens één programma-koppeling.',true); return; }
+  rows.forEach(r=>{
+    const P2=progByName[r.prog]; if(!P2){ toast('Programma "'+r.prog+'" niet in Cyclon.',true); return; }
+    const prog={}, progMin={};
+    cvCyclon.sgNames.forEach(sgn=>{ const g=P2.green[sgn]; prog[sgn]=g?g.eff:0; progMin[sgn]=g?g.min:0; });
+    if(mode==='light'){
+      const act=$('#cvLightActuated') && $('#cvLightActuated').checked;
+      const res=buildLikelyCycle(cvCyclon, cvIdx2sg, sumo2cyc, prog, P, tlsId, r.suffix, r.prog, {actuated:act, gap:P.gap, progMin});
+      lastConversions.push({suffix:r.suffix, prog:r.prog, filename:`tls_${r.suffix}_light${act?'_actuated':''}.add.xml`, xml:res.xml, nPhases:res.nPhases, note:`${res.nStages} fasen · cyclus ${res.cycle}s · ${act?'actuated':'vast'}`});
+    } else {
+      const body=buildProgram(cvPhases, cvIdx2sg, cvCyclon.sgdef, prog, sumo2cyc, P);
+      const xml='<?xml version="1.0" encoding="UTF-8"?>\n'+
+        '<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">\n'+
+        `<tlLogic id="${esc(tlsId)}" type="actuated" programID="${esc(r.suffix)}" offset="0">\n`+
+        `  <param key="max-gap" value="${P.gap}"/>\n`+
+        `  <param key="bron" value="Cyclon ${esc(r.prog)} -> actuated (min-groen..programma-groen, gap ${P.gap}s)"/>\n`+
+        body.join('\n')+'\n</tlLogic>\n</additional>\n';
+      lastConversions.push({suffix:r.suffix, prog:r.prog, filename:`tls_var_${r.suffix}.add.xml`, xml, nPhases:body.length});
+    }
+  });
+  renderConvOut();
+  $('#btnDownloadAll').disabled=!lastConversions.length;
+  $('#convStat').className='pill ok'; $('#convStat').textContent=lastConversions.length+' programma\'s ('+(mode==='light'?'controller-light':'herparametrisering')+')';
+  toast(lastConversions.length+' tlLogic-bestanden opgebouwd.');
+});
+function renderConvOut(){
+  const a=$('#convOut'); if(!lastConversions.length){ a.innerHTML=''; return; }
+  const haveMap = cvIdx2sg && Object.keys(cvIdx2sg).length;
+  a.innerHTML=lastConversions.map(c=>{
+    let vplan='';
+    if(haveMap){ try{ const tl=parseTls(c.xml)[0]; if(tl) vplan='<h3>V-plan</h3><div class="scrollx">'+vplanSVG(tl, cvIdx2sg)+'</div>'+vplanLegend(); }catch(e){ vplan='<p class="sub">V-plan kon niet worden getekend: '+esc(e.message)+'</p>'; } }
+    return `<div class="card"><h2>${esc(c.filename)} <span class="pill ok">${esc(c.suffix)} ← ${esc(c.prog)} · ${c.note||c.nPhases+' fasen'}</span>
+      <button class="btn ghost sm" style="float:right" data-dl="${esc(c.filename)}">⇩ Download</button></h2>
+      ${vplan}
+      <details class="adv" style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--accent);font-weight:600">XML tonen</summary><pre class="xml" style="margin-top:8px">${esc(c.xml)}</pre></details></div>`;
+  }).join('');
+  a.querySelectorAll('button[data-dl]').forEach(b=>b.addEventListener('click',()=>{ const c=lastConversions.find(x=>x.filename===b.dataset.dl); if(c) download(c.filename,c.xml); }));
+  if(!haveMap){ a.insertAdjacentHTML('afterbegin','<div class="banner warn"><span>⚠️</span><div>Laad de <code>input_sumo.csv</code> om ook het V-plan te tekenen.</div></div>'); }
+}
+$('#btnDownloadAll').addEventListener('click',()=>{ lastConversions.forEach(c=>download(c.filename,c.xml)); });
+
+/* init */
+renderMergeTable(); renderProgTable();
+</script>
+</body>
+</html>

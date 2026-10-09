@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUMO Decal Generator — with Tile Slicer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #1a1d23;
+            color: #cdd6f4;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Top toolbar ─────────────────────────────────────────── */
+        #toolbar {
+            background: #181b21;
+            border-bottom: 1px solid #313244;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        #toolbar h1 {
+            font-size: 13px;
+            font-weight: 700;
+            color: #cba6f7;
+            letter-spacing: .5px;
+            margin-right: 6px;
+            white-space: nowrap;
+        }
+
+        .tb-sep { width: 1px; height: 22px; background: #313244; margin: 0 4px; }
+
+        /* hidden file inputs */
+        input[type="file"] { display: none; }
+
+        .btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: filter .15s;
+        }
+        .btn:hover { filter: brightness(1.15); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
+        .btn-purple  { background: #cba6f7; color: #1e1e2e; }
+        .btn-blue    { background: #89b4fa; color: #1e1e2e; }
+        .btn-green   { background: #a6e3a1; color: #1e1e2e; }
+        .btn-red     { background: #f38ba8; color: #1e1e2e; }
+        .btn-yellow  { background: #f9e2af; color: #1e1e2e; }
+        .btn-surface { background: #313244; color: #cdd6f4; }
+
+        /* net status badge */
+        #netStatus {
+            font-size: 11px;
+            padding: 3px 9px;
+            border-radius: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .net-none    { background: #45475a; color: #9399b2; }
+        .net-ok      { background: #a6e3a1; color: #1e1e2e; }
+        .net-warning { background: #f9e2af; color: #1e1e2e; }
+
+        /* status toast */
+        #toast {
+            position: fixed;
+            bottom: 14px; left: 50%;
+            transform: translateX(-50%);
+            background: #313244;
+            color: #cdd6f4;
+            padding: 7px 18px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .3s;
+            border: 1px solid #45475a;
+        }
+        #toast.show { opacity: 1; }
+        #toast.err  { border-color: #f38ba8; color: #f38ba8; }
+
+        /* ── Main area ────────────────────────────────────────────── */
+        #main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #map { flex: 1; }
+
+        /* ── Side panel ───────────────────────────────────────────── */
+        #panel {
+            width: 320px;
+            background: #181b21;
+            border-left: 1px solid #313244;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .panel-section {
+            padding: 12px 14px;
+            border-bottom: 1px solid #313244;
+        }
+
+        .panel-section h2 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: #6c7086;
+            margin-bottom: 10px;
+        }
+
+        /* coordinate readout */
+        #coordBox {
+            background: #1e1e2e;
+            border: 1px solid #313244;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            font-size: 11px;
+            line-height: 1.8;
+        }
+        #coordBox span { color: #89dceb; }
+        .coord-warn { color: #f9e2af !important; font-size: 10px; }
+
+        /* slider rows */
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 9px;
+        }
+        .row label {
+            font-size: 11px;
+            width: 72px;
+            flex-shrink: 0;
+            color: #9399b2;
+        }
+        .row input[type="range"] {
+            flex: 1;
+            accent-color: #cba6f7;
+            height: 4px;
+        }
+        .row input[type="number"] {
+            width: 62px;
+            background: #1e1e2e;
+            border: 1px solid #313244;
+            border-radius: 4px;
+            color: #cdd6f4;
+            font-size: 11px;
+            padding: 3px 5px;
+            text-align: right;
+        }
+        .row input[type="number"]:focus {
+            outline: none;
+            border-color: #cba6f7;
+        }
+        .row .unit { font-size: 10px; color: #6c7086; width: 18px; }
+
+        /* tile info card */
+        .tile-info {
+            background: #1e1e2e;
+            border: 1px solid #313244;
+            border-radius: 5px;
+            padding: 7px 10px;
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            font-size: 10px;
+            color: #9399b2;
+            line-height: 1.6;
+            margin-top: 4px;
+        }
+        .tile-info b { color: #89dceb; font-weight: normal; }
+        .tile-info .warn { color: #f9e2af; }
+        .tile-info .ok   { color: #a6e3a1; }
+
+        .auto-btn {
+            font-size: 10px;
+            padding: 2px 8px;
+            background: #45475a;
+            color: #cdd6f4;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: auto;
+        }
+        .auto-btn:hover { background: #585b70; }
+
+        /* decal list */
+        #decalList {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 14px;
+        }
+        #decalList h2 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: #6c7086;
+            margin-bottom: 8px;
+        }
+        .decal-item {
+            background: #1e1e2e;
+            border: 1px solid #313244;
+            border-radius: 5px;
+            padding: 7px 9px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+        }
+        .decal-item .fname {
+            color: #89b4fa;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 180px;
+        }
+        .decal-item .dims { color: #6c7086; font-size: 10px; }
+
+        /* tile group */
+        .tile-group {
+            background: #1e1e2e;
+            border: 1px solid #45475a;
+            border-radius: 5px;
+            margin-bottom: 6px;
+            overflow: hidden;
+        }
+        .tile-group-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 9px;
+            cursor: pointer;
+            background: #232634;
+            user-select: none;
+        }
+        .tile-group-head:hover { background: #2a2e3f; }
+        .tile-group-head .arrow {
+            font-size: 9px;
+            color: #6c7086;
+            margin-right: 5px;
+            transition: transform 0.15s;
+            display: inline-block;
+        }
+        .tile-group.open .tile-group-head .arrow { transform: rotate(90deg); }
+        .tile-group-title {
+            color: #fab387;
+            font-weight: 600;
+            font-size: 11px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 180px;
+        }
+        .tile-group-sub { color: #6c7086; font-size: 10px; }
+        .tile-group-body { display: none; padding: 6px 9px 9px; }
+        .tile-group.open .tile-group-body { display: block; }
+        .tile-group-body .decal-item {
+            margin-bottom: 4px;
+            padding: 5px 8px;
+            font-size: 10px;
+        }
+        .tile-group-body .decal-item .fname { font-size: 10px; max-width: 160px; }
+
+        /* XML output */
+        #xmlWrap {
+            padding: 10px 14px;
+            border-top: 1px solid #313244;
+        }
+        #xmlWrap h2 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: #6c7086;
+            margin-bottom: 6px;
+        }
+        #xmlOutput {
+            width: 100%;
+            height: 90px;
+            background: #1e1e2e;
+            border: 1px solid #313244;
+            border-radius: 5px;
+            color: #a6e3a1;
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            font-size: 10px;
+            padding: 6px 8px;
+            resize: none;
+        }
+        .xml-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+        .xml-btns .btn { font-size: 11px; padding: 4px 10px; flex: 1; min-width: 90px; }
+    </style>
+</head>
+<body>
+
+<!-- ── Toolbar ──────────────────────────────────────────────────── -->
+<div id="toolbar">
+    <h1>🗺 SUMO Decal Generator · Tile Slicer</h1>
+    <div class="tb-sep"></div>
+
+    <input type="file" id="netInput"   accept=".xml,.net.xml">
+    <input type="file" id="imageInput" accept="image/png,image/jpeg,image/gif">
+
+    <button class="btn btn-purple" onclick="document.getElementById('netInput').click()">Load .net.xml</button>
+    <span id="netStatus" class="net-none">No network</span>
+
+    <div class="tb-sep"></div>
+
+    <button class="btn btn-blue"    onclick="document.getElementById('imageInput').click()">Load Image</button>
+    <button class="btn btn-surface" onclick="toggleBaseLayer()">Toggle Map</button>
+    <button class="btn btn-surface" onclick="toggleNetwork()" id="btnNetToggle" disabled>Hide Network</button>
+    <button class="btn btn-green"   onclick="addCurrentDecal()" id="btnAdd" disabled>Add Decal</button>
+    <button class="btn btn-red"     onclick="clearImage()"      id="btnClear" disabled>Clear</button>
+</div>
+
+<!-- ── Map + Panel ──────────────────────────────────────────────── -->
+<div id="main">
+    <div id="map"></div>
+
+    <div id="panel">
+
+        <!-- Current image info + coords -->
+        <div class="panel-section">
+            <h2>Current Image</h2>
+            <div id="coordBox">
+                <div>File: <span id="infoFile">—</span></div>
+                <div>Lat: <span id="infoLat">—</span></div>
+                <div>Lon: <span id="infoLon">—</span></div>
+                <div>SUMO X: <span id="infoSumoX">—</span></div>
+                <div>SUMO Y: <span id="infoSumoY">—</span></div>
+                <div id="noNetWarn" class="coord-warn" style="display:none">
+                    ⚠ Load .net.xml for accurate SUMO coords
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls (hidden until image loaded) -->
+        <div class="panel-section" id="ctrlSection" style="display:none">
+            <h2>Controls</h2>
+
+            <div class="row">
+                <label>Opacity</label>
+                <input type="range" id="opacity" min="0" max="100" value="70" oninput="updateOpacity(this.value)">
+                <input type="number" id="opacityVal" min="0" max="100" value="70" onchange="updateOpacity(this.value)">
+                <span class="unit">%</span>
+            </div>
+
+            <div class="row">
+                <label>Rotation</label>
+                <input type="range" id="rotation" min="-180" max="180" value="0" oninput="updateRotation(this.value)">
+                <input type="number" id="rotationVal" min="-180" max="180" value="0" onchange="updateRotation(this.value)">
+                <span class="unit">°</span>
+            </div>
+            <div class="row" style="margin-top:-4px">
+                <label style="width:auto; color:#6c7086; font-size:10px">↳ SUMO decal rotation</label>
+                <span id="sumoRotInfo" style="color:#89dceb; font-size:10px">0.00°</span>
+            </div>
+
+            <div class="row">
+                <label>Width</label>
+                <input type="range" id="widthSlider" min="1" max="50000" value="100" step="1" oninput="updateWidthSlider(this.value)">
+                <input type="number" id="widthVal" min="1" value="100" step="10" onchange="updateWidthFromInput(this.value)">
+                <span class="unit">m</span>
+            </div>
+
+            <div class="row">
+                <label>Height</label>
+                <input type="range" id="heightSlider" min="1" max="50000" value="100" step="1" oninput="updateHeightSlider(this.value)">
+                <input type="number" id="heightVal" min="1" value="100" step="10" onchange="updateHeightFromInput(this.value)">
+                <span class="unit">m</span>
+            </div>
+
+            <div class="row" style="margin-top:4px">
+                <label style="width:auto; color:#6c7086; font-size:10px">🔒 Lock aspect ratio</label>
+                <input type="checkbox" id="lockAspect" checked style="accent-color:#cba6f7">
+            </div>
+        </div>
+
+        <!-- Tile slicer (hidden until image loaded) -->
+        <div class="panel-section" id="tileSection" style="display:none">
+            <h2>
+                Tile Slicer
+                <button class="auto-btn" onclick="autoSuggestTiles()" title="Suggest grid based on image size">Auto</button>
+            </h2>
+
+            <div class="row">
+                <label>Rows</label>
+                <input type="number" id="tileRows" min="1" max="20" value="1" onchange="onTileGridChange()">
+                <span class="unit"></span>
+            </div>
+            <div class="row">
+                <label>Cols</label>
+                <input type="number" id="tileCols" min="1" max="20" value="1" onchange="onTileGridChange()">
+                <span class="unit"></span>
+            </div>
+            <div class="row" style="margin-top:4px">
+                <label style="width:auto; color:#6c7086; font-size:10px">📐 Show grid preview</label>
+                <input type="checkbox" id="showGrid" checked onchange="onTileGridChange()" style="accent-color:#cba6f7">
+            </div>
+
+            <div class="tile-info" id="tileInfo">
+                Set rows/cols &gt; 1 to slice into tiles when adding.
+            </div>
+        </div>
+
+        <!-- Decal list -->
+        <div id="decalList">
+            <h2>Decal List (<span id="decalCount">0</span>)</h2>
+            <div id="decalItems"><p style="color:#45475a;font-size:11px">No decals added yet</p></div>
+        </div>
+
+        <!-- XML output -->
+        <div id="xmlWrap">
+            <h2>XML Output</h2>
+            <textarea id="xmlOutput" readonly placeholder="Generated XML will appear here…"></textarea>
+            <div class="xml-btns">
+                <button class="btn btn-surface" onclick="generateXML()">Refresh</button>
+                <button class="btn btn-green"   onclick="downloadXML()">XML only</button>
+                <button class="btn btn-yellow"  onclick="downloadZIP()" id="btnZip" disabled>Tiles + XML (ZIP)</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ── Scripts ──────────────────────────────────────────────────── -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────
+const map = L.map('map').setView([50.8276, 3.2647], 13); // Kortrijk default
+
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 22
+});
+const satLayer = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: '© Esri', maxZoom: 22 }
+);
+osmLayer.addTo(map);
+let currentBaseLayer = 'osm';
+
+// Network / projection state
+let netOffsetX = null, netOffsetY = null;
+let projDefined = false;
+let networkRect = null;
+let networkLayer = null;     // L.layerGroup of edge centreline polylines
+let networkVisible = true;
+
+// Image state
+let imageOverlay = null;
+let currentImage = null;          // { dataUrl, fileName, htmlImg }
+let imageBounds  = null;
+let aspectRatio  = 1;
+let currentRotation = 0;
+let isDragging  = false;
+let dragStart   = null;
+let dragBounds  = null;
+
+// Decal list — entries can be:
+//   { kind: 'single', file, centerX, centerY, width, height, rotation }
+//   { kind: 'tile',   file, centerX, centerY, width, height, rotation,
+//                     blob, groupId, row, col }
+let decalList = [];
+
+// Tile groups — { id, sourceFile, rows, cols, rotation }
+let tileGroups = [];
+let tileGroupCounter = 0;
+function nextTileGroupId() { return 'tg' + (++tileGroupCounter); }
+
+// Grid preview overlay
+let gridOverlay = null;
+
+// ── Toast helper ───────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, isErr = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 2800);
+}
+
+// ── Map toggle ─────────────────────────────────────────────────────
+function toggleBaseLayer() {
+    if (currentBaseLayer === 'osm') {
+        map.removeLayer(osmLayer); satLayer.addTo(map); currentBaseLayer = 'satellite';
+    } else {
+        map.removeLayer(satLayer); osmLayer.addTo(map); currentBaseLayer = 'osm';
+    }
+}
+
+function toggleNetwork() {
+    if (!networkLayer) return;
+    networkVisible = !networkVisible;
+    if (networkVisible) networkLayer.addTo(map);
+    else map.removeLayer(networkLayer);
+    document.getElementById('btnNetToggle').textContent = networkVisible ? 'Hide Network' : 'Show Network';
+}
+
+// Parse a SUMO shape attribute "x1,y1 x2,y2 …" → [[x,y],…]
+function parseShape(s) {
+    if (!s) return [];
+    return s.trim().split(/\s+/).map(pt => {
+        const parts = pt.split(',').map(Number);
+        return [parts[0], parts[1]];
+    }).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+}
+
+// SUMO (x,y) → WGS84 (lat,lon). Returns null if no projection defined.
+function sumoToLatLon(x, y) {
+    if (!projDefined || netOffsetX === null) return null;
+    try {
+        const [lon, lat] = proj4('SUMONET', 'WGS84', [x - netOffsetX, y - netOffsetY]);
+        return { lat, lon };
+    } catch(e) { return null; }
+}
+
+// ── Net.xml loading ────────────────────────────────────────────────
+document.getElementById('netInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(ev.target.result, 'text/xml');
+            const loc = xmlDoc.querySelector('location');
+            if (!loc) { toast('No <location> element found in net.xml', true); return; }
+
+            const offsetStr = loc.getAttribute('netOffset') || '0,0';
+            const projStr   = loc.getAttribute('projParameter') || '';
+            const origStr   = loc.getAttribute('origBoundary') || '';
+
+            const offParts = offsetStr.split(',').map(Number);
+            netOffsetX = offParts[0];
+            netOffsetY = offParts[1];
+
+            if (projStr && projStr.trim() !== '!') {
+                proj4.defs('SUMONET', projStr.trim());
+                projDefined = true;
+            } else {
+                projDefined = false;
+            }
+
+            if (networkRect) { map.removeLayer(networkRect); networkRect = null; }
+            if (origStr) {
+                const ob = origStr.split(',').map(Number);
+                if (ob.length === 4) {
+                    const sw = L.latLng(ob[1], ob[0]);
+                    const ne = L.latLng(ob[3], ob[2]);
+                    networkRect = L.rectangle(L.latLngBounds(sw, ne), {
+                        color: '#cba6f7', weight: 2, fill: false, dashArray: '6,4'
+                    }).addTo(map);
+                    networkRect.bindTooltip('SUMO network boundary', { permanent: false });
+                    map.fitBounds(networkRect.getBounds().pad(0.05));
+                }
+            }
+
+            // ── Build network centreline overlay ──
+            if (networkLayer) { map.removeLayer(networkLayer); networkLayer = null; }
+            let edgeCount = 0;
+            if (projDefined) {
+                // Custom pane so centrelines render ABOVE the image overlay
+                if (!map.getPane('networkPane')) {
+                    map.createPane('networkPane');
+                    map.getPane('networkPane').style.zIndex = '450';
+                    map.getPane('networkPane').style.pointerEvents = 'none';
+                }
+                const renderer = L.canvas({ pane: 'networkPane', padding: 0.5 });
+                const polylines = [];
+                xmlDoc.querySelectorAll('edge').forEach(edge => {
+                    const id = edge.getAttribute('id') || '';
+                    if (id.startsWith(':')) return; // skip internal junction edges
+                    let coords = parseShape(edge.getAttribute('shape'));
+                    if (coords.length < 2) {
+                        // edges without their own shape: use the first lane's shape
+                        const firstLane = edge.querySelector('lane');
+                        if (firstLane) coords = parseShape(firstLane.getAttribute('shape'));
+                    }
+                    if (coords.length < 2) return;
+                    const latlngs = [];
+                    for (const [x, y] of coords) {
+                        const ll = sumoToLatLon(x, y);
+                        if (ll) latlngs.push([ll.lat, ll.lon]);
+                    }
+                    if (latlngs.length < 2) return;
+                    polylines.push(L.polyline(latlngs, {
+                        color: '#000', weight: 1, opacity: 0.8,
+                        interactive: false, renderer: renderer
+                    }));
+                    edgeCount++;
+                });
+                networkLayer = L.layerGroup(polylines);
+                networkVisible = true;
+                networkLayer.addTo(map);
+                document.getElementById('btnNetToggle').disabled = (edgeCount === 0);
+                document.getElementById('btnNetToggle').textContent = 'Hide Network';
+            } else {
+                document.getElementById('btnNetToggle').disabled = true;
+            }
+
+            const badge = document.getElementById('netStatus');
+            badge.textContent = projDefined
+                ? `✓ Network loaded${edgeCount ? ' · ' + edgeCount.toLocaleString() + ' edges' : ''}`
+                : '✓ Offset only';
+            badge.className   = projDefined ? 'net-ok' : 'net-warning';
+
+            document.getElementById('noNetWarn').style.display = 'none';
+            updateCoordDisplay();
+            updateTileInfo();
+            generateXML();
+            toast(`Network loaded — offset (${netOffsetX.toFixed(1)}, ${netOffsetY.toFixed(1)})`);
+        } catch(err) {
+            toast('Error parsing net.xml: ' + err.message, true);
+        }
+    };
+    reader.readAsText(file);
+    this.value = '';
+});
+
+// ── Coordinate conversion ─────────────────────────────────────────
+function latLonToSumo(lat, lon) {
+    if (projDefined) {
+        try {
+            const [px, py] = proj4('WGS84', 'SUMONET', [lon, lat]);
+            return { x: px + netOffsetX, y: py + netOffsetY };
+        } catch(e) {}
+    }
+    const x = lon * 111111 * Math.cos(lat * Math.PI / 180);
+    const y = lat * 111111;
+    if (netOffsetX !== null) return { x: x + netOffsetX, y: y + netOffsetY };
+    return { x, y };
+}
+
+// ── Mercator helpers (Web Mercator y; lat in/out as degrees) ──────
+function latToMercY(latDeg) {
+    const lat = latDeg * Math.PI / 180;
+    return Math.log(Math.tan(Math.PI / 4 + lat / 2));
+}
+function mercYToLat(my) {
+    return (2 * Math.atan(Math.exp(my)) - Math.PI / 2) * 180 / Math.PI;
+}
+
+// ── Image loading ─────────────────────────────────────────────────
+document.getElementById('imageInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) { loadImage(ev.target.result, file.name); };
+    reader.readAsDataURL(file);
+    this.value = '';
+});
+
+function loadImage(dataUrl, fileName) {
+    if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay = null; }
+
+    const img = new Image();
+    img.onload = function() {
+        currentImage = { dataUrl, fileName, htmlImg: img };
+        document.getElementById('infoFile').textContent = fileName;
+
+        aspectRatio = img.width / img.height;
+
+        const center = map.getCenter();
+        const initW = 200;
+        const initH = initW / aspectRatio;
+        imageBounds = makeBounds(center.lat, center.lng, initW, initH);
+
+        imageOverlay = L.imageOverlay(dataUrl, imageBounds, { opacity: 0.7, interactive: true });
+        // must be hooked BEFORE addTo(): Leaflet captures the _reset/_animateZoom
+        // handler references in getEvents() at the moment the layer is added
+        keepRotationOnOverlay(imageOverlay);
+        imageOverlay.addTo(map);
+        setupDragging();
+
+        currentRotation = 0;
+        document.getElementById('rotation').value = 0;
+        document.getElementById('rotationVal').value = 0;
+        document.getElementById('sumoRotInfo').textContent = '0.00°';
+        document.getElementById('opacity').value = 70;
+        document.getElementById('opacityVal').value = 70;
+
+        // reset tile grid to 1×1
+        document.getElementById('tileRows').value = 1;
+        document.getElementById('tileCols').value = 1;
+
+        syncSliders(initW, initH);
+        updateCoordDisplay();
+        updateTileInfo();
+        updateGridPreview();
+
+        document.getElementById('ctrlSection').style.display = '';
+        document.getElementById('tileSection').style.display = '';
+        document.getElementById('btnAdd').disabled   = false;
+        document.getElementById('btnClear').disabled = false;
+
+        if (netOffsetX === null) document.getElementById('noNetWarn').style.display = '';
+
+        map.fitBounds(imageBounds.pad(0.5));
+        toast('Image loaded: ' + fileName);
+    };
+    img.src = dataUrl;
+}
+
+function makeBounds(lat, lon, wMeters, hMeters) {
+    const dLat = (hMeters / 2) / 111111;
+    const dLon = (wMeters / 2) / (111111 * Math.cos(lat * Math.PI / 180));
+    return L.latLngBounds([lat - dLat, lon - dLon], [lat + dLat, lon + dLon]);
+}
+
+function getBoundsMeters() {
+    if (!imageBounds) return { w: 0, h: 0 };
+    const c  = imageBounds.getCenter();
+    const sw = imageBounds.getSouthWest();
+    const ne = imageBounds.getNorthEast();
+    const w  = Math.abs(ne.lng - sw.lng) * 111111 * Math.cos(c.lat * Math.PI / 180);
+    const h  = Math.abs(ne.lat - sw.lat) * 111111;
+    return { w, h };
+}
+
+function syncSliders(w, h) {
+    document.getElementById('widthSlider').value  = Math.round(w);
+    document.getElementById('widthVal').value     = Math.round(w);
+    document.getElementById('heightSlider').value = Math.round(h);
+    document.getElementById('heightVal').value    = Math.round(h);
+}
+
+// ── Image transform (position + rotation) ──────────────────
+// Leaflet positions the overlay <img> with `transform: translate3d(...)`.
+// Writing a bare `rotate()` would wipe that positioning, which made the image
+// jump to the layer origin (so the pivot looked wrong). We therefore always
+// compose translate + rotate, with the pivot pinned to the centre of the image.
+function applyImageTransform() {
+    if (!imageOverlay) return;
+    const el = imageOverlay.getElement();
+    if (!el) return;
+    const pos  = L.DomUtil.getPosition(el) || L.point(0, 0);
+    const base = L.Browser.any3d
+        ? `translate3d(${pos.x}px,${pos.y}px,0)`
+        : `translate(${pos.x}px,${pos.y}px)`;
+    el.style.transformOrigin = '50% 50%';      // pivot = centre of the image
+    el.style.transform = currentRotation
+        ? `${base} rotate(${currentRotation}deg)`
+        : base;
+}
+
+// Leaflet rewrites the element transform on every reset (zoom, setBounds while
+// dragging, resize) and on every zoom animation frame. Wrap those two hooks so
+// the rotation is re-applied immediately afterwards and never gets lost.
+function keepRotationOnOverlay(overlay) {
+    if (overlay._rotationHooked) return;
+    overlay._rotationHooked = true;
+
+    const origReset = overlay._reset;
+    overlay._reset = function () {
+        origReset.call(this);
+        applyImageTransform();
+    };
+
+    if (overlay._animateZoom) {
+        const origAnimateZoom = overlay._animateZoom;
+        overlay._animateZoom = function (e) {
+            origAnimateZoom.call(this, e);
+            // during the zoom animation Leaflet writes translate3d(...) scale(...)
+            // without updating _leaflet_pos, so append instead of rebuilding
+            if (currentRotation && this._image) {
+                this._image.style.transformOrigin = '50% 50%';
+                this._image.style.transform += ` rotate(${currentRotation}deg)`;
+            }
+        };
+    }
+}
+
+// ── Dragging ──────────────────────────────────────────────────────
+function setupDragging() {
+    imageOverlay.off('mousedown');
+    map.off('mousemove mouseup');
+
+    imageOverlay.on('mousedown', function(e) {
+        isDragging = true;
+        dragStart  = e.latlng;
+        dragBounds = imageOverlay.getBounds();
+        map.dragging.disable();
+        L.DomEvent.preventDefault(e.originalEvent);
+    });
+    map.on('mousemove', function(e) {
+        if (!isDragging) return;
+        const dLat = e.latlng.lat - dragStart.lat;
+        const dLng = e.latlng.lng - dragStart.lng;
+        const sw = dragBounds.getSouthWest();
+        const ne = dragBounds.getNorthEast();
+        imageBounds = L.latLngBounds(
+            [sw.lat + dLat, sw.lng + dLng],
+            [ne.lat + dLat, ne.lng + dLng]
+        );
+        imageOverlay.setBounds(imageBounds);
+        applyImageTransform();   // moving must not reset the rotation
+        updateCoordDisplay();
+        updateGridPreview();
+    });
+    map.on('mouseup', function() {
+        if (isDragging) { isDragging = false; map.dragging.enable(); }
+    });
+}
+
+// ── Controls ──────────────────────────────────────────────────────
+function updateOpacity(v) {
+    v = Math.max(0, Math.min(100, +v));
+    document.getElementById('opacity').value    = v;
+    document.getElementById('opacityVal').value = v;
+    if (imageOverlay) imageOverlay.setOpacity(v / 100);
+}
+
+// The rotation slider is a CSS/screen angle: positive = clockwise on screen.
+// sumo-gui draws decals with glRotated() in a y-up world frame, where positive
+// is COUNTER-clockwise (verified in sumo-gui: rotation="45" tilts the image
+// anti-clockwise). So every rotation written into the decal XML is negated.
+function sumoRotation() { return -currentRotation; }
+
+function updateRotation(v) {
+    currentRotation = +v;
+    document.getElementById('rotation').value    = v;
+    document.getElementById('rotationVal').value = v;
+    document.getElementById('sumoRotInfo').textContent = sumoRotation().toFixed(2) + '°';
+    applyImageTransform();
+    updateGridPreview();
+    updateTileInfo();
+}
+
+function updateWidthSlider(w) {
+    w = +w;
+    document.getElementById('widthVal').value = Math.round(w);
+    if (document.getElementById('lockAspect').checked) {
+        const h = w / aspectRatio;
+        document.getElementById('heightSlider').value = Math.round(h);
+        document.getElementById('heightVal').value    = Math.round(h);
+        applyDimensions(w, h);
+    } else {
+        const { h } = getBoundsMeters();
+        applyDimensions(w, h);
+    }
+}
+
+function updateHeightSlider(h) {
+    h = +h;
+    document.getElementById('heightVal').value = Math.round(h);
+    if (document.getElementById('lockAspect').checked) {
+        const w = h * aspectRatio;
+        document.getElementById('widthSlider').value = Math.round(w);
+        document.getElementById('widthVal').value    = Math.round(w);
+        applyDimensions(w, h);
+    } else {
+        const { w } = getBoundsMeters();
+        applyDimensions(w, h);
+    }
+}
+
+function updateWidthFromInput(w) {
+    w = Math.max(1, +w);
+    const slider = document.getElementById('widthSlider');
+    if (w <= +slider.max) slider.value = Math.round(w);
+    if (document.getElementById('lockAspect').checked) {
+        const h = w / aspectRatio;
+        document.getElementById('heightSlider').value = Math.min(Math.round(h), +document.getElementById('heightSlider').max);
+        document.getElementById('heightVal').value    = Math.round(h);
+        applyDimensions(w, h);
+    } else {
+        const { h } = getBoundsMeters();
+        applyDimensions(w, h);
+    }
+}
+
+function updateHeightFromInput(h) {
+    h = Math.max(1, +h);
+    const slider = document.getElementById('heightSlider');
+    if (h <= +slider.max) slider.value = Math.round(h);
+    if (document.getElementById('lockAspect').checked) {
+        const w = h * aspectRatio;
+        document.getElementById('widthSlider').value = Math.min(Math.round(w), +document.getElementById('widthSlider').max);
+        document.getElementById('widthVal').value    = Math.round(w);
+        applyDimensions(w, h);
+    } else {
+        const { w } = getBoundsMeters();
+        applyDimensions(w, h);
+    }
+}
+
+function applyDimensions(w, h) {
+    if (!imageBounds || !imageOverlay) return;
+    const c = imageBounds.getCenter();
+    imageBounds = makeBounds(c.lat, c.lng, w, h);
+    imageOverlay.setBounds(imageBounds);
+    applyImageTransform();   // re-apply rotation, the element transform was rewritten
+    updateCoordDisplay();
+    updateGridPreview();
+    updateTileInfo();
+}
+
+function updateCoordDisplay() {
+    if (!imageBounds) return;
+    const c = imageBounds.getCenter();
+    const sumo = latLonToSumo(c.lat, c.lng);
+    document.getElementById('infoLat').textContent   = c.lat.toFixed(7);
+    document.getElementById('infoLon').textContent   = c.lng.toFixed(7);
+    document.getElementById('infoSumoX').textContent = sumo.x.toFixed(2);
+    document.getElementById('infoSumoY').textContent = sumo.y.toFixed(2);
+}
+
+// ── Tile grid: preview, suggestions, info ─────────────────────────
+function getTileGrid() {
+    const r = Math.max(1, Math.min(20, parseInt(document.getElementById('tileRows').value) || 1));
+    const c = Math.max(1, Math.min(20, parseInt(document.getElementById('tileCols').value) || 1));
+    return { rows: r, cols: c };
+}
+
+function onTileGridChange() {
+    updateGridPreview();
+    updateTileInfo();
+}
+
+function autoSuggestTiles() {
+    if (!imageBounds) return;
+    const { w, h } = getBoundsMeters();
+    // Target ~500m per tile, at minimum 1x1
+    const TARGET = 500;
+    const cols = Math.max(1, Math.round(w / TARGET));
+    const rows = Math.max(1, Math.round(h / TARGET));
+    document.getElementById('tileRows').value = rows;
+    document.getElementById('tileCols').value = cols;
+    updateGridPreview();
+    updateTileInfo();
+    toast(`Suggested ${rows}×${cols} grid (target ~${TARGET}m/tile)`);
+}
+
+function updateTileInfo() {
+    const el = document.getElementById('tileInfo');
+    if (!imageBounds) { el.textContent = ''; return; }
+
+    const { rows, cols } = getTileGrid();
+    const { w, h } = getBoundsMeters();
+    const tw = w / cols, th = h / rows;
+
+    if (rows === 1 && cols === 1) {
+        let drift = '';
+        const lat = imageBounds.getCenter().lat;
+        const sec = 1 / Math.cos(lat * Math.PI / 180);
+        const driftPct = ((sec - 1) * 100).toFixed(1);
+        const cls = (Math.max(w, h) > 1500) ? 'warn' : '';
+        drift = `<div class="${cls}">Web Mercator stretch at lat ${lat.toFixed(2)}°: ~${driftPct}% (corner-to-corner mismatch on a ${Math.round(Math.max(w,h))}m image: ~${Math.round(Math.max(w,h)*(sec-1))}m)</div>`;
+        el.innerHTML = `<b>${rows}×${cols}</b> — single decal, no slicing.<br>${drift}`;
+        return;
+    }
+
+    const total = rows * cols;
+    const maxTile = Math.max(tw, th);
+    const within = (maxTile * (1/Math.cos(imageBounds.getCenter().lat*Math.PI/180) - 1));
+    let warn = '';
+    if (maxTile > 1500) warn = '<div class="warn">⚠ Tiles &gt; 1.5 km — drift may still be visible. Consider more tiles.</div>';
+    else if (maxTile > 800) warn = '<div class="warn">⚠ Tiles &gt; 800 m — should be acceptable but tighten if you see drift.</div>';
+    else warn = `<div class="ok">✓ Tile residual stretch: ~${within.toFixed(1)} m (sub-pixel)</div>`;
+
+    el.innerHTML = `
+        <b>${total} tiles</b> = ${rows} rows × ${cols} cols<br>
+        Each: <b>${Math.round(tw)} m × ${Math.round(th)} m</b><br>
+        ${warn}
+    `;
+}
+
+function updateGridPreview() {
+    if (gridOverlay) { map.removeLayer(gridOverlay); gridOverlay = null; }
+    if (!imageBounds) return;
+    if (!document.getElementById('showGrid').checked) return;
+    const { rows, cols } = getTileGrid();
+    if (rows === 1 && cols === 1) return;
+
+    const sw = imageBounds.getSouthWest();
+    const ne = imageBounds.getNorthEast();
+    const mercSW = latToMercY(sw.lat);
+    const mercNE = latToMercY(ne.lat);
+    const lonW = sw.lng, lonE = ne.lng;
+
+    // Build grid as polylines in lat/lon (mercator-correct y interpolation)
+    const lines = [];
+    // Vertical lines (constant lon)
+    for (let c = 0; c <= cols; c++) {
+        const lon = lonW + (c / cols) * (lonE - lonW);
+        lines.push([[sw.lat, lon], [ne.lat, lon]]);
+    }
+    // Horizontal lines (constant lat, in mercator-y space)
+    for (let r = 0; r <= rows; r++) {
+        const my = mercNE - (r / rows) * (mercNE - mercSW);
+        const lat = mercYToLat(my);
+        lines.push([[lat, lonW], [lat, lonE]]);
+    }
+
+    // Apply parent rotation if non-zero by rotating each endpoint around image center
+    if (currentRotation !== 0) {
+        const c = imageBounds.getCenter();
+        const cosR = Math.cos(currentRotation * Math.PI / 180);
+        const sinR = Math.sin(currentRotation * Math.PI / 180);
+        const cLatF = 111111;
+        const cLonF = 111111 * Math.cos(c.lat * Math.PI / 180);
+        const rotPt = (lat, lon) => {
+            // convert offset to metres, rotate (CSS-style: positive = visual CW = math CW in y-up), back to latlon
+            const dx = (lon - c.lng) * cLonF;
+            const dy = (lat - c.lat) * cLatF;
+            // CSS rotate(θ) on y-down screen ⇔ rotate by -θ in y-up world for visual match
+            const a = -currentRotation * Math.PI / 180;
+            const rx = dx * Math.cos(a) - dy * Math.sin(a);
+            const ry = dx * Math.sin(a) + dy * Math.cos(a);
+            return [c.lat + ry / cLatF, c.lng + rx / cLonF];
+        };
+        for (let i = 0; i < lines.length; i++) {
+            lines[i] = lines[i].map(([la, lo]) => rotPt(la, lo));
+        }
+    }
+
+    gridOverlay = L.layerGroup(
+        lines.map(seg => L.polyline(seg, {
+            color: '#fab387', weight: 1.2, opacity: 0.85, dashArray: '4,3', interactive: false
+        }))
+    ).addTo(map);
+}
+
+// ── Decal management ──────────────────────────────────────────────
+function clearImage() {
+    if (imageOverlay) { map.removeLayer(imageOverlay); imageOverlay = null; }
+    if (gridOverlay)  { map.removeLayer(gridOverlay);  gridOverlay  = null; }
+    currentImage = null; imageBounds = null;
+    isDragging = false; dragStart = null; dragBounds = null;
+    currentRotation = 0;
+    document.getElementById('rotation').value = 0;
+    document.getElementById('rotationVal').value = 0;
+    document.getElementById('sumoRotInfo').textContent = '0.00°';
+
+    document.getElementById('infoFile').textContent   = '—';
+    document.getElementById('infoLat').textContent    = '—';
+    document.getElementById('infoLon').textContent    = '—';
+    document.getElementById('infoSumoX').textContent  = '—';
+    document.getElementById('infoSumoY').textContent  = '—';
+    document.getElementById('ctrlSection').style.display = 'none';
+    document.getElementById('tileSection').style.display = 'none';
+    document.getElementById('btnAdd').disabled   = true;
+    document.getElementById('btnClear').disabled = true;
+    document.getElementById('noNetWarn').style.display = 'none';
+    toast('Image cleared');
+}
+
+async function addCurrentDecal() {
+    if (!currentImage || !imageBounds) { toast('Load and position an image first', true); return; }
+    const { rows, cols } = getTileGrid();
+    if (rows === 1 && cols === 1) {
+        addSingleDecal();
+    } else {
+        await addTiledDecals(rows, cols);
+    }
+}
+
+function addSingleDecal() {
+    const c    = imageBounds.getCenter();
+    const sumo = latLonToSumo(c.lat, c.lng);
+    const { w, h } = getBoundsMeters();
+    decalList.push({
+        kind: 'single',
+        file: currentImage.fileName,
+        centerX: sumo.x.toFixed(2),
+        centerY: sumo.y.toFixed(2),
+        width:   w.toFixed(2),
+        height:  h.toFixed(2),
+        rotation: sumoRotation().toFixed(2),
+    });
+    renderDecalList();
+    clearImage();
+    generateXML();   // after clearImage: else the current image is emitted twice
+    toast('Decal added ✓');
+}
+
+async function addTiledDecals(rows, cols) {
+    const sourceFile = currentImage.fileName;
+    const baseName   = sourceFile.replace(/\.[^.]+$/, '');
+    const img        = currentImage.htmlImg;
+
+    const sw = imageBounds.getSouthWest();
+    const ne = imageBounds.getNorthEast();
+    const parentCenter = imageBounds.getCenter();
+    const parentCenterSumo = latLonToSumo(parentCenter.lat, parentCenter.lng);
+
+    const mercSW = latToMercY(sw.lat);
+    const mercNE = latToMercY(ne.lat);
+
+    const tilePxW = img.width  / cols;
+    const tilePxH = img.height / rows;
+
+    // For canvas drawing, integer pixel boxes
+    const groupId = nextTileGroupId();
+    const tilesAdded = [];
+    const sliceProgress = `Slicing ${rows*cols} tiles…`;
+    toast(sliceProgress);
+
+    // Yield to UI before heavy work
+    await new Promise(r => requestAnimationFrame(r));
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            // ── Pixel slicing (axis-aligned in source image pixels) ──
+            // Use ceil for last row/col so we don't lose edge pixels to rounding
+            const sx = Math.round(c * tilePxW);
+            const sy = Math.round(r * tilePxH);
+            const ex = (c === cols - 1) ? img.width  : Math.round((c+1) * tilePxW);
+            const ey = (r === rows - 1) ? img.height : Math.round((r+1) * tilePxH);
+            const sw_px = ex - sx;
+            const sh_px = ey - sy;
+
+            const canvas = document.createElement('canvas');
+            canvas.width  = sw_px;
+            canvas.height = sh_px;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, sx, sy, sw_px, sh_px, 0, 0, sw_px, sh_px);
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+
+            // ── Tile geographic bounds (mercator-y interp for rows) ──
+            const lonW = sw.lng + (sx       / img.width)  * (ne.lng - sw.lng);
+            const lonE = sw.lng + (ex       / img.width)  * (ne.lng - sw.lng);
+            // row 0 is top of image (north). Pixel y grows downward.
+            const myTop = mercNE - (sy / img.height) * (mercNE - mercSW);
+            const myBot = mercNE - (ey / img.height) * (mercNE - mercSW);
+            const latN = mercYToLat(myTop);
+            const latS = mercYToLat(myBot);
+
+            // ── Convert tile corners to UTM/SUMO ──
+            const swSumo = latLonToSumo(latS, lonW);
+            const neSumo = latLonToSumo(latN, lonE);
+            const tileWidthM  = Math.abs(neSumo.x - swSumo.x);
+            const tileHeightM = Math.abs(neSumo.y - swSumo.y);
+            let cx = (swSumo.x + neSumo.x) / 2;
+            let cy = (swSumo.y + neSumo.y) / 2;
+
+            // ── Apply parent rotation (CSS-style ⇒ -θ in UTM y-up math) ──
+            if (currentRotation !== 0) {
+                const a = -currentRotation * Math.PI / 180;
+                const dx = cx - parentCenterSumo.x;
+                const dy = cy - parentCenterSumo.y;
+                cx = parentCenterSumo.x + dx * Math.cos(a) - dy * Math.sin(a);
+                cy = parentCenterSumo.y + dx * Math.sin(a) + dy * Math.cos(a);
+            }
+
+            const tileName = `${baseName}_r${r}_c${c}.png`;
+            tilesAdded.push({
+                kind: 'tile',
+                file: tileName,
+                centerX: cx.toFixed(2),
+                centerY: cy.toFixed(2),
+                width:   tileWidthM.toFixed(2),
+                height:  tileHeightM.toFixed(2),
+                rotation: sumoRotation().toFixed(2),
+                blob,
+                groupId,
+                row: r,
+                col: c,
+            });
+        }
+        // Yield occasionally to keep UI responsive
+        if ((r + 1) % 2 === 0) await new Promise(res => requestAnimationFrame(res));
+    }
+
+    decalList.push(...tilesAdded);
+    tileGroups.push({
+        id: groupId,
+        sourceFile,
+        rows, cols,
+        rotation: currentRotation,
+        open: false,
+    });
+
+    renderDecalList();
+    updateZipBtn();
+    clearImage();
+    generateXML();   // after clearImage: else the current image is emitted twice
+    toast(`Added ${rows*cols} tiles (${baseName}_r#_c#.png)`);
+}
+
+function removeDecal(i) {
+    decalList.splice(i, 1);
+    renderDecalList();
+    generateXML();
+    updateZipBtn();
+}
+
+function removeTileGroup(groupId) {
+    const grp = tileGroups.find(g => g.id === groupId);
+    if (!grp) return;
+    if (!confirm(`Remove all ${grp.rows*grp.cols} tiles from "${grp.sourceFile}"?`)) return;
+    decalList = decalList.filter(d => d.kind !== 'tile' || d.groupId !== groupId);
+    tileGroups = tileGroups.filter(g => g.id !== groupId);
+    renderDecalList();
+    generateXML();
+    updateZipBtn();
+}
+
+function toggleTileGroup(groupId) {
+    const g = tileGroups.find(g => g.id === groupId);
+    if (g) { g.open = !g.open; renderDecalList(); }
+}
+
+function renderDecalList() {
+    document.getElementById('decalCount').textContent = decalList.length;
+    const el = document.getElementById('decalItems');
+    if (!decalList.length) {
+        el.innerHTML = '<p style="color:#45475a;font-size:11px">No decals added yet</p>';
+        return;
+    }
+
+    // Render in original add-order, but tile groups collapse together
+    let html = '';
+    const seenGroups = new Set();
+    decalList.forEach((d, i) => {
+        if (d.kind === 'tile') {
+            if (seenGroups.has(d.groupId)) return;
+            seenGroups.add(d.groupId);
+            const grp = tileGroups.find(g => g.id === d.groupId);
+            if (!grp) return;
+            const groupTiles = decalList
+                .map((dd, ii) => ({ dd, ii }))
+                .filter(x => x.dd.kind === 'tile' && x.dd.groupId === d.groupId);
+            const baseName = grp.sourceFile.replace(/\.[^.]+$/, '');
+            const totalW = groupTiles.reduce((s, x) => s + +x.dd.width, 0) / grp.rows;
+            const totalH = groupTiles.reduce((s, x) => s + +x.dd.height, 0) / grp.cols;
+
+            html += `
+                <div class="tile-group ${grp.open ? 'open' : ''}">
+                    <div class="tile-group-head" onclick="toggleTileGroup('${grp.id}')">
+                        <div>
+                            <span class="arrow">▶</span>
+                            <span class="tile-group-title">${baseName}</span>
+                            <div class="tile-group-sub" style="margin-left:14px">${grp.rows}×${grp.cols} = ${groupTiles.length} tiles · ~${Math.round(totalW)}m × ${Math.round(totalH)}m total</div>
+                        </div>
+                        <button class="btn btn-red" style="padding:3px 8px;font-size:10px"
+                                onclick="event.stopPropagation();removeTileGroup('${grp.id}')">✕</button>
+                    </div>
+                    <div class="tile-group-body">
+                        ${groupTiles.map(x => `
+                            <div class="decal-item">
+                                <div>
+                                    <div class="fname">${x.dd.file}</div>
+                                    <div class="dims">${Math.round(x.dd.width)}m × ${Math.round(x.dd.height)}m | X:${Math.round(x.dd.centerX)} Y:${Math.round(x.dd.centerY)}</div>
+                                </div>
+                                <button class="btn btn-red" style="padding:3px 8px;font-size:10px" onclick="removeDecal(${x.ii})">✕</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+        } else {
+            html += `
+                <div class="decal-item">
+                    <div>
+                        <div class="fname">${d.file}</div>
+                        <div class="dims">${Math.round(d.width)}m × ${Math.round(d.height)}m | X:${Math.round(d.centerX)} Y:${Math.round(d.centerY)}</div>
+                    </div>
+                    <button class="btn btn-red" style="padding:3px 8px;font-size:10px" onclick="removeDecal(${i})">✕</button>
+                </div>`;
+        }
+    });
+    el.innerHTML = html;
+}
+
+// ── XML generation ────────────────────────────────────────────────
+function generateXML() {
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<viewsettings>\n    <decals>\n';
+
+    if (currentImage && imageBounds) {
+        const { rows, cols } = getTileGrid();
+        if (rows === 1 && cols === 1) {
+            const c    = imageBounds.getCenter();
+            const sumo = latLonToSumo(c.lat, c.lng);
+            const { w, h } = getBoundsMeters();
+            xml += `        <decal file="${currentImage.fileName}" centerX="${sumo.x.toFixed(2)}" centerY="${sumo.y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rotation="${sumoRotation().toFixed(2)}"/>\n`;
+        } else {
+            xml += `        <!-- current image will be sliced into ${rows*cols} tiles on Add -->\n`;
+        }
+    }
+
+    decalList.forEach(d => {
+        xml += `        <decal file="${d.file}" centerX="${d.centerX}" centerY="${d.centerY}" width="${d.width}" height="${d.height}" rotation="${d.rotation}"/>\n`;
+    });
+
+    xml += '    </decals>\n</viewsettings>';
+    document.getElementById('xmlOutput').value = xml;
+    return xml;
+}
+
+function downloadXML() {
+    const xml  = generateXML();
+    const blob = new Blob([xml], { type: 'text/xml' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'decals.xml'; a.click();
+    URL.revokeObjectURL(url);
+    toast('decals.xml downloaded');
+}
+
+function updateZipBtn() {
+    const hasTiles = decalList.some(d => d.kind === 'tile' && d.blob);
+    document.getElementById('btnZip').disabled = !hasTiles;
+}
+
+async function downloadZIP() {
+    const tiles = decalList.filter(d => d.kind === 'tile' && d.blob);
+    if (!tiles.length) { toast('No tile decals to package', true); return; }
+
+    if (typeof JSZip === 'undefined') {
+        toast('JSZip failed to load — check internet', true);
+        return;
+    }
+
+    const zip = new JSZip();
+    zip.file('decals.xml', generateXML());
+
+    const seenNames = new Set();
+    for (const t of tiles) {
+        let name = t.file;
+        let i = 1;
+        while (seenNames.has(name)) name = t.file.replace(/(\.[^.]+)$/, `_dup${i++}$1`);
+        seenNames.add(name);
+        zip.file(name, t.blob);
+    }
+
+    toast('Building ZIP…');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'sumo_decals.zip'; a.click();
+    URL.revokeObjectURL(url);
+    toast(`ZIP downloaded (${tiles.length} tiles + decals.xml)`);
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+renderDecalList();
+generateXML();
+updateZipBtn();
+</script>
+</body>
+</html>
