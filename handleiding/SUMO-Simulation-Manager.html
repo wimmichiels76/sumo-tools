@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO Simulation Manager · Handleiding SUMO-tools</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5b6475; --line:#e2e5eb; --accent:#1f6feb; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1c2027; --fg:#e6e9ef; --muted:#9aa3b2; --line:#2c323c; --accent:#58a6ff; --code:#262b34; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; }
+  @media (max-width:760px) { .wrap { grid-template-columns:1fr; gap:16px; } nav { position:static !important; } }
+  nav { position:sticky; top:24px; align-self:start; font-size:14px; }
+  nav .home { display:block; font-weight:700; margin-bottom:12px; color:var(--fg); text-decoration:none; }
+  nav a { display:block; padding:6px 10px; border-radius:6px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); background:var(--card); }
+  nav a.active { color:var(--accent); background:var(--card); border:1px solid var(--line); }
+  nav .back { margin-top:16px; font-size:13px; }
+  article { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:28px 32px; min-width:0; }
+  @media (max-width:760px) { article { padding:20px 18px; } }
+  h1 { margin:0 0 12px; font-size:28px; line-height:1.25; }
+  h2 { margin:32px 0 8px; font-size:20px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h3 { margin:22px 0 6px; font-size:16px; }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em; background:var(--code); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="index.html">Handleiding</a>
+    <a href="index.html">Overzicht</a>
+    <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>
+    <a href="SUMO-Simulation-Manager.html" class="active">SUMO Simulation Manager</a>
+    <a href="SUMO-VRI-Manager.html">SUMO VRI Manager</a>
+    <a href="SUMO-TLS-Editor.html">SUMO TLS Editor</a>
+    <a href="SUMO-Network-Link-Manager.html">SUMO Network Link Manager</a>
+    <a href="SUMO-Decal-Generator.html">SUMO Decal Generator</a>
+    <a class="back" href="../index.html">← alle tools</a>
+  </nav>
+  <article>
+<h1>SUMO Simulation Manager</h1>
+<p>Begeleidt een SUMO-studie van projectmap tot rapport: verkeersvraag (OD-matrices → <code>.rou.xml</code>), configuraties (<code>.sumocfg</code>), run-scripts met seeds en schaalfactoren, en een rapport uit de resultaten.</p>
+<p><b>Openen:</b> <a href="../SUMO_Simulation_Manager.html">https://wimmichiels76.github.io/sumo-tools/SUMO_Simulation_Manager.html</a></p>
+<h2>Wat je nodig hebt</h2>
+<ul>
+<li>Chrome of Edge (de tool leest en schrijft rechtstreeks in je projectmap).</li>
+<li>Een SUMO-netwerk (<code>.net.xml</code>), bv. gemaakt met de <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>.</li>
+</ul>
+<h2>Werkwijze per tabblad</h2>
+<h3>1 · Mappen</h3>
+<ul>
+<li><b>Map openen</b> en kies de hoofdmap van je studie, of <b>Mapstructuur aanmaken</b> voor een nieuwe studie.</li>
+<li>Vul de projectgegevens in. <b>Opslaan</b> bewaart alles in <code>project.json</code>; met <b>project.json laden</b> ga je later verder.</li>
+</ul>
+<h3>2 · OD &amp; routes</h3>
+<ul>
+<li><b>Zones:</b> maak per tak een zone en koppel een bron-edge (waar verkeer instroomt) en een bestemmings-edge. <b>Edges uit .net.xml lezen</b> helpt bij het kiezen.</li>
+<li><b>OD-matrices:</b> vul in of importeer als CSV. Meerdere matrices kan (bv. ochtend- en avondspits).</li>
+<li><b>Voertuigtypes:</b> verdeel elke matrixcel over voertuigtypes (aandelen samen 100 %).</li>
+<li><b>Genereren:</b> kies matrix, periode en vertrekpatroon, en sla op in <code>traffic/</code>. SUMO routeert zelf, duarouter is niet nodig.</li>
+<li>Een bestaande <code>.rou.xml</code> kun je terug inladen om aan te passen.</li>
+</ul>
+<h3>3 · Config &amp; output</h3>
+<ul>
+<li>Kies net, routes, additionals en eventueel een <b>gui-settings-file</b> (<code>background/viewsettings.xml</code>, voor sumo-gui; dit is geen additional).</li>
+<li>Stel tijd en verwerking in en vink de gewenste output aan.</li>
+<li><b>Config opbouwen</b> en <b>Naar config/</b>. Paden worden relatief geschreven (<code>../network/</code> …).</li>
+</ul>
+<h3>4 · Runs</h3>
+<ul>
+<li>De browser kan SUMO niet starten: deze tab maakt een <b>run-script</b> (<code>.bat</code> en <code>.sh</code>) dat je zelf uitvoert.</li>
+<li>Geef seeds en schaalfactoren op (bv. <code>0.8-1.2:0.05</code>). Het script draait alle combinaties en schrijft de output per run in een eigen map.</li>
+<li>Optioneel: viewsettings en een script voor stills/GIF's uit sumo-gui.</li>
+</ul>
+<h3>5 · Rapport</h3>
+<ul>
+<li><b>Outputmap scannen</b> leest tripinfo- en summary-bestanden in en neemt het gemiddelde over seeds en schalen.</li>
+<li>Exporteer als <b>HTML-rapport</b> (af te drukken als PDF) of <b>Word (.doc)</b>.</li>
+</ul>
+<h2>Tips</h2>
+<ul>
+<li>Werk vanaf het begin in de vaste mappenstructuur; ze is meteen de opleverstructuur.</li>
+<li>Tijdverlies wordt gerapporteerd als gemiddelde per voertuig, niet als totaal.</li>
+</ul>
+  </article>
+</div>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO VRI Manager · Handleiding SUMO-tools</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5b6475; --line:#e2e5eb; --accent:#1f6feb; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1c2027; --fg:#e6e9ef; --muted:#9aa3b2; --line:#2c323c; --accent:#58a6ff; --code:#262b34; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; }
+  @media (max-width:760px) { .wrap { grid-template-columns:1fr; gap:16px; } nav { position:static !important; } }
+  nav { position:sticky; top:24px; align-self:start; font-size:14px; }
+  nav .home { display:block; font-weight:700; margin-bottom:12px; color:var(--fg); text-decoration:none; }
+  nav a { display:block; padding:6px 10px; border-radius:6px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); background:var(--card); }
+  nav a.active { color:var(--accent); background:var(--card); border:1px solid var(--line); }
+  nav .back { margin-top:16px; font-size:13px; }
+  article { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:28px 32px; min-width:0; }
+  @media (max-width:760px) { article { padding:20px 18px; } }
+  h1 { margin:0 0 12px; font-size:28px; line-height:1.25; }
+  h2 { margin:32px 0 8px; font-size:20px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h3 { margin:22px 0 6px; font-size:16px; }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em; background:var(--code); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="index.html">Handleiding</a>
+    <a href="index.html">Overzicht</a>
+    <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>
+    <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>
+    <a href="SUMO-VRI-Manager.html" class="active">SUMO VRI Manager</a>
+    <a href="SUMO-TLS-Editor.html">SUMO TLS Editor</a>
+    <a href="SUMO-Network-Link-Manager.html">SUMO Network Link Manager</a>
+    <a href="SUMO-Decal-Generator.html">SUMO Decal Generator</a>
+    <a class="back" href="../index.html">← alle tools</a>
+  </nav>
+  <article>
+<h1>SUMO VRI Manager</h1>
+<p>Leest een Siemens Cyclon-regeling in, koppelt de signaalgroepen aan de verbindingen in je SUMO-net, tekent het V-plan en zet de regeling om naar een SUMO-verkeerslicht (<code>tlLogic</code>).</p>
+<p><b>Openen:</b> <a href="../SUMO_VRI_Manager.html">https://wimmichiels76.github.io/sumo-tools/SUMO_VRI_Manager.html</a></p>
+<h2>Wat je nodig hebt</h2>
+<ul>
+<li>Het Cyclon-hoofdbestand van het kruispunt (<code>K3xx…XML</code>, of een <code>.zip</code> waarin het zit). De <code>_S</code>- en <code>_SO</code>-bestanden zijn niet nodig.</li>
+<li>Het SUMO-netwerk (<code>.net.xml</code>) met het kruispunt als verkeerslicht.</li>
+<li>Voor de omzetting: eventueel een basis-<code>tlLogic</code> (<code>.add.xml</code>) met een gevalideerde fasevolgorde.</li>
+</ul>
+<h2>Werkwijze per tabblad</h2>
+<h3>1 · Cyclon inspecteren</h3>
+<p>Laad het Cyclon-bestand. Je ziet de signaalgroepen (met min-groen en geel), detectoren, programma's, de conflictmatrix en het stappenschema.</p>
+<h3>2 · SG-koppeling</h3>
+<p>Bouwt <code>input_sumo.csv</code>: welke signaalgroep stuurt welke SUMO-verbinding (<code>linkIndex</code>).</p>
+<ol>
+<li>Laad de <code>.net.xml</code>. De tool toont alle verbindingen van het verkeerslicht in een tabel en een tekening van het kruispunt.</li>
+<li>Vul per link de signaalgroep in. De namen uit het Cyclon-bestand verschijnen als suggestie. Beweeg over een rij om de beweging in de tekening op te lichten.</li>
+<li><b>Download <code>input_sumo.csv</code></b>, of klik <b>Gebruik in V-plan &amp; Convert</b> om meteen verder te werken.</li>
+</ol>
+<p>Cyclon-namen volgen per tak een vaste regel: <code>A1</code> = links, <code>A2</code> = rechtdoor, <code>A3</code> = rechts. Keren (<code>t</code>) hoort meestal bij links.</p>
+<h3>3 · V-plan</h3>
+<p>Laad een SUMO-<code>tlLogic</code> (<code>tls_var…add.xml</code>) en de koppeling. De tool tekent het V-plan: signaalgroepen × cyclustijd, met variabele (actuated) fasen gearceerd.</p>
+<h3>4 · Cyclon → SUMO</h3>
+<p>Twee modi:</p>
+<ul>
+<li><b>Herparametriseer basis-tlLogic</b> (aanbevolen): behoudt de fasevolgorde van een bestaande SUMO-regeling en vult groentijden en min-groen in uit Cyclon.</li>
+<li><b>Controller-light:</b> bouwt zelf een plausibele cyclus uit de conflictmatrix, min-groen en programmagroentijden. Optioneel met actuated groenfasen.</li>
+</ul>
+<p>Stel de parameters in (max-gap, fallbacks, <code>tlLogic</code>-id), voeg eventueel signaalgroepen samen (meerdere Cyclon-SG's op één SUMO-SG) en koppel de programma's (bv. ochtend- en avondspits). <b>Converteren</b> en <b>Download alle</b>.</p>
+<h2>Tips</h2>
+<ul>
+<li>Controleer de koppeling altijd in de tekening van tab 2: elke beweging moet een kleur hebben.</li>
+<li>Het V-plan in tab 3 is de snelste controle van een omgezette regeling.</li>
+</ul>
+  </article>
+</div>
+</body>
+</html>

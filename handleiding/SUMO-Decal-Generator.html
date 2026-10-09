@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO Decal Generator · Handleiding SUMO-tools</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5b6475; --line:#e2e5eb; --accent:#1f6feb; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1c2027; --fg:#e6e9ef; --muted:#9aa3b2; --line:#2c323c; --accent:#58a6ff; --code:#262b34; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; }
+  @media (max-width:760px) { .wrap { grid-template-columns:1fr; gap:16px; } nav { position:static !important; } }
+  nav { position:sticky; top:24px; align-self:start; font-size:14px; }
+  nav .home { display:block; font-weight:700; margin-bottom:12px; color:var(--fg); text-decoration:none; }
+  nav a { display:block; padding:6px 10px; border-radius:6px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); background:var(--card); }
+  nav a.active { color:var(--accent); background:var(--card); border:1px solid var(--line); }
+  nav .back { margin-top:16px; font-size:13px; }
+  article { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:28px 32px; min-width:0; }
+  @media (max-width:760px) { article { padding:20px 18px; } }
+  h1 { margin:0 0 12px; font-size:28px; line-height:1.25; }
+  h2 { margin:32px 0 8px; font-size:20px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h3 { margin:22px 0 6px; font-size:16px; }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em; background:var(--code); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="index.html">Handleiding</a>
+    <a href="index.html">Overzicht</a>
+    <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>
+    <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>
+    <a href="SUMO-VRI-Manager.html">SUMO VRI Manager</a>
+    <a href="SUMO-TLS-Editor.html">SUMO TLS Editor</a>
+    <a href="SUMO-Network-Link-Manager.html">SUMO Network Link Manager</a>
+    <a href="SUMO-Decal-Generator.html" class="active">SUMO Decal Generator</a>
+    <a class="back" href="../index.html">← alle tools</a>
+  </nav>
+  <article>
+<h1>SUMO Decal Generator</h1>
+<p>Maakt een achtergrond voor sumo-gui (decals): de tool haalt zelf een luchtfoto op, of tekent een kaart uit je <code>.osm</code>, voor precies het gebied van je netwerk. Je kunt ook eigen beelden plaatsen en in stukken knippen.</p>
+<p><b>Openen:</b> <a href="../sumo_decal_tool.html">https://wimmichiels76.github.io/sumo-tools/sumo_decal_tool.html</a></p>
+<h2>Wat je nodig hebt</h2>
+<ul>
+<li>Je SUMO-netwerk (<code>.net.xml</code>) met geografische projectie (standaard bij een import uit OSM).</li>
+<li>Voor een OSM-kaart: het <code>.osm</code>-bestand van het gebied.</li>
+<li>Chrome of Edge om rechtstreeks in de projectmap op te slaan.</li>
+</ul>
+<h2>Automatische achtergrond</h2>
+<ol>
+<li><b>Load .net.xml.</b> Het netwerk verschijnt op de kaart.</li>
+<li>Kies in <b>Auto Background</b> de bron:
+<ul>
+<li><b>Aerial · Digitaal Vlaanderen</b>: recentste winterorthofoto, open data, alleen voor Vlaanderen.</li>
+<li><b>Aerial · Esri World Imagery</b>: wereldwijd. Bekijk de voorwaarden van Esri voor je de beelden deelt.</li>
+<li><b>OSM map · from .osm file</b>: laad je <code>.osm</code>; de tool tekent landgebruik, groen, water en gebouwen (optioneel ook wegen).</li>
+</ul>
+</li>
+<li>Stel <b>Resolution</b> (m/px) en <b>Margin</b> (m rond het net) in. De tool toont hoe groot het beeld wordt en in hoeveel decals het opgedeeld wordt (max. 2048 px per stuk).</li>
+<li><b>Generate background decals.</b></li>
+<li><b>Save to background/ folder</b> en kies je projectmap (of meteen <code>background/</code>). De beelden en <code>viewsettings.xml</code> komen daar terecht. Een bestaande <code>viewsettings.xml</code> blijft behouden; alleen het decals-blok wordt vervangen.</li>
+</ol>
+<p>Koppel <code>background/viewsettings.xml</code> in je <code>.sumocfg</code> als <b>gui-settings-file</b> (zie <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>, tab 3).</p>
+<h2>Eigen beeld plaatsen</h2>
+<ol>
+<li><b>Load Image</b> en sleep het beeld op zijn plaats. Stel transparantie, rotatie, breedte en hoogte bij.</li>
+<li>Groot beeld? Verdeel het met de <b>Tile Slicer</b> in rijen en kolommen.</li>
+<li><b>Add Decal.</b> Herhaal voor andere beelden.</li>
+<li><b>Tiles + XML (ZIP)</b> of <b>Save to background/ folder</b>. Een eigen, niet geknipt beeld kopieer je zelf naar <code>background/</code>.</li>
+</ol>
+<h2>Tips</h2>
+<ul>
+<li>De automatische achtergrond ligt exact op het SUMO-assenstelsel (rotatie 0): niets meer te verschuiven.</li>
+<li>0,25 m/px is scherp voor een kruispunt; voor grote gebieden is 0,5 m/px lichter.</li>
+<li>Laad je een ander netwerk, verwijder dan de achtergronddecals van het vorige net (✕ in de lijst).</li>
+</ul>
+  </article>
+</div>
+</body>
+</html>

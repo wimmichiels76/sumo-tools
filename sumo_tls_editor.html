@@ -1,0 +1,3172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUMO TLS Editor (basis)</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep:#0d1117; --bg-panel:#161b22; --bg-card:#1c2330; --bg-hover:#21293a;
+    --border:#2d3748; --border-lit:#3d4f6a;
+    --amber:#f0a500; --amber-dim:#8a5e00;
+    --green:#22c55e; --green-dim:#14532d;
+    --red:#ef4444; --red-dim:#7f1d1d;
+    --yellow:#eab308;
+    --blue:#3b82f6; --blue-dim:#1e3a8a;
+    --text:#e2e8f0; --text-muted:#6b7280; --text-dim:#94a3b8;
+    --mono:'Share Tech Mono',monospace; --sans:'Barlow Condensed',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-deep);color:var(--text);font-family:var(--sans);font-size:15px;min-height:100vh;display:flex;flex-direction:column}
+
+  header{background:var(--bg-panel);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+  .logo{display:flex;align-items:center;gap:10px;font-family:var(--sans);font-weight:700;font-size:18px;letter-spacing:.08em;text-transform:uppercase}
+  .logo-signal{display:flex;flex-direction:column;gap:3px;padding:5px 4px;background:#111;border-radius:4px;border:1px solid var(--border)}
+  .sig-dot{width:10px;height:10px;border-radius:50%}
+  .sig-r{background:var(--red);box-shadow:0 0 6px var(--red)} .sig-y{background:var(--yellow)} .sig-g{background:var(--green);box-shadow:0 0 6px var(--green)}
+  .logo span{color:var(--amber)}
+  .header-meta{margin-left:auto;font-size:12px;color:var(--text-muted);font-family:var(--mono)}
+
+  .toolbar{background:var(--bg-panel);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;gap:10px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+  .btn{font-family:var(--sans);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:7px 16px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--bg-card);color:var(--text-dim);transition:all .15s;display:flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--bg-hover);border-color:var(--border-lit);color:var(--text)}
+  .btn-primary{background:var(--amber);color:#000;border-color:var(--amber);font-weight:700}
+  .btn-primary:hover{background:#ffb800;color:#000}
+  .btn-success{background:transparent;color:var(--green);border-color:var(--green-dim)}
+  .btn-success:hover{background:var(--green-dim);border-color:var(--green)}
+  .btn-danger{background:transparent;color:var(--red);border-color:var(--red-dim)}
+  .btn-danger:hover{background:var(--red-dim);border-color:var(--red)}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .toolbar-sep{width:1px;height:28px;background:var(--border);margin:0 4px}
+  .file-name{font-family:var(--mono);font-size:12px;color:var(--amber)}
+  .tls-count-badge{font-family:var(--mono);font-size:11px;background:var(--bg-card);border:1px solid var(--border);padding:3px 10px;border-radius:12px;color:var(--text-muted)}
+
+  .main{display:flex;flex:1;overflow:hidden}
+
+  .panel-left{width:310px;min-width:220px;background:var(--bg-panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+  .panel-title{padding:10px 16px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);background:var(--bg-deep)}
+  .search-wrap{padding:8px 12px;border-bottom:1px solid var(--border)}
+  .search-wrap input{width:100%;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none}
+  .search-wrap input:focus{border-color:var(--amber)}
+  .search-wrap input::placeholder{color:var(--text-muted)}
+  .tls-list{flex:1;overflow-y:auto;padding:4px 0}
+  .tls-list::-webkit-scrollbar{width:6px} .tls-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+  .tls-item{padding:8px 10px;cursor:pointer;border-left:3px solid transparent;transition:all .1s;display:flex;gap:10px;align-items:center;border-bottom:1px solid rgba(45,55,72,.5)}
+  .tls-item:hover{background:var(--bg-hover)}
+  .tls-item.active{background:var(--bg-card);border-left-color:var(--amber)}
+  .tls-item-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .tls-id{font-family:var(--mono);font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tls-item.active .tls-id{color:var(--amber)}
+  .tls-meta{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+  .tag{background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:var(--mono);color:var(--text-muted)}
+  .tag-type{border-color:var(--blue-dim);color:#60a5fa} .tag-phases{border-color:var(--green-dim);color:var(--green)}
+
+  .mini-junc{flex-shrink:0;width:68px;height:68px;background:var(--bg-deep);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+  .tls-item.active .mini-junc{border-color:var(--amber-dim)}
+  .mini-junc svg{width:100%;height:100%;display:block}
+
+  .drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;border:2px dashed var(--border);margin:16px;border-radius:8px;transition:all .2s}
+  .drop-zone.drag-over{border-color:var(--amber);background:rgba(240,165,0,.05)}
+  .drop-zone-icon{font-size:36px;opacity:.4}
+  .drop-zone h3{font-size:15px;font-weight:600;color:var(--text-dim)}
+  .drop-zone p{font-size:12px;color:var(--text-muted)}
+
+  .panel-right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .editor-area{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+  .editor-area::-webkit-scrollbar{width:6px} .editor-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  .no-select-msg{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);font-size:14px}
+  .no-select-msg .big{font-size:48px;opacity:.2}
+
+  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;overflow:hidden;animation:fadeIn .2s ease}
+  .card-header{padding:9px 16px;background:var(--bg-panel);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);display:flex;align-items:center;gap:8px}
+  .card-body{padding:16px}
+
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+  .field input,.field select{background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;padding:7px 10px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;transition:border-color .15s}
+  .field input:focus,.field select:focus{border-color:var(--amber)}
+  .field select option{background:var(--bg-deep)}
+
+  /* Schematic */
+  .schematic-svg-wrap{width:100%;background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;overflow:hidden;position:relative}
+  .schematic-svg-wrap svg{display:block;touch-action:none;width:100%;height:100%}
+  .sch-controls{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .sch-size-btn{padding:3px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .12s}
+  .sch-size-btn:hover{border-color:var(--border-lit);color:var(--text)}
+  .sch-size-btn.active{background:var(--bg-hover);color:var(--text);border-color:var(--border-lit)}
+  .conn-table-wrap{flex:1;min-width:260px;overflow-x:auto}
+  .conn-table{width:100%;border-collapse:collapse;font-size:12px}
+  .conn-table th{background:var(--bg-deep);color:var(--text-muted);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  .conn-table td{padding:4px 8px;border-bottom:1px solid rgba(45,55,72,.5);vertical-align:middle;font-family:var(--mono);white-space:nowrap}
+  .conn-table tr:hover td{background:var(--bg-hover)}
+  .link-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:11px;font-family:var(--mono);font-size:11px;font-weight:700;border:1.5px solid}
+  .dir-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;background:var(--bg-deep);border:1px solid var(--border);color:var(--text-dim)}
+  .no-data-note{font-size:12px;color:var(--text-muted);font-family:var(--mono);line-height:1.6}
+  .phase-strip{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .phase-pill{padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .12s}
+  .phase-pill:hover{border-color:var(--border-lit);color:var(--text)}
+  .phase-pill.active{background:var(--amber);color:#000;border-color:var(--amber);font-weight:700}
+
+  /* Phase table */
+  .phase-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .phase-info{margin-left:auto;font-size:12px;color:var(--text-muted);font-family:var(--mono)}
+  .phase-table-wrap{overflow-x:auto}
+  .phase-table{width:100%;border-collapse:collapse;font-size:13px}
+  .phase-table th{background:var(--bg-deep);color:var(--text-muted);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:7px 9px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  .phase-table td{padding:4px 7px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .phase-table tr:last-child td{border-bottom:none}
+  .phase-table tr:hover td{background:var(--bg-hover)}
+  .phase-idx{font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:center;width:32px}
+  .dur-input{background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;padding:4px 8px;width:68px;font-family:var(--mono);font-size:13px;color:var(--amber);outline:none;text-align:right}
+  .dur-input:focus{border-color:var(--amber)}
+  .state-input{background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;padding:4px 10px;width:100%;min-width:160px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;letter-spacing:.08em}
+  .state-input:focus{border-color:var(--blue)}
+
+  /* Signal cells */
+  .state-viz{display:flex;gap:2px;align-items:center}
+  .sig-cell{width:15px;height:15px;border-radius:3px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8px;font-weight:700;color:rgba(0,0,0,.75)}
+  .sc-G{background:#22c55e}.sc-g{background:#15803d;color:#aaa}.sc-r{background:#ef4444}.sc-y{background:#eab308}.sc-Y{background:#ca8a04}.sc-u{background:#8b5cf6;color:#fff}.sc-o{background:#f97316}.sc-O{background:#c2410c}.sc-s{background:#06b6d4;color:#fff}.sc-w{background:#cbd5e1;color:#000}.sc-x{background:var(--border);color:var(--text-muted)}
+
+  .phase-diagram{overflow-x:auto;padding-bottom:4px}
+  .phase-diagram svg{display:block}
+
+  .xml-pre{background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;padding:12px;font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:pre;overflow-x:auto;max-height:200px;overflow-y:auto;line-height:1.6}
+  .xml-kw{color:#60a5fa}.xml-attr{color:#a78bfa}.xml-val{color:var(--amber)}
+
+  /* ── Signal Group Matrix (Links × Links, same-SG relation) ── */
+  .sgm-wrap{margin-bottom:14px}
+  .sgm-table{border-collapse:separate;border-spacing:0}
+  .sgm-table td,.sgm-table th{padding:0;line-height:1}
+  .sgm-corner{width:32px;height:32px}
+  .sgm-rowlabel{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:right;padding-right:6px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+  .sgm-collabel-wrap{height:90px;width:32px;vertical-align:bottom;padding-bottom:4px;font-family:var(--mono);font-size:10px}
+  .sgm-collabel-inner{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:86px;color:var(--text-muted);display:flex;align-items:center}
+  .sgm-cell{
+    width:32px;height:32px;cursor:pointer;
+    border:1px solid var(--bg-deep);
+    transition:filter .1s,border-color .1s;
+    position:relative;
+    display:table-cell;vertical-align:middle;text-align:center;
+    background:var(--bg-deep);
+  }
+  .sgm-cell:hover{border-color:var(--border-lit)!important;z-index:2;filter:brightness(1.3)}
+  .sgm-cell.diagonal{cursor:default}
+  .sgm-cell.diagonal::after{content:'■';font-size:14px;color:rgba(255,255,255,.85)}
+  .sgm-cell.direct::after{content:'●';font-size:16px;color:rgba(255,255,255,.9)}
+  .sgm-cell.derived::after{content:'○';font-size:13px;color:rgba(255,255,255,.55)}
+  .sgm-cell.empty{background:#1a2330}
+  .sgm-cell.empty::after{content:'·';color:#2d3748;font-size:14px;line-height:1}
+  .sgm-cell.singleton{background:var(--bg-deep);border-color:var(--bg-panel)}
+  .sgm-cell.singleton::after{content:'■';font-size:10px;color:#4a5568}
+  /* Components strip (below matrix) */
+  .sgm-comps{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding:10px;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px}
+  .sgm-comp{
+    display:flex;align-items:center;gap:6px;
+    padding:4px 8px 4px 4px;border-radius:4px;
+    background:var(--bg-panel);border:1px solid var(--border);
+  }
+  .sgm-comp-swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+  .sgm-comp-name{
+    background:transparent;border:none;border-bottom:1px dashed var(--border);
+    font-family:var(--mono);font-size:12px;color:var(--amber);
+    padding:2px 3px;width:70px;outline:none;
+    text-align:left;
+  }
+  .sgm-comp-name:focus{border-bottom-color:var(--amber);background:var(--bg-deep)}
+  .sgm-comp-name.mixed{color:var(--red);border-bottom-color:rgba(240,80,80,.5)}
+  .sgm-comp-name::placeholder{color:var(--text-muted);font-style:italic}
+  .sgm-comp-members{font-family:var(--mono);font-size:11px;color:var(--text-muted)}
+  .sgm-comp.single{opacity:.6}
+  .sgm-comp-btn{
+    background:transparent;border:1px solid var(--border);border-radius:3px;
+    color:var(--text-muted);font-size:10px;padding:2px 6px;cursor:pointer;
+    font-family:var(--mono);line-height:1;
+  }
+  .sgm-comp-btn:hover{border-color:var(--red);color:var(--red)}
+  .sgm-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--text-muted)}
+  .sgm-legend-item{display:flex;align-items:center;gap:5px}
+  .sgm-legend-swatch{width:16px;height:16px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+
+  /* ── Edit mode toggle (unified matrix) ── */
+  .cm-mode-bar{
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+    padding:6px 10px;margin-bottom:10px;
+    background:var(--bg-deep);border:1px solid var(--border);border-radius:5px;
+  }
+  .cm-mode-label{font-size:11px;color:var(--text-muted);font-family:var(--mono);margin-right:4px}
+  .cm-mode-btn:hover{color:var(--text);border-color:var(--border-lit)}
+
+  /* ── Unified cell sg-member rendering (on top of cm-cell base) ── */
+  .cm-cell.sg-direct{cursor:default}
+  .cm-cell.sg-direct::after{content:'●';font-size:16px;color:rgba(255,255,255,.9)}
+  .cm-cell.sg-derived{cursor:default}
+  .cm-cell.sg-derived::after{content:'○';font-size:13px;color:rgba(255,255,255,.55)}
+  .cm-cell.sg-diag{cursor:default}
+  .cm-cell.sg-diag::after{content:'■';font-size:14px;color:rgba(255,255,255,.85)}
+  .cm-cell.sg-single-diag{cursor:default;background:var(--bg-panel)}
+  .cm-cell.sg-single-diag::after{content:'■';font-size:10px;color:#4a5568}
+  /* Highlight active-mode hoverability */
+
+  /* ── Components strip (moved into cm card) ── */
+  .sg-table{width:100%;border-collapse:collapse;font-size:13px}
+  .sg-table th{background:var(--bg-deep);color:var(--text-muted);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:7px 9px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  .sg-table td{padding:3px 7px;border-bottom:1px solid rgba(45,55,72,.4);vertical-align:middle}
+  .sg-table tr:last-child td{border-bottom:none}
+  .sg-table tr:hover td{background:var(--bg-hover)}
+  .sg-idx{font-family:var(--mono);font-size:12px;color:var(--text-muted);width:42px;text-align:center}
+  .sg-input{background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;padding:4px 10px;width:100%;font-family:var(--mono);font-size:13px;color:var(--amber);outline:none;letter-spacing:.04em;transition:border-color .15s}
+  .sg-input:focus{border-color:var(--amber);box-shadow:0 0 0 2px rgba(240,165,0,.15)}
+  .sg-input::placeholder{color:var(--text-muted);font-style:italic}
+  .sg-phases{display:flex;gap:2px;flex-wrap:nowrap}
+  .sg-saved-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;color:var(--green);opacity:0;transition:opacity .4s}
+  .sg-saved-badge.show{opacity:1}
+
+  /* Conflict matrix */
+  .cm-wrap{overflow-x:auto;padding-bottom:4px}
+  .cm-table{border-collapse:collapse;font-size:11px}
+  .cm-table td,.cm-table th{padding:0;line-height:1}
+  .cm-corner{width:32px;height:32px}
+  .cm-rowlabel{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:right;padding-right:6px;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+  .cm-rowlabel span{color:var(--amber)}
+  .cm-collabel-wrap{height:90px;width:32px;vertical-align:bottom;padding-bottom:4px;font-family:var(--mono);font-size:10px}
+  .cm-collabel-inner{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:86px;color:var(--text-muted);display:flex;align-items:center}
+  .cm-collabel-inner span{color:var(--amber)}
+  /* Cell base */
+  .cm-cell{
+    width:32px;height:32px;cursor:pointer;
+    border:1px solid var(--bg-deep);
+    transition:background .1s,border-color .1s;
+    position:relative;
+    display:table-cell;vertical-align:middle;text-align:center;
+  }
+  .cm-cell:hover{border-color:var(--border-lit)!important;z-index:2;filter:brightness(1.2)}
+  /* States */
+  .cm-cell.diagonal{background:var(--bg-panel);cursor:default;border-color:var(--bg-panel)}
+  .cm-cell.diagonal::after{content:'■';color:#2d3748;font-size:14px}
+  .cm-cell.compat{background:#0d2b1a}
+  .cm-cell.compat::after{content:'·';color:#1a4731;font-size:18px;line-height:1}
+  .cm-cell.conflict{background:#3d0a0a}
+  .cm-cell.conflict:hover{background:#5a0e0e}
+  /* Intergreen value display — overrides ::after */
+  .cm-cell.conflict .cm-val{
+    display:flex;align-items:center;justify-content:center;
+    width:100%;height:100%;
+    font-family:var(--mono);font-weight:700;font-size:11px;
+    color:#fca5a5;
+  }
+  .cm-cell.conflict.geo .cm-val{color:#fca5a5}
+  .cm-cell.conflict.img .cm-val{color:#fde68a}  /* amber = came from image */
+  .cm-cell.compat .cm-val,.cm-cell.diagonal .cm-val{display:none}
+  /* Input popup for editing value */
+  .cm-edit-popup{
+    position:fixed;z-index:200;
+    background:var(--bg-panel);border:1px solid var(--border-lit);
+    border-radius:5px;padding:10px 12px;
+    display:flex;flex-direction:column;gap:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+    min-width:200px;
+  }
+  .cm-edit-popup label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+  .cm-edit-popup input{background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;padding:5px 8px;font-family:var(--mono);font-size:14px;color:var(--amber);outline:none;width:100%;text-align:center}
+  .cm-edit-popup input:focus{border-color:var(--amber)}
+  .cm-edit-btns{display:flex;gap:6px}
+  /* Image import area */
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:10px 14px;background:var(--bg-deep);
+    border:1px dashed var(--border);border-radius:5px;
+    margin-bottom:12px;transition:border-color .2s,background .2s;
+  }
+  /* Matrix legend */
+  .cm-legend{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--text-muted)}
+  .cm-legend-item{display:flex;align-items:center;gap:5px}
+  .cm-legend-swatch{width:16px;height:16px;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .cm-stats{font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-top:8px}
+  .cm-stats b{color:var(--text)}
+  .cm-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .cm-notice{font-size:12px;color:var(--text-muted);font-family:var(--mono);line-height:1.7;padding:12px;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px}
+  /* Conflict geo layout */
+  .cm-body-layout{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .cm-matrix-col{flex:0 0 auto;min-width:200px}
+  .cm-geo-col{flex:1 1 400px;min-width:300px}
+  .cm-geo-wrap{background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;overflow:hidden;position:relative;cursor:grab}
+  .cm-geo-wrap svg{display:block;touch-action:none}
+  .cm-geo-hint{font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-top:6px;text-align:center}
+
+  /* Linked groups (must-be-together) */
+  .pd-link-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;margin-bottom:10px}
+  .pd-link-bar label{font-size:11px;color:var(--text-muted);font-family:var(--mono);flex-shrink:0}
+  .pd-link-bar select{background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;padding:4px 8px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;min-width:100px}
+  .pd-link-bar select:focus{border-color:var(--amber)}
+  .pd-link-chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+  .pd-link-chip{display:flex;align-items:center;gap:4px;padding:2px 8px 2px 10px;border-radius:12px;font-family:var(--mono);font-size:11px;border:1.5px solid;cursor:default}
+  .pd-link-chip .rm{cursor:pointer;opacity:.6;font-size:13px;line-height:1;padding-left:2px}
+  .pd-link-chip .rm:hover{opacity:1}
+  .pd-grouplabel.linked{position:relative}
+  .pd-grouplabel .link-dot{display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:3px;vertical-align:middle;flex-shrink:0}
+  .pd-grid-wrap{overflow-x:auto;margin-bottom:14px}
+  .pd-grid{border-collapse:collapse;font-size:12px}
+  .pd-grid th{background:var(--bg-deep);padding:5px 8px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);white-space:nowrap;text-align:center}
+  .pd-grid th.pd-stagenum{min-width:44px;color:var(--amber)}
+  .pd-grid td{border-bottom:1px solid rgba(45,55,72,.4);vertical-align:middle}
+  .pd-grid tr:hover td{background:var(--bg-hover)}
+  .pd-grouplabel{font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:3px 8px;white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis}
+  .pd-grouplabel b{color:var(--amber)}
+  .pd-cell{
+    width:40px;height:30px;text-align:center;cursor:pointer;
+    padding:0;transition:background .1s;
+  }
+  .pd-cell:hover{background:var(--bg-hover)!important}
+  .pd-cell.would-conflict{background:rgba(239,68,68,.18)!important}
+  .pd-cell.would-conflict .pd-dot{background:rgba(239,68,68,.6)}
+  .pd-cell.would-ok{background:rgba(34,197,94,.13)!important}
+  .pd-cell.would-ok .pd-dot{background:rgba(34,197,94,.5)}
+  .pd-row-flash{animation:rowflash .6s ease}
+  @keyframes rowflash{0%{background:rgba(239,68,68,.35)}100%{background:transparent}}
+  .pd-proposal-group-hdr{font-size:11px;font-family:var(--mono);color:var(--text-muted);
+    margin:10px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+  .pd-proposal-group-hdr b{color:var(--amber)}
+  .pd-proposals-scroller{max-height:340px;overflow-y:auto;padding-right:4px}
+  .pd-cell.assigned{background:rgba(240,165,0,.18)}
+  .pd-cell.assigned .pd-dot{background:var(--amber);box-shadow:0 0 6px rgba(240,165,0,.5)}
+  .pd-cell.conflicted{background:rgba(239,68,68,.12)}
+  .pd-cell.conflicted .pd-dot{background:var(--red)}
+  .pd-dot{width:14px;height:14px;border-radius:7px;background:var(--border);margin:auto;transition:all .12s}
+  .pd-conflict-col{width:24px;padding:0 4px;text-align:center;font-size:13px}
+  /* Proposal chooser */
+  .pd-proposals{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .pd-proposal-btn{
+    display:flex;align-items:center;gap:10px;padding:8px 12px;
+    background:var(--bg-card);border:1px solid var(--border);border-radius:6px;
+    cursor:pointer;text-align:left;transition:border-color .15s,background .15s;
+    font-family:var(--sans);font-size:14px;color:var(--text);width:100%
+  }
+  .pd-proposal-btn:hover{border-color:var(--amber);background:var(--bg-hover)}
+  .pd-proposal-btn.selected{border-color:var(--amber);background:rgba(240,165,0,.1)}
+  .pd-proposal-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:50%;font-weight:700;font-size:13px;
+    background:rgba(240,165,0,.2);color:var(--amber);flex-shrink:0
+  }
+  .pd-proposal-desc{flex:1;font-size:12px;color:var(--text-dim)}
+  .pd-proposal-meta{font-size:11px;color:var(--text-muted);font-family:var(--mono)}
+  /* Conflict banner */
+  .pd-conflict-banner{
+    display:flex;align-items:center;gap:8px;padding:8px 12px;
+    background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);
+    border-radius:5px;margin-bottom:10px;font-size:12px;color:#fca5a5;
+    font-family:var(--mono);
+  }
+  .pd-conflict-banner.ok{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:#86efac}
+  .pd-conflict-banner b{color:inherit}
+  /* Stage/Interstage timeline */
+  .si-timeline{display:flex;align-items:stretch;gap:0;overflow-x:auto;margin-bottom:16px;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+  .si-stage,.si-ig{display:flex;flex-direction:column;min-width:120px;border-right:1px solid var(--border)}
+  .si-stage:last-child,.si-ig:last-child{border-right:none}
+  .si-stage-header{background:rgba(34,197,94,.12);border-bottom:1px solid var(--border);padding:5px 10px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);text-align:center;white-space:nowrap}
+  .si-ig-header{background:rgba(239,68,68,.10);border-bottom:1px solid var(--border);padding:5px 10px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);text-align:center;white-space:nowrap}
+  .si-body{padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:6px}
+  .si-field{display:flex;flex-direction:column;gap:3px}
+  .si-field label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+  .si-input{background:var(--bg-deep);border:1px solid var(--border);border-radius:3px;padding:3px 7px;font-family:var(--mono);font-size:13px;color:var(--amber);outline:none;width:70px;text-align:right}
+  .si-input:focus{border-color:var(--amber)}
+  .si-input.computed{color:var(--text-dim)}
+  .si-input.override{color:var(--blue)}
+  .si-computed-note{font-family:var(--mono);font-size:9px;color:var(--text-muted);line-height:1.4}
+  .si-groups{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px}
+  .si-group-chip{padding:2px 6px;border-radius:3px;font-family:var(--mono);font-size:10px;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+  .si-group-chip.yellow{background:rgba(234,179,8,.15);color:var(--yellow);border-color:rgba(234,179,8,.25)}
+  /* Phase preview */
+  .pd-preview{background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;padding:10px;font-family:var(--mono);font-size:11px;overflow-x:auto;white-space:pre;line-height:1.7;color:var(--text-dim);max-height:220px;overflow-y:auto}
+  .pd-preview .ph-green{color:var(--green)} .pd-preview .ph-yellow{color:var(--yellow)} .pd-preview .ph-red{color:var(--text-muted)} .pd-preview .ph-dur{color:var(--amber)}
+  .icon-btn{background:none;border:1px solid transparent;border-radius:3px;cursor:pointer;color:var(--text-muted);padding:3px 5px;font-size:12px;transition:all .1s;line-height:1}
+  .icon-btn:hover{background:var(--bg-hover);border-color:var(--border);color:var(--text)}
+  .icon-btn.del:hover{color:var(--red);border-color:var(--red-dim)}
+  .icon-btn.up:hover,.icon-btn.dn:hover{color:var(--blue);border-color:var(--blue-dim)}
+
+  .legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--text-muted)}
+  .legend-item{display:flex;align-items:center;gap:4px}
+
+  .status-bar{background:var(--bg-deep);border-top:1px solid var(--border);padding:5px 24px;font-size:11px;font-family:var(--mono);color:var(--text-muted);display:flex;gap:24px;flex-shrink:0}
+  .status-ok{color:var(--green)}.status-err{color:var(--red)}.status-warn{color:var(--amber)}
+
+  ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  [data-tip]{position:relative;cursor:default}
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#000;color:var(--text);font-size:10px;padding:3px 6px;border-radius:3px;white-space:nowrap;pointer-events:none;z-index:99;border:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-signal">
+      <div class="sig-dot sig-r"></div><div class="sig-dot sig-y"></div><div class="sig-dot sig-g"></div>
+    </div>
+    SUMO <span>TLS</span> Editor
+  </div>
+  <div class="header-meta" id="headerMeta">no file loaded</div>
+</header>
+
+<div class="toolbar">
+  <input type="file" id="fileInput" accept=".xml,.net.xml" style="display:none">
+  <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📂 Load .net.xml</button>
+  <div class="toolbar-sep"></div>
+  <button class="btn btn-success" id="btnExport" onclick="exportXML()" disabled>⬇ Export Modified XML</button>
+  <div class="toolbar-sep"></div>
+  <button class="btn" id="btnAddTLS" onclick="addNewTLS()" disabled>＋ Add TLS</button>
+  <button class="btn btn-danger" id="btnDeleteTLS" onclick="deleteCurrentTLS()" disabled>✕ Delete TLS</button>
+  <div class="toolbar-sep"></div>
+  <span class="tls-count-badge" id="tlsCountBadge">0 TLS loaded</span>
+  <span class="file-name" id="fileNameLabel"></span>
+</div>
+
+<div class="main">
+  <div class="panel-left">
+    <div class="panel-title">Traffic Light Controllers</div>
+    <div class="search-wrap"><input type="text" id="searchInput" placeholder="Filter by ID…" oninput="filterList()"></div>
+    <div class="tls-list" id="tlsList">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-icon">🚦</div>
+        <h3>No file loaded</h3>
+        <p>Load a SUMO .net.xml file<br>to list traffic light controllers</p>
+      </div>
+    </div>
+  </div>
+  <div class="panel-right">
+    <div class="editor-area" id="editorArea">
+      <div class="no-select-msg"><div class="big">🚦</div><div>Select a TLS from the list to edit</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span id="statusMsg" class="status-ok">Ready</span>
+  <span id="statusPhases"></span>
+  <span id="statusCycle"></span>
+</div>
+
+<script>
+// Oranjegeel per signaalgroep. Standaard volgens de snelheid van de inkomende rijstrook
+// (Vlaanderen): <= 50 km/u 3 s, 70 km/u 4 s, 90 km/u 5 s. Fietsers 3 s, voetgangers 0 s (geen geel).
+const IG_YELLOW_DEFAULT = 3;
+function groupKeyOf(t, li) { const n = (t.signalGroups?.[li] || '').trim(); return n || `L${li}`; }
+function groupMembers(t, key) {
+  const nL = t.phases[0]?.state?.length || 0;
+  return Array.from({length:nL}, (_, li) => li).filter(li => groupKeyOf(t, li) === key);
+}
+function groupKeys(t) {
+  const nL = t.phases[0]?.state?.length || 0, seen = [];
+  for (let li = 0; li < nL; li++) { const k = groupKeyOf(t, li); if (!seen.includes(k)) seen.push(k); }
+  return seen;
+}
+function defaultYellowOfLinkRaw(t, li) {
+  const type = getLinkTypes(t.id)[li];
+  if (type === 'ped') return 0;
+  if (type === 'bike') return 3;
+  const c = (connectionsByTLS[t.id] || []).find(c => c.linkIndex === li);
+  const v = (c && laneMap[`${c.from}_${c.fromLane}`]?.speed) || 13.89;
+  return v <= 14.0 ? 3 : (v <= 19.5 ? 4 : 5);
+}
+function defaultYellowOfGroup(t, key) {
+  return Math.max(0, ...groupMembers(t, key).map(li => defaultYellowOfLinkRaw(t, li)));
+}
+function yellowOfGroup(t, key) {
+  const v = t.yellowByGroup?.[key];
+  return (v !== undefined && v !== null && v !== '' && !isNaN(v)) ? Number(v) : defaultYellowOfGroup(t, key);
+}
+function yellowOfLink(t, li) { return yellowOfGroup(t, groupKeyOf(t, li)); }
+function upsertTlsParam(t, key, val) {
+  let node = null;
+  t.tlLogicNode.querySelectorAll('param').forEach(p => { if (p.getAttribute('key') === key) node = p; });
+  if (val) {
+    if (!node) {
+      node = xmlDoc.createElement('param');
+      node.setAttribute('key', key);
+      t.tlLogicNode.insertBefore(node, t.tlLogicNode.querySelector('phase') || null);
+    }
+    node.setAttribute('value', val);
+  } else if (node) t.tlLogicNode.removeChild(node);
+}
+function setGroupYellow(i, key, v) {
+  const t = tlsData[i]; if (!t) return;
+  if (!t.yellowByGroup) t.yellowByGroup = {};
+  if (v === '' || v === null) delete t.yellowByGroup[key];
+  else t.yellowByGroup[key] = Math.max(0, Number(v) || 0);
+  upsertTlsParam(t, 'yellowTimes', Object.entries(t.yellowByGroup).map(([k, x]) => `${k}:${x}`).join(','));
+  if (t.phaseDesign) { recomputeInterstages(i); savePhaseDesign(i); renderPhaseDesign(i); }
+  refreshXML(t);
+}
+
+// ── Global state ──────────────────────────────────────────────────────
+let xmlDoc = null, originalFileName = '';
+let tlsData = [], selectedIndex = -1, schematicPhase = 0, schematicSize = 360;
+let schZoom = { scale: 1, tx: 0, ty: 0 };
+let cmZoom  = { scale: 1, tx: 0, ty: 0 };
+
+// Network geometry
+let junctionMap    = {};  // jId → {x,y}
+let junctionShapes = {};  // jId → [[x,y],…]  (outline polygon)
+let edgeMap        = {};  // eId → {from, to}
+let crossingEdgesMap = {};  // crossing-edge-id → [overgestoken edges]
+let laneMap        = {};  // laneId → {shape:[[x,y],…], edgeId, index, width}
+let internalNextLane = {};  // internal laneId → next internal laneId (for chaining)
+let edgeLaneIds    = {};  // eId → [laneId,…] sorted by index
+let connectionsByTLS = {}; // tlsId → [{from,to,fromLane,toLane,linkIndex,dir},…]
+
+const SIG_COLORS = {G:'#22c55e',g:'#15803d',r:'#ef4444',y:'#eab308',Y:'#ca8a04',u:'#8b5cf6',o:'#f97316',O:'#c2410c',s:'#06b6d4',w:'#cbd5e1'};
+const SIG_INFO   = {G:'Green priority',g:'Green no-priority',r:'Red',y:'Yellow',Y:'Yellow priority',u:'Off blink',o:'Off',O:'Off 2',s:'Stop-and-go',w:'Yellow blink'};
+const sigCls = c => ({G:'sc-G',g:'sc-g',r:'sc-r',y:'sc-y',Y:'sc-Y',u:'sc-u',o:'sc-o',O:'sc-O',s:'sc-s',w:'sc-w'}[c]||'sc-x');
+
+// ── File loading ──────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  new FileReader().onload = ev => parseNetXML(ev.target.result, f.name),
+  (function(){ const r = new FileReader(); r.onload = ev => parseNetXML(ev.target.result, f.name); r.readAsText(f); })();
+  e.target.value = '';
+});
+
+['dragover','dragleave','drop'].forEach(ev =>
+  document.querySelector('.panel-left').addEventListener(ev, e => {
+    e.preventDefault();
+    const dz = document.getElementById('dropZone');
+    if (dz) dz.classList.toggle('drag-over', e.type === 'dragover');
+    if (e.type === 'drop') {
+      const f = e.dataTransfer.files[0]; if (!f) return;
+      const r = new FileReader(); r.onload = ev => parseNetXML(ev.target.result, f.name); r.readAsText(f);
+    }
+  })
+);
+
+function parseShape(str) {
+  if (!str || !str.trim()) return [];
+  return str.trim().split(/\s+/).map(s => {
+    const [x,y] = s.split(',').map(Number);
+    return [x, y];
+  }).filter(([x,y]) => isFinite(x) && isFinite(y));
+}
+
+function parseNetXML(text, name) {
+  try {
+    const parser = new DOMParser();
+    xmlDoc = parser.parseFromString(text, 'text/xml');
+    const err = xmlDoc.querySelector('parsererror');
+    if (err) throw new Error(err.textContent.slice(0,120));
+
+    originalFileName = name;
+    tlsData = []; junctionMap = {}; junctionShapes = {}; edgeMap = {};
+    laneMap = {}; edgeLaneIds = {}; connectionsByTLS = {}; internalNextLane = {}; crossingEdgesMap = {};
+
+    // ── Junctions ──
+    xmlDoc.querySelectorAll('junction').forEach(j => {
+      const id = j.getAttribute('id');
+      junctionMap[id] = { x: parseFloat(j.getAttribute('x'))||0, y: parseFloat(j.getAttribute('y'))||0 };
+      const sh = parseShape(j.getAttribute('shape') || '');
+      if (sh.length >= 3) junctionShapes[id] = sh;
+    });
+
+    // ── All lanes (including internal :junction edges) ──
+    xmlDoc.querySelectorAll('edge > lane').forEach(lane => {
+      const laneId = lane.getAttribute('id');
+      const edgeNode = lane.parentElement;
+      const edgeId = edgeNode.getAttribute('id');
+      const shape = parseShape(lane.getAttribute('shape') || '');
+      const idx   = parseInt(lane.getAttribute('index')) || 0;
+      const width = parseFloat(lane.getAttribute('width')) || 3.2;
+      const allow    = lane.getAttribute('allow')    || '';
+      const disallow = lane.getAttribute('disallow') || '';
+      const speed = parseFloat(lane.getAttribute('speed')) || 13.89;
+      laneMap[laneId] = { shape, edgeId, index: idx, width, allow, disallow, speed };
+      if (!edgeLaneIds[edgeId]) edgeLaneIds[edgeId] = [];
+      edgeLaneIds[edgeId].push(laneId);
+    });
+    // Sort each edge's lanes by index
+    Object.values(edgeLaneIds).forEach(arr => arr.sort((a,b) => (laneMap[a]?.index||0) - (laneMap[b]?.index||0)));
+
+    // ── Edges (non-internal only for from/to lookup) ──
+    xmlDoc.querySelectorAll('edge').forEach(e => {
+      const id = e.getAttribute('id');
+      if (id && !id.startsWith(':'))
+        edgeMap[id] = { from: e.getAttribute('from')||'', to: e.getAttribute('to')||'' };
+      if (id && e.getAttribute('function') === 'crossing')
+        crossingEdgesMap[id] = (e.getAttribute('crossingEdges') || '').split(/\s+/).filter(Boolean);
+    });
+
+    // ── Connections with TLS ──
+    xmlDoc.querySelectorAll('connection[tl]').forEach(c => {
+      const tl = c.getAttribute('tl');
+      if (!connectionsByTLS[tl]) connectionsByTLS[tl] = [];
+      connectionsByTLS[tl].push({
+        from: c.getAttribute('from')||'', to: c.getAttribute('to')||'',
+        fromLane: parseInt(c.getAttribute('fromLane'))||0,
+        toLane:   parseInt(c.getAttribute('toLane'))||0,
+        linkIndex:parseInt(c.getAttribute('linkIndex'))||0,
+        dir:      c.getAttribute('dir')||'',
+        via:      c.getAttribute('via')||''   // internal lane id for conflict geometry
+      });
+    });
+
+    // ── Internal lane chaining ──
+    // Two cases produce a chain link:
+    //   Case A: from=":X" to=":Y"                    → fromLane → toLane (classic internal→internal)
+    //   Case B: from=":X" to="anything" via=":Y_n_m" → fromLane → viaLane
+    //           (internal edge continues through an internal junction before reaching the real exit)
+    xmlDoc.querySelectorAll('connection').forEach(c => {
+      const from = c.getAttribute('from') || '';
+      if (!from.startsWith(':')) return;  // must start from an internal edge
+
+      const via     = c.getAttribute('via') || '';
+      const to      = c.getAttribute('to')  || '';
+      const fromLane = parseInt(c.getAttribute('fromLane')) || 0;
+      const fromLaneId = (edgeLaneIds[from] || [])[fromLane] || (from + '_' + fromLane);
+
+      if (via.startsWith(':') && laneMap[via]) {
+        // Case B: the via IS the next internal lane — use it directly
+        internalNextLane[fromLaneId] = via;
+      } else if (to.startsWith(':')) {
+        // Case A: classic internal→internal, no via (or via is not an internal lane)
+        const toLane   = parseInt(c.getAttribute('toLane')) || 0;
+        const toLaneId = (edgeLaneIds[to] || [])[toLane] || (to + '_' + toLane);
+        internalNextLane[fromLaneId] = toLaneId;
+      }
+    });
+
+    // ── TLS Logic ──
+    xmlDoc.querySelectorAll('tlLogic').forEach(node => {
+      const phases = [];
+      node.querySelectorAll('phase').forEach(ph => phases.push({
+        duration: ph.getAttribute('duration')||'0', minDur: ph.getAttribute('minDur')||'',
+        maxDur:   ph.getAttribute('maxDur')||'',    state:  ph.getAttribute('state')||'',
+        name:     ph.getAttribute('name')||''
+      }));
+      // Parse stored signal group mapping from <param key="signalGroups" value="0:VK1,1:A1,..."/>
+      const signalGroups = {};
+      // Parse stored signal group pairs (direct edges) from
+      // <param key="signalGroupPairs" value="0-1,2-5,..."/>.
+      // When present, this is authoritative for the edge graph; otherwise we
+      // fall back to deriving edges from duplicate names (backward compat).
+      let signalGroupPairsRaw = null;
+      // Parse stored conflict matrix from <param key="conflictMatrix" value="0-1,0-3,1-2,..."/>
+      let conflictMatrix = null;
+      let pdAssignRaw='', pdStagesRaw='', pdIGRaw='', pdLinkedRaw='';
+      node.querySelectorAll('param').forEach(p => {
+        const key = p.getAttribute('key'), val = p.getAttribute('value')||'';
+        if (key === 'signalGroups') {
+          val.split(',').forEach(pair => {
+            const ci = pair.indexOf(':');
+            if (ci > 0) signalGroups[parseInt(pair.slice(0,ci))] = pair.slice(ci+1).trim();
+          });
+        }
+        if (key === 'conflictMatrix')  conflictMatrix = val;
+        if (key === 'signalGroupPairs') signalGroupPairsRaw = val;
+        if (key === 'phaseAssignment') pdAssignRaw    = val;
+        if (key === 'stageParams')     pdStagesRaw    = val;
+        if (key === 'interstageParams')pdIGRaw        = val;
+        if (key === 'linkedGroups')    pdLinkedRaw    = val;
+      });
+      tlsData.push({ id: node.getAttribute('id')||'', type: node.getAttribute('type')||'static',
+        programID: node.getAttribute('programID')||'0', offset: node.getAttribute('offset')||'0',
+        phases, signalGroups, sgPairs: new Set(), conflictMatrix: null, phaseDesign: null, tlLogicNode: node,
+        yellowByGroup: Object.fromEntries((([...node.querySelectorAll('param')].find(p => p.getAttribute('key')==='yellowTimes')?.getAttribute('value')) || '')
+          .split(',').filter(x => x.includes(':')).map(x => { const k = x.lastIndexOf(':'); return [x.slice(0, k), parseFloat(x.slice(k + 1))]; })) });
+
+      // Resolve signal-group pair graph: explicit param wins; otherwise
+      // derive from duplicate names so existing files keep working.
+      {
+        const _entry = tlsData[tlsData.length-1];
+        const _nL = phases[0]?.state?.length || 0;
+        if (signalGroupPairsRaw !== null) {
+          signalGroupPairsRaw.split(',').forEach(tok => {
+            const [a, b] = tok.split('-').map(Number);
+            if (!isNaN(a) && !isNaN(b) && a !== b && a < _nL && b < _nL) {
+              const lo = Math.min(a, b), hi = Math.max(a, b);
+              _entry.sgPairs.add(`${lo}-${hi}`);
+            }
+          });
+        } else {
+          const _nameToLinks = {};
+          Object.entries(signalGroups).forEach(([li, name]) => {
+            const n = (name||'').trim();
+            if (!n) return;
+            (_nameToLinks[n] ||= []).push(parseInt(li));
+          });
+          Object.values(_nameToLinks).forEach(links => {
+            for (let a=0; a<links.length; a++)
+              for (let b=a+1; b<links.length; b++) {
+                const lo=Math.min(links[a],links[b]), hi=Math.max(links[a],links[b]);
+                _entry.sgPairs.add(`${lo}-${hi}`);
+              }
+          });
+        }
+      }
+
+      // Resolve conflict matrix
+      const entry = tlsData[tlsData.length-1];
+      const nL = phases[0]?.state?.length || 0;
+      if (typeof conflictMatrix === 'string' && nL > 0) {
+        entry.conflictMatrix = makeZeroMatrix(nL);
+        if (conflictMatrix) {
+          conflictMatrix.split(',').forEach(pair => {
+            const eqIdx = pair.indexOf('=');
+            const pairPart = eqIdx >= 0 ? pair.slice(0, eqIdx) : pair;
+            const valTxt = eqIdx >= 0 ? pair.slice(eqIdx+1) : '1';
+            const [vab, vba] = valTxt.includes('/') ? valTxt.split('/').map(parseFloat) : [parseFloat(valTxt), parseFloat(valTxt)];
+            const [a, b] = pairPart.split('-').map(Number);
+            if (!isNaN(a) && !isNaN(b) && a < nL && b < nL && (vab > 0 || vba > 0)) {
+              entry.conflictMatrix[a][b] = vab || vba;
+              entry.conflictMatrix[b][a] = vba || vab;
+            }
+          });
+        }
+      }
+      // Resolve phase design
+      if (pdAssignRaw && nL > 0) {
+        const assignment = pdAssignRaw.split(',').map(Number);
+        const numStages = Math.max(...assignment.filter(v=>!isNaN(v))) + 1 || 1;
+        const stages = pdStagesRaw ? pdStagesRaw.split(',').map(s=>{const[mn,mx]=s.split(':').map(Number);return{minGreen:mn||15,maxGreen:mx||60};})
+                                   : Array.from({length:numStages},()=>({minGreen:15,maxGreen:60}));
+        const igDurs = pdIGRaw ? pdIGRaw.split(',').map(Number) : Array.from({length:numStages},()=>4);
+        const interstages = igDurs.map((d,p)=>({
+          duration: d||4, override: true,
+          computed: entry.conflictMatrix ? computeIntergreenRaw(entry.conflictMatrix,nL,assignment,p,(p+1)%numStages) : d
+        }));
+        entry.phaseDesign = {assignment, stages, interstages, linkedGroups: []};
+        // Resolve linked groups: "0+3,1+4" → [[0,3],[1,4]]
+        if (pdLinkedRaw) {
+          pdLinkedRaw.split(',').forEach(grp => {
+            const ids = grp.split('+').map(Number).filter(n => !isNaN(n) && n < nL);
+            if (ids.length >= 2) entry.phaseDesign.linkedGroups.push(ids);
+          });
+        }
+      }
+    });
+
+    selectedIndex = -1; schematicPhase = 0;
+    renderList(); showEditor(-1); updateToolbar();
+    document.getElementById('headerMeta').textContent = `${name} · ${tlsData.length} TLS · ${Object.keys(junctionMap).length} junctions`;
+    document.getElementById('fileNameLabel').textContent = name;
+    document.getElementById('tlsCountBadge').textContent = `${tlsData.length} TLS loaded`;
+    setStatus(`Loaded ${tlsData.length} TLS · ${Object.keys(laneMap).length} lanes from ${name}`, 'ok');
+  } catch(ex) { setStatus('Error: '+ex.message,'err'); alert('Error:\n'+ex.message); }
+}
+
+// ── Junction SVG from actual network geometry ──────────────────────────
+//
+// Renders the real SUMO lane shapes for all approaches and departures,
+// the junction outline polygon, internal turning-movement lanes, and
+// link-index badges on the stop-line end of each controlled lane.
+//
+function buildJunctionSVG(tls, phIdx, svgW, svgH, mini) {
+  const svgSize = Math.min(svgW, svgH);  // keep scale based on shorter dimension
+  const jId   = tls.id;
+  const conns = (connectionsByTLS[jId]||[]).slice().sort((a,b) => a.linkIndex - b.linkIndex);
+  const phase = tls.phases[phIdx] || tls.phases[0];
+  const stateStr = phase?.state || '';
+
+  // Map controlled approach lanes: "edgeId_laneIndex" → {linkIndex, signal}
+  const ctrlLane = {};
+  conns.forEach(c => {
+    ctrlLane[c.from + '_' + c.fromLane] = { linkIndex: c.linkIndex, signal: stateStr[c.linkIndex] ?? '?' };
+  });
+
+  // Internal edge ids for this junction (approach/depart edges no longer rendered)
+  const internalEdgeIds = Object.keys(edgeLaneIds).filter(id => id.startsWith(':' + jId));
+
+  // ── Collect bounding box from via-lane shapes only ──
+  const allPts = [];
+  const jShape = junctionShapes[jId] || [];
+  // Use all internal lanes for this junction (via-lanes define the extent)
+  const intPrefix2 = ':' + jId;
+  Object.keys(edgeLaneIds).filter(id => id.startsWith(intPrefix2)).forEach(eid => {
+    (edgeLaneIds[eid]||[]).forEach(lid => { const ln = laneMap[lid]; if (ln) allPts.push(...ln.shape); });
+  });
+  // Fallback to junction centroid if no internal geometry
+  const junc2 = junctionMap[jId];
+  const junc  = junc2;  // alias for rest of function
+  if (allPts.length < 2 && junc2) allPts.push([junc2.x-10,junc2.y-10],[junc2.x+10,junc2.y+10]);
+
+  // If no geometry at all, show a text label
+  // (junc already defined above)
+  if (allPts.length < 2) {
+    const cx = svgSize/2, cy = svgSize/2;
+    return `<rect width="${svgW}" height="${svgH}" fill="#0d1117"/>
+      <circle cx="${svgW/2}" cy="${svgH/2}" r="${svgSize*0.12}" fill="#161b22" stroke="#3d4f6a" stroke-width="2"/>
+      <text x="${svgW/2}" y="${svgH/2}" text-anchor="middle" dominant-baseline="middle" fill="#6b7280" font-size="10" font-family="monospace">no geometry</text>`;
+  }
+
+  // ── Bounding box & transform ──
+  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+  allPts.forEach(([x,y])=>{ xmin=Math.min(xmin,x);xmax=Math.max(xmax,x);ymin=Math.min(ymin,y);ymax=Math.max(ymax,y); });
+
+  const PAD  = mini ? svgSize*0.07 : svgSize*0.09;
+  const drawW = svgW - 2*PAD, drawH = svgH - 2*PAD;
+  const rangeX = xmax-xmin||1, rangeY = ymax-ymin||1;
+  const scale  = Math.min(drawW/rangeX, drawH/rangeY);
+  const offX   = PAD + (drawW - rangeX*scale)/2;
+  const offY   = PAD + (drawH - rangeY*scale)/2;
+
+  // SUMO: Y increases upward. SVG: Y increases downward. → flip Y.
+  const tx  = x => offX + (x - xmin) * scale;
+  const ty  = y => svgH - offY - (y - ymin) * scale;
+  const pts2poly = pts => pts.map(([x,y]) => `${tx(x).toFixed(1)},${ty(y).toFixed(1)}`).join(' ');
+  const pts2line = pts => pts.map(([x,y],i) => `${i?'L':'M'}${tx(x).toFixed(1)},${ty(y).toFixed(1)}`).join('');
+
+  let s = `<rect width="${svgW}" height="${svgH}" fill="#0d1117"/>`;
+
+  // Road geometry removed — only via-lanes are drawn
+
+  // ── Internal (turning movement) via-lanes — coloured by signal state ──
+  if (true) {  // render in both mini and full
+    // Build map: via-lane startId → {linkIndex, signal, fullShape}
+    const viaInfo = {};
+    conns.forEach(c => {
+      const sid = stateStr[c.linkIndex] ?? '?';
+      const startId = (c.via && laneMap[c.via]) ? c.via
+                    : ((c.to.startsWith(':') && laneMap[c.to + '_0']) ? c.to + '_0' : `:${jId}_${c.linkIndex}_0`);
+      if (!laneMap[startId]) return;
+      const fullShape = getFullViaShape(startId);
+      if (fullShape.length >= 2)
+        viaInfo[startId] = { li: c.linkIndex, sig: sid, shape: fullShape };
+    });
+
+    // Draw uncontrolled internal lanes first (faint, full-view only)
+    if (!mini) internalEdgeIds.forEach(eid => {
+      (edgeLaneIds[eid]||[]).forEach(lid => {
+        if (viaInfo[lid]) return;  // controlled — drawn later
+        const ln = laneMap[lid]; if (!ln||ln.shape.length<2) return;
+        s += `<path d="${pts2line(ln.shape)}" fill="none" stroke="#2a3448" stroke-width="1" stroke-linecap="round" stroke-dasharray="3,4" opacity="0.4"/>`;
+      });
+    });
+
+    // Draw controlled via-lanes coloured by signal state
+    // Order: red first (background), then yellow, then green on top
+    const ORDER = { r:0, R:0, u:0, y:1, Y:1, g:2, G:2, o:3, O:3, s:1 };
+    const viaEntries = Object.entries(viaInfo)
+      .map(([lid, inf]) => ({ lid, ...inf, ord: ORDER[inf.sig] ?? 0 }))
+      .sort((a,b) => a.ord - b.ord);
+
+    viaEntries.forEach(({ lid, li, sig, shape: viaShape }) => {
+      if (!viaShape || viaShape.length < 2) return;
+      // Use the full chained shape (not just the first hop from laneMap)
+      const ln = { shape: viaShape, width: laneMap[lid]?.width || 3.2 };
+      const col = SIG_COLORS[sig] || '#4b5563';
+      const isGreen  = 'gGoO'.includes(sig);
+      const isRed    = 'rRuU'.includes(sig);
+      const lw = Math.max(isGreen ? 3.5 : 2.2, scale * (isGreen ? 0.75 : 0.55));
+      const op = isRed ? 0.22 : (isGreen ? 0.96 : 0.78);
+
+      // Glow for green/orange movements
+      if (isGreen) {
+        s += `<path d="${pts2line(ln.shape)}" fill="none" stroke="${col}" stroke-width="${(lw*4).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.10"/>`;
+        s += `<path d="${pts2line(ln.shape)}" fill="none" stroke="${col}" stroke-width="${(lw*2.2).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.22"/>`;
+      }
+      if (mini) {
+        // Mini: just a coloured line, no glow/arrow
+        s += `<path d="${pts2line(ln.shape)}" fill="none" stroke="${col}" stroke-width="${Math.max(1.5, lw*0.55).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+      } else {
+        s += `<path d="${pts2line(ln.shape)}" fill="none" stroke="${col}" stroke-width="${lw.toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+      }
+
+      // Arrowhead + badge: full view only
+      if (!mini) {
+      const n = ln.shape.length;
+      const [ax1,ay1] = ln.shape[n-2], [ax2,ay2] = ln.shape[n-1];
+      const dx=tx(ax2)-tx(ax1), dy=ty(ay2)-ty(ay1);
+      const AS = Math.max(5, lw*2.2);
+      const ex=tx(ax2), ey=ty(ay2);
+      const ang=Math.atan2(dy,dx);
+      s += `<polygon points="${ex.toFixed(1)},${ey.toFixed(1)} ${(ex-Math.cos(ang-0.38)*AS).toFixed(1)},${(ey-Math.sin(ang-0.38)*AS).toFixed(1)} ${(ex-Math.cos(ang+0.38)*AS).toFixed(1)},${(ey-Math.sin(ang+0.38)*AS).toFixed(1)}" fill="${col}" opacity="${op}"/>`;
+      } // end arrow
+
+      // Link-index badge at via-lane midpoint
+      if (!mini) {
+      const pts = ln.shape;
+      const segsV=[]; let totV=0;
+      for (let k=1;k<pts.length;k++) { const ddx=pts[k][0]-pts[k-1][0],ddy=pts[k][1]-pts[k-1][1]; const d=Math.sqrt(ddx*ddx+ddy*ddy); segsV.push(d); totV+=d; }
+      const tgtV=totV*0.5; let accV=0, mx=pts[0][0], my=pts[0][1];
+      for (let k=0;k<segsV.length;k++) { if(accV+segsV[k]>=tgtV){const tt=(tgtV-accV)/segsV[k]; mx=pts[k][0]+(pts[k+1][0]-pts[k][0])*tt; my=pts[k][1]+(pts[k+1][1]-pts[k][1])*tt; break;} accV+=segsV[k]; }
+      const bx=tx(mx), by=ty(my);
+      const BR = Math.max(6, Math.min(10, lw*1.8));
+      s += `<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${BR.toFixed(1)}" fill="#0d1117" stroke="${col}" stroke-width="1.5" opacity="${isRed?0.45:0.95}"/>`;
+      s += `<text x="${bx.toFixed(1)}" y="${by.toFixed(1)}" text-anchor="middle" dominant-baseline="middle" fill="${col}" font-size="${Math.max(6,BR*0.9).toFixed(1)}" font-family="monospace" font-weight="bold" opacity="${isRed?0.45:0.95}">${li}</text>`;
+      } // end badge
+    });
+  }
+
+  // Junction polygon removed — pure connection-lines view
+
+  // (Stop-line bars and approach-lane badges removed — link indices now shown on via-lanes only)
+
+  // ── Junction label (full view) ──
+  if (!mini && junc) {
+    const label = jId.length > 18 ? jId.slice(0,16)+'…' : jId;
+    // Find a quiet spot: centroid of junction shape or junction centre
+    let lcx, lcy;
+    if (jShape.length >= 3) {
+      lcx = jShape.reduce((s,[x])=>s+x,0)/jShape.length;
+      lcy = jShape.reduce((s,[,y])=>s+y,0)/jShape.length;
+    } else { lcx = junc.x; lcy = junc.y; }
+    s += `<text x="${tx(lcx).toFixed(1)}" y="${ty(lcy).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" fill="#94a3b8" font-size="9" font-family="monospace" opacity="0.8">${esc(label)}</text>`;
+  }
+
+  return s;
+}
+
+// ── List rendering ────────────────────────────────────────────────────
+function renderList() {
+  const list = document.getElementById('tlsList');
+  const filter = document.getElementById('searchInput').value.toLowerCase();
+  if (!tlsData.length) {
+    list.innerHTML = `<div class="drop-zone"><div class="drop-zone-icon">🚦</div><h3>No TLS found</h3><p>No tlLogic elements in file</p></div>`;
+    return;
+  }
+  list.innerHTML = tlsData.map((t,i) => {
+    if (filter && !t.id.toLowerCase().includes(filter)) return '';
+    const cycle = t.phases.reduce((s,p)=>s+parseFloat(p.duration||0),0);
+    const nC = (connectionsByTLS[t.id]||[]).length;
+    const inner = buildJunctionSVG(t, 0, 68, 68, true);
+    const miniSvg = `<svg viewBox="0 0 68 68" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+    return `<div class="tls-item ${i===selectedIndex?'active':''}" onclick="selectTLS(${i})">
+      <div class="mini-junc">${miniSvg}</div>
+      <div class="tls-item-info">
+        <div class="tls-id" title="${esc(t.id)}">${esc(t.id)}</div>
+        <div class="tls-meta">
+          <span class="tag tag-type">${t.type}</span>
+          <span class="tag tag-phases">${t.phases.length} ph</span>
+          <span class="tag">${cycle}s</span>
+          ${nC?`<span class="tag" style="border-color:#4b5563;color:#9ca3af">${nC} lnk</span>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function filterList() { renderList(); }
+function selectTLS(i) { selectedIndex=i; schematicPhase=0; schZoom={scale:1,tx:0,ty:0}; cmZoom={scale:1,tx:0,ty:0}; renderList(); showEditor(i); updateToolbar(); const pc=document.getElementById('pdProposalChooser'); if(pc)pc.innerHTML=''; }
+
+// ── Editor ────────────────────────────────────────────────────────────
+function showEditor(i) {
+  const area = document.getElementById('editorArea');
+  if (i<0||!tlsData[i]) {
+    area.innerHTML = `<div class="no-select-msg"><div class="big">🚦</div><div>Select a TLS from the list to edit</div></div>`;
+    updateStatus(null); return;
+  }
+  const t = tlsData[i];
+  area.innerHTML = `
+    <div class="card">
+      <div class="card-header">⚙ TLS Attributes</div>
+      <div class="card-body"><div class="form-grid">
+        <div class="field"><label>TLS ID (junction id)</label><input type="text" id="fId" value="${esc(t.id)}" oninput="onAttrChange()"></div>
+        <div class="field"><label>Type</label><select id="fType" onchange="onAttrChange()">${['static','actuated','delay_based','NEMA'].map(v=>`<option value="${v}"${v===t.type?' selected':''}>${v}</option>`).join('')}</select></div>
+        <div class="field"><label>Program ID</label><input type="text" id="fProgID" value="${esc(t.programID)}" oninput="onAttrChange()"></div>
+        <div class="field"><label>Offset (s)</label><input type="number" id="fOffset" value="${esc(t.offset)}" oninput="onAttrChange()"></div>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🗺 Junction Geometry
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:400;color:var(--text-muted)">Phase:</span>
+          <div class="phase-strip" id="schPhaseStrip"></div>
+          <div style="width:1px;height:16px;background:var(--border)"></div>
+          <span style="font-size:10px;color:var(--text-muted)" title="Scroll to zoom · Drag to pan · Double-click to reset">🔍 scroll/drag · dbl-click reset</span>
+          <div style="width:1px;height:16px;background:var(--border)"></div>
+          <span style="font-size:10px;color:var(--text-muted)">Height:</span>
+          <div style="display:flex;gap:4px">
+            ${[400,560,720].map(sz=>`<button class="sch-size-btn ${schematicSize===sz?'active':''}" onclick="setSchSize(${sz})" title="Canvas height (resets zoom)">${sz}px</button>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="card-body" style="padding:14px">
+        <div id="schSvgWrap" class="schematic-svg-wrap" style="width:100%;height:${schematicSize}px"></div>
+        <div class="conn-table-wrap" id="connTableWrap" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🏷⚔ Signal Groups &amp; Conflict Matrix
+        <span style="margin-left:8px;font-size:10px;font-weight:400;color:var(--text-muted)">left-click toggles a conflict · right-click to edit intergreen time</span>
+        <span class="sg-saved-badge" id="sgSavedBadge" style="margin-left:auto">✓ saved</span>
+        <span class="sg-saved-badge" id="cmSavedBadge">✓ saved</span>
+      </div>
+      <div class="card-body" style="padding:14px">
+        <div class="cm-mode-bar">
+          <span class="cm-mode-label">Left-click: toggle conflict (✕) between two signal groups</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--text-muted);font-family:var(--mono)">Right-click a cell to edit intergreen</span>
+        </div>
+        <div class="cm-toolbar">
+          <button class="btn btn-primary" onclick="buildConflictMatrixFromGeo(${i})">⚙ Detect from geometry</button>
+          <button class="btn btn-success" onclick="saveConflictMatrix(${i})">💾 Save to XML</button>
+          <button class="btn" onclick="applyBikeConvergenceRule(${i})" title="Clear conflicts between bike/ped paths that share the same destination (converging = not conflicting)">🚲 Apply convergence rule</button>
+          <button class="btn" onclick="clearConflictMatrix(${i})">Clear conflicts</button>
+          <button class="btn" onclick="clearSignalGroups(${i})">Clear names</button>
+        </div>
+        <div class="cm-body-layout">
+          <div class="cm-matrix-col" id="cmWrap"></div>
+          <div class="cm-geo-col">
+            <div class="cm-geo-wrap" id="cmGeoWrap" style="width:100%;height:560px"></div>
+            <div class="cm-geo-hint">🔍 scroll to zoom · drag to pan · double-click to reset · hover matrix cell to highlight</div>
+          </div>
+        </div>
+        <div id="sgComponentsWrap" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🧩 Phase Assignment
+        <span style="margin-left:8px;font-size:10px;font-weight:400;color:var(--text-muted)">assign each signal group to a stage</span>
+        <span class="sg-saved-badge" id="pdSavedBadge" style="margin-left:auto">✓ saved</span>
+      </div>
+      <div class="card-body" style="padding:14px">
+        <div class="cm-toolbar">
+          <button class="btn btn-primary" onclick="proposePhasing(${i})">✨ Auto-propose</button>
+          <button class="btn btn-success" onclick="addStage(${i})">＋ Add stage</button>
+          <button class="btn btn-danger" onclick="removeLastStage(${i})">− Remove last</button>
+          <button class="btn" onclick="savePhaseDesign(${i})">💾 Save to XML</button>
+        </div>
+        <div id="pdProposalChooser"></div>
+        <div id="pdConflictBanner"></div>
+        <div id="pdGridWrap"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">⏱ Stage &amp; Interstage Durations
+        <span style="margin-left:8px;font-size:10px;font-weight:400;color:var(--text-muted)">stages = variable green · interstages = fixed transitions</span>
+      </div>
+      <div class="card-body" style="padding:14px">
+        <div id="siTimelineWrap"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="generateSUMOPhases(${i})">⚡ Generate SUMO phases</button>
+          <span style="font-size:11px;color:var(--text-muted);font-family:var(--mono)">overwrites the Phase Scheme below</span>
+        </div>
+        <div id="pdPreviewWrap"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🔄 Phase Scheme <span style="margin-left:auto;font-weight:400;font-size:11px;color:var(--text-muted)" id="cycleLabel"></span></div>
+      <div class="card-body">
+        <div class="phase-toolbar">
+          <div class="legend">${Object.entries(SIG_INFO).map(([k,v])=>`<div class="legend-item"><div class="sig-cell ${sigCls(k)}" data-tip="${v}">${k}</div><span style="font-size:10px">${v.split(' ')[0]}</span></div>`).join('')}</div>
+        </div>
+        <div class="phase-toolbar">
+          <button class="btn btn-success" onclick="addPhase(${i})">＋ Add Phase</button>
+          <button class="btn" onclick="duplicatePhase(${i})">⎘ Duplicate Last</button>
+          <div class="phase-info" id="phaseInfo"></div>
+        </div>
+        <div class="phase-table-wrap">
+          <table class="phase-table">
+            <thead><tr><th>#</th><th>Duration (s)</th><th>Min</th><th>Max</th><th>State String</th><th>Visualisation</th><th>Name</th><th></th></tr></thead>
+            <tbody id="phaseTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">📊 Signal Timing Diagram</div>
+      <div class="card-body" style="padding:10px"><div class="phase-diagram" id="phaseDiagram"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🗎 XML Preview
+        <button class="btn" style="margin-left:auto;padding:3px 10px;font-size:11px" onclick="copyXML()">Copy</button>
+      </div>
+      <div class="card-body" style="padding:10px"><div class="xml-pre" id="xmlPre"></div></div>
+    </div>`;
+
+  renderPhaseStrip(t);
+  renderSchematic(i);
+  renderConflictMatrix(i);   // renders unified matrix + components strip
+  renderPhaseDesign(i);
+  renderPhases(i);
+  // Apply current edit mode to the mode-toggle buttons that just rendered
+  setMatrixEditMode(i, _matrixEditMode);
+  updateStatus(t);
+}
+
+// ── Schematic ─────────────────────────────────────────────────────────
+function setSchSize(sz) {
+  schematicSize = sz;
+  schZoom = { scale: 1, tx: 0, ty: 0 };
+  document.querySelectorAll('.sch-size-btn').forEach(b => b.classList.toggle('active', parseInt(b.textContent)===sz));
+  const wrap = document.getElementById('schSvgWrap');
+  if (wrap) wrap.style.height = sz + 'px';
+  if (selectedIndex>=0) renderSchematic(selectedIndex);
+}
+
+function renderPhaseStrip(t) {
+  const el = document.getElementById('schPhaseStrip'); if (!el) return;
+  el.innerHTML = t.phases.map((ph,pi) =>
+    `<button class="phase-pill ${pi===schematicPhase?'active':''}" onclick="setSchematicPhase(${pi})">${pi+1}<span style="opacity:.5;font-size:9px"> ${ph.duration}s</span></button>`
+  ).join('');
+}
+
+function setSchematicPhase(pi) {
+  schematicPhase = pi;
+  if (selectedIndex<0) return;
+  renderPhaseStrip(tlsData[selectedIndex]);
+  renderSchematic(selectedIndex);
+}
+// ── Schematic zoom / pan ──────────────────────────────────────────────
+function initSchematicZoom(sw, sh) {
+  const svg = document.getElementById('schSvg');
+  if (!svg) return;
+
+  const MIN_SCALE = 0.5, MAX_SCALE = 20;
+
+  function applyTransform() {
+    const g = document.getElementById('schZoomGroup');
+    const lbl = document.getElementById('schZoomLabel');
+    if (g)   g.setAttribute('transform', `translate(${schZoom.tx},${schZoom.ty}) scale(${schZoom.scale})`);
+    if (lbl) lbl.textContent = 'x' + schZoom.scale.toFixed(schZoom.scale<10?2:1);
+  }
+
+  // Wheel → zoom centred on cursor
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (sw / rect.width);
+    const my = (e.clientY - rect.top)  * (sh / rect.height);
+    const factor = e.deltaY < 0 ? 1.15 : 1/1.15;
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, schZoom.scale * factor));
+    const ratio = newScale / schZoom.scale;
+    schZoom.tx = mx + (schZoom.tx - mx) * ratio;
+    schZoom.ty = my + (schZoom.ty - my) * ratio;
+    schZoom.scale = newScale;
+    applyTransform();
+  }, { passive: false });
+
+  // Drag → pan
+  let drag = null;
+  svg.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    drag = { x: e.clientX, y: e.clientY, tx: schZoom.tx, ty: schZoom.ty };
+    svg.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = sw / rect.width;
+    const scaleY = sh / rect.height;
+    schZoom.tx = drag.tx + (e.clientX - drag.x) * scaleX;
+    schZoom.ty = drag.ty + (e.clientY - drag.y) * scaleY;
+    applyTransform();
+  });
+  window.addEventListener('mouseup', () => {
+    if (drag) { drag = null; svg.style.cursor = 'grab'; }
+  });
+
+  // Double-click → reset
+  svg.addEventListener('dblclick', () => {
+    schZoom = { scale: 1, tx: 0, ty: 0 };
+    applyTransform();
+  });
+}
+
+
+function renderSchematic(i) {
+  if (i<0||!tlsData[i]) return;
+  const t = tlsData[i];
+  const conns = (connectionsByTLS[t.id]||[]).slice().sort((a,b)=>a.linkIndex-b.linkIndex);
+
+  // SVG — fluid: use wrap's actual pixel dimensions
+  const wrap = document.getElementById('schSvgWrap');
+  if (wrap) {
+    const SW = wrap.clientWidth  || 600;
+    const SH = wrap.clientHeight || schematicSize;
+    const inner = buildJunctionSVG(t, schematicPhase, SW, SH, false);
+    const {scale, tx, ty} = schZoom;
+    const sStr = scale.toFixed(4);
+    wrap.innerHTML =
+      `<svg id="schSvg" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}"` +
+      ` xmlns="http://www.w3.org/2000/svg" style="cursor:grab;display:block;user-select:none">` +
+      `<g id="schZoomGroup" transform="translate(${tx},${ty}) scale(${sStr})">${inner}</g>` +
+      `<g style="pointer-events:none">` +
+      `<rect x="${SW-54}" y="${SH-22}" width="50" height="18" rx="3" fill="#0d1117" fill-opacity="0.8"/>` +
+      `<text id="schZoomLabel" x="${SW-29}" y="${SH-9}" text-anchor="middle" ` +
+      `font-family="monospace" font-size="10" fill="#6b7280">x${sStr}</text>` +
+      `</g></svg>`;
+    initSchematicZoom(SW, SH);
+  }
+
+  // Connection table
+  const tWrap = document.getElementById('connTableWrap');
+  if (!tWrap) return;
+  if (!conns.length) {
+    tWrap.innerHTML = `<div class="no-data-note">No &lt;connection tl="…"&gt; data for this TLS.<br>Need a full .net.xml with connection elements.</div>`;
+    return;
+  }
+  const ph = t.phases[schematicPhase]||t.phases[0];
+  const st = ph?.state||'';
+  const linkTypes = getLinkTypes(t.id);
+  tWrap.innerHTML = `<table class="conn-table">
+    <thead><tr><th>Idx</th><th>Sig</th><th>Dir</th><th>From edge</th><th>Ln</th><th>→ To edge</th><th>Ln</th></tr></thead>
+    <tbody>${conns.map(c=>{
+      const ch=st[c.linkIndex]??'?', col=SIG_COLORS[ch]||'#4b5563';
+      const fi=c.from.length>20?c.from.slice(0,18)+'…':c.from;
+      const ti=c.to.length>20?c.to.slice(0,18)+'…':c.to;
+      const icon = linkTypeIcon(linkTypes[c.linkIndex]);
+      return `<tr>
+        <td><div class="link-badge" style="color:${col};border-color:${col}">${c.linkIndex}</div></td>
+        <td><div class="sig-cell ${sigCls(ch)}" style="width:20px;height:20px;font-size:10px" data-tip="${SIG_INFO[ch]||'?'}">${ch}</div></td>
+        <td><span class="dir-badge">${c.dir||'—'}</span>${icon}</td>
+        <td style="color:#94a3b8" title="${esc(c.from)}">${esc(fi)}</td>
+        <td style="color:#6b7280">${c.fromLane}</td>
+        <td style="color:#94a3b8" title="${esc(c.to)}">${esc(ti)}</td>
+        <td style="color:#6b7280">${c.toLane}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+// ── Phase table ───────────────────────────────────────────────────────
+function renderPhases(i) {
+  if (i<0||!tlsData[i]) return;
+  const t = tlsData[i];
+  const tbody = document.getElementById('phaseTbody'); if (!tbody) return;
+  tbody.innerHTML = t.phases.map((ph,pi) => `
+    <tr>
+      <td class="phase-idx">${pi+1}</td>
+      <td><input class="dur-input" type="number" min="0" step="0.1" value="${esc(ph.duration)}" onchange="phaseChange(${i},${pi},'duration',this.value)"></td>
+      <td><input class="dur-input" type="number" min="0" step="0.1" placeholder="—" value="${esc(ph.minDur)}" onchange="phaseChange(${i},${pi},'minDur',this.value)" style="width:58px"></td>
+      <td><input class="dur-input" type="number" min="0" step="0.1" placeholder="—" value="${esc(ph.maxDur)}" onchange="phaseChange(${i},${pi},'maxDur',this.value)" style="width:58px"></td>
+      <td><input class="state-input" type="text" value="${esc(ph.state)}" onchange="phaseChange(${i},${pi},'state',this.value)" oninput="liveViz(${i},${pi},this.value)"></td>
+      <td><div class="state-viz" id="sviz_${pi}">${stateViz(ph.state)}</div></td>
+      <td><input class="state-input" type="text" value="${esc(ph.name)}" placeholder="optional" onchange="phaseChange(${i},${pi},'name',this.value)" style="min-width:90px;max-width:140px"></td>
+      <td><div class="row-btns">
+        <button class="icon-btn up" title="Move up"   onclick="movePhase(${i},${pi},-1)">▲</button>
+        <button class="icon-btn dn" title="Move down" onclick="movePhase(${i},${pi},+1)">▼</button>
+        <button class="icon-btn del" title="Delete"   onclick="deletePhase(${i},${pi})">✕</button>
+      </div></td>
+    </tr>`).join('');
+  updateCycleLabel(t); renderDiagram(t); refreshXML(t);
+}
+
+function stateViz(s) { return Array.from(s).map(c=>`<div class="sig-cell ${sigCls(c)}" data-tip="${SIG_INFO[c]||'?'}">${c}</div>`).join(''); }
+function liveViz(i,pi,val) {
+  const el=document.getElementById(`sviz_${pi}`); if(el) el.innerHTML=stateViz(val);
+  if (tlsData[i]?.phases[pi]) {
+    tlsData[i].phases[pi].state=val;
+    if(schematicPhase===pi) renderSchematic(i);
+    renderDiagram(tlsData[i]); refreshXML(tlsData[i]);
+  }
+}
+function updateCycleLabel(t) {
+  const c=t.phases.reduce((s,p)=>s+parseFloat(p.duration||0),0);
+  const el=document.getElementById('cycleLabel'),pi=document.getElementById('phaseInfo');
+  if(el)el.textContent=`Cycle: ${c}s · ${t.phases.length} phases`;
+  if(pi)pi.textContent=`${t.phases.length} phases · ${c}s`;
+  updateStatus(t);
+}
+
+// ── Signal Group Assignment (Links × Links matrix) ───────────────────
+//
+// Model:
+//   t.sgPairs : Set of canonical "a-b" keys (a<b) — direct same-SG edges
+//   Connected components of that graph = signal groups
+//   t.signalGroups: {linkIdx: name} — name broadcast to all component members
+//
+// Click a cell to toggle the direct edge. Components are recomputed.
+// Name a component to broadcast the name to all its member links. Multi-member
+// components get an auto-name (SG1, SG2, …) if no member is named — this
+// keeps the persisted <param key="signalGroups"> round-trippable.
+
+function sgPairKey(a, b) {
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  return `${lo}-${hi}`;
+}
+
+function computeSgComponents(t, nL) {
+  // Union-find over links
+  const parent = Array.from({length: nL}, (_, k) => k);
+  const find = x => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+  (t.sgPairs || new Set()).forEach(key => {
+    const [a, b] = key.split('-').map(Number);
+    if (a < nL && b < nL) union(a, b);
+  });
+  // Map root -> members[]
+  const byRoot = {};
+  for (let i = 0; i < nL; i++) {
+    const r = find(i);
+    (byRoot[r] ||= []).push(i);
+  }
+  // Return array of member-arrays, sorted by smallest member for stable ordering
+  return Object.values(byRoot).sort((a, b) => a[0] - b[0]);
+}
+
+// Deliberately does nothing. Previously this function broadcast one member's
+// name to its groupmates and auto-generated "SG<k>" names for multi-link
+// groups — but that meant a simple matrix click could silently overwrite
+// user-set SG names. Names now only change when the user explicitly types
+// one into a component's name input (handled in sgRenameComponent).
+// Groupings are persisted independently in <param key="signalGroupPairs">.
+function broadcastComponentNames(_t, _nL) { /* no-op */ }
+
+// Reconcile pd.linkedGroups with the signal-group matrix. Every multi-link
+// component in sgPairs becomes an authoritative linked group in the phase
+// design — because links that share a signal, by definition, must always be
+// assigned to the same stage. We also snap each linked member's stage
+// assignment to the group's anchor so the phase assignment stays internally
+// consistent when groupings change.
+function syncLinkedGroupsFromSignalGroups(i) {
+  const t = tlsData[i]; if (!t?.phaseDesign) return;
+  const nL = t.phases[0]?.state?.length || 0;
+  const sgComps = computeSgComponents(t, nL).filter(c => c.length >= 2);
+  const newLinked = sgComps.map(c => [...c].sort((a, b) => a - b));
+  t.phaseDesign.linkedGroups = newLinked;
+  // Snap each linked group to the stage of its lowest-indexed member so
+  // the assignment vector doesn't carry over stale per-link values after
+  // the grouping changes.
+  newLinked.forEach(grp => {
+    const stage = t.phaseDesign.assignment[grp[0]] ?? 0;
+    grp.forEach(m => { t.phaseDesign.assignment[m] = stage; });
+  });
+  // Re-compute interstage durations (they depend on stage membership).
+  if (typeof recomputeInterstages === 'function') recomputeInterstages(i);
+  savePhaseDesign(i);
+}
+
+// One stop for every post-sg-change refresh: sync the phase-design linked
+// groups, persist signal-group XML, then redraw everything that shows
+// signal-group data (unified matrix + components strip, diagram, phase design).
+function afterSgChange(i) {
+  const t = tlsData[i]; if (!t) return;
+  syncLinkedGroupsFromSignalGroups(i);
+  saveSignalGroupsToXML(i);
+  renderConflictMatrix(i);  // unified: matrix + components strip
+  renderDiagram(t);
+  renderPhaseDesign(i);
+}
+
+function sgToggleEdge(i, a, b) {
+  if (a === b) return;
+  const t = tlsData[i]; if (!t) return;
+  const key = sgPairKey(a, b);
+  if (t.sgPairs.has(key)) t.sgPairs.delete(key);
+  else t.sgPairs.add(key);
+  afterSgChange(i);
+}
+
+function rebuildPairsFromNames(t) {
+  const nL = t.phases[0]?.state?.length || 0, byName = {};
+  for (let li = 0; li < nL; li++) {
+    const n = (t.signalGroups[li] || '').trim();
+    if (n) (byName[n] ||= []).push(li);
+  }
+  t.sgPairs = new Set();
+  Object.values(byName).forEach(ls => {
+    for (let a = 0; a < ls.length; a++) for (let b = a + 1; b < ls.length; b++) t.sgPairs.add(sgPairKey(ls[a], ls[b]));
+  });
+}
+
+// Basisversie: de NAAM bepaalt de signaalgroep. Links met dezelfde naam = één groep.
+function sgRenameComponent(i, sampleLink, newName) {
+  const t = tlsData[i]; if (!t) return;
+  const nL = t.phases[0]?.state?.length || 0;
+  const comps = computeSgComponents(t, nL);
+  const comp = comps.find(m => m.includes(sampleLink));
+  if (!comp) return;
+  const trimmed = (newName || '').trim();
+  comp.forEach(m => {
+    if (trimmed) t.signalGroups[m] = trimmed;
+    else delete t.signalGroups[m];
+  });
+  rebuildPairsFromNames(t);
+  afterSgChange(i);
+}
+
+function sgIsolateLink(i, li) {
+  const t = tlsData[i]; if (!t) return;
+  delete t.signalGroups[li];          // naam weg = link uit de groep
+  rebuildPairsFromNames(t);
+  afterSgChange(i);
+}
+
+function resetSignalGroupings(i) {
+  const t = tlsData[i]; if (!t) return;
+  if (!confirm('Reset all signal group assignments? Direct edges will be cleared. Individual link names are kept.')) return;
+  t.sgPairs = new Set();
+  afterSgChange(i);
+}
+
+function renderSignalGroups(i) {
+  // Signal group display is now part of the unified Signal Groups & Conflict
+  // Matrix (cells colored by group, name strip below). Just delegate.
+  renderConflictMatrix(i);
+}
+
+function saveSignalGroupsToXML(i) {
+  if (!tlsData[i]) return;
+  const t = tlsData[i];
+  const nL = t.phases[0]?.state?.length || 0;
+
+  // Build value string: only indices that have a name
+  const pairs = [];
+  for (let li = 0; li < nL; li++) {
+    if (t.signalGroups[li]) pairs.push(`${li}:${t.signalGroups[li]}`);
+  }
+  const value = pairs.join(',');
+
+  // Serialize the edge graph (direct same-SG pairs). Canonical "a-b" keys.
+  const pairsVal = [...(t.sgPairs || new Set())].sort().join(',');
+
+  // Helper to upsert or remove a <param> by key
+  const upsertParam = (key, val) => {
+    let node = null;
+    t.tlLogicNode.querySelectorAll('param').forEach(p => {
+      if (p.getAttribute('key') === key) node = p;
+    });
+    if (val) {
+      if (!node) {
+        node = xmlDoc.createElement('param');
+        node.setAttribute('key', key);
+        const firstPhase = t.tlLogicNode.querySelector('phase');
+        t.tlLogicNode.insertBefore(node, firstPhase || null);
+      }
+      node.setAttribute('value', val);
+    } else if (node) {
+      t.tlLogicNode.removeChild(node);
+    }
+  };
+
+  upsertParam('signalGroups', value);
+  upsertParam('signalGroupPairs', pairsVal);
+
+  refreshXML(t);
+  // Flash saved badge
+  const badge = document.getElementById('sgSavedBadge');
+  if (badge) { badge.classList.add('show'); setTimeout(() => badge.classList.remove('show'), 1800); }
+}
+
+function clearSignalGroups(i) {
+  if (!tlsData[i]) return;
+  if (!confirm('Clear all signal group names? Every link becomes its own group again.')) return;
+  tlsData[i].signalGroups = {};
+  tlsData[i].sgPairs = new Set();
+  afterSgChange(i);
+}
+
+// ── Conflict Matrix ───────────────────────────────────────────────────
+
+// N×N matrix of numbers: 0 = compatible, >0 = conflict (value = intergreen seconds; 1 = geo-detected without specific time)
+function makeZeroMatrix(n) { return Array.from({length:n}, () => new Array(n).fill(0)); }
+
+// Geometry: proper segment intersection (excludes near-endpoint touches)
+function segsIntersect(p1, p2, p3, p4) {
+  const d1x=p2[0]-p1[0], d1y=p2[1]-p1[1], d2x=p4[0]-p3[0], d2y=p4[1]-p3[1];
+  const cross = d1x*d2y - d1y*d2x;
+  if (Math.abs(cross) < 1e-9) return false;
+  const dx=p3[0]-p1[0], dy=p3[1]-p1[1];
+  const t=(dx*d2y-dy*d2x)/cross, u=(dx*d1y-dy*d1x)/cross;
+  // Strict interior only — endpoint touches handled separately in polylinesConflict
+  return t>0.02 && t<0.98 && u>0.02 && u<0.98;
+}
+
+// Distance between two [x,y] points (SUMO coordinates = metres)
+function ptDist([ax,ay],[bx,by]) { return Math.sqrt((ax-bx)**2+(ay-by)**2); }
+
+// Threshold: end-points closer than this are considered the same exit point (converging)
+const CONVERGE_THRESH = 2.0;  // metres
+
+function polylinesConflict(a, b) {
+  // ── Rule 1: diverging starts (same origin) → NOT a conflict ──
+  // Two movements leaving from the same stop-line point split after the junction entry.
+  // segsIntersect already excludes endpoint touches (t>0.02), so these are never
+  // flagged as crossings. We also skip the convergence check for shared starts.
+  const sharedStart = ptDist(a[0], b[0]) < CONVERGE_THRESH;
+
+  // ── Rule 2: mid-segment crossings → conflict ──
+  for (let i=0;i<a.length-1;i++)
+    for (let j=0;j<b.length-1;j++)
+      if (segsIntersect(a[i],a[i+1],b[j],b[j+1])) return true;
+
+  // ── Rule 3: converging ends (same exit point) → conflict ──
+  // Two movements ending at the same point merge into the same lane — conflict.
+  // Exclude if they also share the same start (would be the same movement).
+  if (!sharedStart && ptDist(a[a.length-1], b[b.length-1]) < CONVERGE_THRESH) return true;
+
+  return false;
+}
+
+function buildConflictMatrixFromGeo(i) {
+  if (!tlsData[i]) return;
+  const t = tlsData[i];
+  const conns = (connectionsByTLS[t.id]||[]).slice().sort((a,b)=>a.linkIndex-b.linkIndex);
+  const nL = t.phases[0]?.state?.length || 0;
+  if (!nL) { setStatus('No phases / link indices found','warn'); return; }
+
+  const linkShapes = {};
+  let missingVia = 0;
+  conns.forEach(c => {
+    const li = c.linkIndex;
+    if (!linkShapes[li]) linkShapes[li] = [];
+    const startId = (c.via && laneMap[c.via]) ? c.via : ((c.to.startsWith(':') && laneMap[c.to + '_0']) ? c.to + '_0' : `:${t.id}_${li}_0`);   // oversteek: de crossing-lane zelf
+    const fullShape = getFullViaShape(startId);
+    if (fullShape.length >= 2) linkShapes[li].push(fullShape);
+    else missingVia++;
+  });
+
+  const types  = getLinkTypes(t.id);
+  const dest   = getLinkDestinations(t.id);
+  const matrix = makeZeroMatrix(nL);
+  let conflictCount = 0, mergeSkipped = 0;
+  for (let a=0;a<nL;a++) for (let b=a+1;b<nL;b++) {
+    // Converging bike/ped paths share a destination — they merge, not cross
+    if (linksConverge(a, b, dest, types)) { mergeSkipped++; continue; }
+    const sA=linkShapes[a]||[], sB=linkShapes[b]||[];
+    let ok=false;
+    outer: for (const sa of sA) for (const sb of sB) if (polylinesConflict(sa,sb)){ok=true;break outer;}
+    if (ok) { matrix[a][b]=matrix[b][a]=1; conflictCount++; }
+  }
+
+  // Oversteekplaatsen: conflict met elke link die een overgestoken edge in- of uitrijdt (zoals netconvert)
+  const connOf = {};
+  conns.forEach(c => { (connOf[c.linkIndex] ||= []).push(c); });
+  for (let a = 0; a < nL; a++) {
+    const crossed = (connOf[a] || []).flatMap(c => crossingEdgesMap[c.to] || []);
+    if (!crossed.length) continue;
+    for (let b = 0; b < nL; b++) {
+      if (a === b || (connOf[b] || []).some(c => crossingEdgesMap[c.to])) continue;
+      if ((connOf[b] || []).some(c => crossed.includes(c.from) || crossed.includes(c.to)) && !matrix[a][b]) {
+        matrix[a][b] = matrix[b][a] = 1; conflictCount++;
+      }
+    }
+  }
+  t.conflictMatrix = matrix;
+  t.geoConflicts = matrix.map(r => r.map(v => v > 0));   // voor G/g bij het genereren
+  saveConflictMatrix(i);
+  renderConflictMatrix(i);
+  const warn      = missingVia   ? ` · ${missingVia} via-lanes missing` : '';
+  const mergeNote = mergeSkipped ? ` · ${mergeSkipped} converging bike/ped pair${mergeSkipped>1?'s':''} skipped` : '';
+  setStatus(`Geometry detection: ${conflictCount} conflict pairs${mergeNote}${warn}`, (missingVia||mergeSkipped)?'warn':'ok');
+}
+
+// Unified matrix render: Links × Links, showing signal-group membership
+// (by color + ●/○) for intra-group cells, and conflict/compat info for
+// inter-group cells. Left-click routes by current edit mode; right-click
+// opens the intergreen editor (inter-group cells only).
+function renderConflictMatrix(i) {
+  const wrap = document.getElementById('cmWrap'); if (!wrap) return;
+  if (i<0||!tlsData[i]) { wrap.innerHTML=''; return; }
+  const t = tlsData[i];
+  const nL = t.phases[0]?.state?.length || 0;
+  if (!nL) {
+    wrap.innerHTML=`<div class="cm-notice">Add phases with state strings first.</div>`;
+    renderSignalGroupComponentsStrip(i);
+    return;
+  }
+  // Auto-create a zero conflict matrix so the unified view can always render.
+  if (!t.conflictMatrix) t.conflictMatrix = makeZeroMatrix(nL);
+
+  const sg = t.signalGroups || {};
+  const linkTypes = getLinkTypes(t.id);
+
+  // Compute sg components and per-link color
+  const comps = computeSgComponents(t, nL);
+  const compOfLink  = new Array(nL).fill(0);
+  const colorOfLink = new Array(nL).fill('#4a5568');
+  comps.forEach((members, ci) => {
+    const color = members.length > 1
+      ? LINK_PALETTE[ci % LINK_PALETTE.length]
+      : '#4a5568';  // singletons = muted grey
+    members.forEach(m => { compOfLink[m] = ci; colorOfLink[m] = color; });
+  });
+
+  const lbl = li => {
+    const icon = linkTypes[li]==='bike' ? '🚲 ' : linkTypes[li]==='ped' ? '🚶 ' : '';
+    const col  = colorOfLink[li];
+    const name = (sg[li]||'').trim() || `L${li}`;
+    return `<span style="color:${col}">${icon}${esc(name)}</span>`;
+  };
+
+  const colHdrs = Array.from({length:nL},(_,li)=>
+    `<th class="cm-collabel-wrap"><div class="cm-collabel-inner">${lbl(li)}</div></th>`).join('');
+
+  const rows = Array.from({length:nL},(_,a) => {
+    const cells = Array.from({length:nL},(_,b) => {
+      // Diagonal
+      if (a===b) {
+        const isSingle = comps[compOfLink[a]].length === 1;
+        if (isSingle) return `<td class="cm-cell diagonal sg-single-diag"></td>`;
+        const col = colorOfLink[a];
+        return `<td class="cm-cell sg-diag" style="background:${col}"></td>`;
+      }
+      // Off-diagonal: same component?
+      const sameComp = compOfLink[a] === compOfLink[b];
+      if (sameComp) {
+        const hasSgEdge = t.sgPairs.has(sgPairKey(a, b));
+        const col       = colorOfLink[a];
+        const cls       = hasSgEdge ? 'cm-cell sg-direct' : 'cm-cell sg-derived';
+        const bg        = hasSgEdge ? col : `${col}77`;  // 47% alpha for derived
+        const tip       = hasSgEdge
+          ? `L${a} ↔ L${b} — same signal group (direct edge)`
+          : `L${a} ↔ L${b} — same signal group (connected via another link)`;
+        return `<td class="${cls}" style="background:${bg}" title="${tip}" onmouseenter="cmHover(${i},${a},${b})" onmouseleave="cmHover(${i},-1,-1)"></td>`;
+      }
+      // Inter-group: conflict / compat
+      const v = t.conflictMatrix[a][b];
+      if (!v) {
+        return `<td class="cm-cell compat" title="Compatible (different signal groups)" onclick="cmCellClick(${i},${a},${b},event)" onmouseenter="cmHover(${i},${a},${b})" onmouseleave="cmHover(${i},-1,-1)"><div class="cm-val"></div></td>`;
+      }
+      const imgCls = (v>1) ? 'img' : 'geo';
+      const display = v===1 ? '✕' : v;
+      const na=(sg[a]||'L'+a), nb=(sg[b]||'L'+b);
+      const w = t.conflictMatrix[b][a];
+      const tip = v===1
+        ? `Conflict: ${na} ✕ ${nb} (no intergreen yet) · right-click to set seconds`
+        : `Intergreen ${na} → ${nb} = ${v}s (row → column)${w && w!==v ? ` · ${nb} → ${na} = ${w}s` : ''} · right-click to edit`;
+      return `<td class="cm-cell conflict ${imgCls}" title="${tip}" onclick="cmCellClick(${i},${a},${b},event)" onmouseenter="cmHover(${i},${a},${b})" onmouseleave="cmHover(${i},-1,-1)"><div class="cm-val">${display}</div></td>`;
+    }).join('');
+    return `<tr><td class="cm-rowlabel">${lbl(a)}</td>${cells}</tr>`;
+  }).join('');
+
+  // Stats: count sg-pairs, conflicts, compat — but only over inter-group pairs for conflict stats
+  let sgPairCount=0, conflicts=0, compatCount=0, sumIG=0, maxIG=0;
+  for (let a=0;a<nL;a++) for (let b=a+1;b<nL;b++) {
+    if (compOfLink[a] === compOfLink[b]) { sgPairCount++; continue; }
+    const v=t.conflictMatrix[a][b];
+    if (v) { conflicts++; if(v>1){sumIG+=v;maxIG=Math.max(maxIG,v);} }
+    else compatCount++;
+  }
+  const avgIG = (conflicts&&sumIG) ? (sumIG/conflicts).toFixed(1) : '—';
+  const numMultiGroups = comps.filter(c => c.length > 1).length;
+
+  wrap.innerHTML = `
+    <div class="cm-wrap">
+      <table class="cm-table">
+        <thead><tr><th class="cm-corner"></th>${colHdrs}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="cm-legend">
+      <div class="cm-legend-item"><div class="cm-legend-swatch" style="background:#60a5fa;color:#fff;font-weight:700">●</div> Same SG (direct)</div>
+      <div class="cm-legend-item"><div class="cm-legend-swatch" style="background:#60a5fa77;color:#fff">○</div> Same SG (derived)</div>
+      <div class="cm-legend-item"><div class="cm-legend-swatch" style="background:#3d0a0a;color:#fca5a5;font-size:11px;font-weight:700">✕</div> Conflict</div>
+      <div class="cm-legend-item"><div class="cm-legend-swatch" style="background:#3d0a0a;color:#fde68a;font-size:10px;font-weight:700">4s</div> Intergreen row → column (s)</div>
+      <div class="cm-legend-item"><div class="cm-legend-swatch" style="background:#0d2b1a"></div> Compatible</div>
+    </div>
+    <div class="cm-stats"><b>${nL}</b> links in <b>${numMultiGroups}</b> multi-link groups · <b>${sgPairCount}</b> same-SG pairs · <b>${conflicts}</b> conflict · <b>${compatCount}</b> compatible · avg intergreen <b>${avgIG}s</b> · max <b>${maxIG||'—'}s</b></div>`;
+
+  renderSignalGroupComponentsStrip(i);
+  renderConflictGeo(i);
+}
+
+// Components strip (signal group naming): shown below the unified matrix.
+// Decoupled from renderConflictMatrix so either can be refreshed independently.
+function renderSignalGroupComponentsStrip(i) {
+  const compsWrap = document.getElementById('sgComponentsWrap');
+  if (!compsWrap) return;
+  if (i < 0 || !tlsData[i]) { compsWrap.innerHTML = ''; return; }
+  const t = tlsData[i];
+  const nL = t.phases[0]?.state?.length || 0;
+  if (!nL) { compsWrap.innerHTML = ''; return; }
+
+  const comps = computeSgComponents(t, nL);
+  const colorOfLink = new Array(nL).fill('#4a5568');
+  comps.forEach((members, ci) => {
+    const color = members.length > 1 ? LINK_PALETTE[ci % LINK_PALETTE.length] : '#4a5568';
+    members.forEach(m => { colorOfLink[m] = color; });
+  });
+
+  const compsHTML = comps.map(members => {
+    const first = members[0];
+    const col   = colorOfLink[first];
+    const memberNames = members.map(m => (t.signalGroups[m] || '').trim());
+    const distinctNames = [...new Set(memberNames.filter(Boolean))];
+    const mixed = distinctNames.length > 1;
+    const nameForInput = (memberNames.find(n => n) || '');
+    const _types = getLinkTypes(t.id), _conns = connectionsByTLS[t.id] || [];
+    const memberLabels = members.map(m => {
+      const c = _conns.find(c => c.linkIndex === m);
+      const d = _types[m] === 'ped' ? 'voet' : (c?.dir || '');
+      return `${linkTypeIcon(_types[m])}L${m}${d ? '·' + d : ''}`;
+    }).join(' ');
+    const isSingle = members.length === 1;
+    const isolateBtn = isSingle
+      ? ''
+      : members.map(m =>
+          `<button class="sgm-comp-btn" title="Isolate L${m} from this group"
+                   onclick="sgIsolateLink(${i},${m})">⊖ L${m}</button>`
+        ).join('');
+    const warn = mixed
+      ? `<span title="Members have different names: ${esc(distinctNames.join(', '))} — type a name to unify"
+              style="color:var(--red);font-size:14px;margin:0 2px;line-height:1">⚠</span>`
+      : '';
+    return `<div class="sgm-comp ${isSingle ? 'single' : ''}">
+      <span class="sgm-comp-swatch" style="background:${col}"></span>
+      <input class="sgm-comp-name ${mixed ? 'mixed' : ''}" type="text" value="${esc(nameForInput)}"
+             placeholder="${isSingle ? 'L' + first : 'name…'}"
+             onchange="sgRenameComponent(${i},${first},this.value)">
+      ${warn}
+      <span class="sgm-comp-members">(${members.length}) ${memberLabels}</span>
+      ${isolateBtn}
+    </div>`;
+  }).join('');
+
+  compsWrap.innerHTML = `<div class="sgm-comps">${compsHTML}</div>`;
+}
+
+function initEmptyMatrix(i) {
+  if (!tlsData[i]) return;
+  const nL = tlsData[i].phases[0]?.state?.length || 0;
+  if (!nL) return;
+  tlsData[i].conflictMatrix = makeZeroMatrix(nL);
+  renderConflictMatrix(i);
+}
+// ── Conflict Geometry View ────────────────────────────────────────────
+// Colour palette for link indices (up to 24, wraps)
+const LINK_PALETTE = [
+  '#60a5fa','#34d399','#f87171','#fbbf24','#a78bfa','#f472b6',
+  '#38bdf8','#4ade80','#fb923c','#e879f9','#2dd4bf','#facc15',
+  '#818cf8','#86efac','#fca5a5','#fde68a','#c4b5fd','#fbcfe8',
+  '#7dd3fc','#6ee7b7','#fdba74','#f0abfc','#5eead4','#fef08a'
+];
+
+// Follow the internal lane chain starting at startLaneId, return concatenated [[x,y],…] shape
+function getFullViaShape(startLaneId) {
+  const pts = [];
+  let lid = startLaneId;
+  const visited = new Set();
+  while (lid && laneMap[lid] && !visited.has(lid)) {
+    visited.add(lid);
+    const shape = laneMap[lid].shape;
+    if (!shape || shape.length < 2) break;
+    if (pts.length === 0) {
+      pts.push(...shape);
+    } else {
+      // Skip first point of next segment if it duplicates the last (continuity)
+      const [lx, ly] = pts[pts.length - 1];
+      const [fx, fy] = shape[0];
+      const gap = Math.sqrt((fx-lx)**2 + (fy-ly)**2);
+      pts.push(...(gap < 0.5 ? shape.slice(1) : shape));
+    }
+    lid = internalNextLane[lid] || null;
+  }
+  return pts;
+}
+
+// Build linkShapes map for the given TLS (same logic as buildConflictMatrixFromGeo)
+function getLinkShapes(t) {
+  const conns = (connectionsByTLS[t.id]||[]).slice().sort((a,b)=>a.linkIndex-b.linkIndex);
+  const linkShapes = {};
+  conns.forEach(c => {
+    const li = c.linkIndex;
+    if (!linkShapes[li]) linkShapes[li] = [];
+    const startId = (c.via && laneMap[c.via]) ? c.via : ((c.to.startsWith(':') && laneMap[c.to + '_0']) ? c.to + '_0' : `:${t.id}_${li}_0`);   // oversteek: de crossing-lane zelf
+    const fullShape = getFullViaShape(startId);
+    if (fullShape.length >= 2) linkShapes[li].push({ shape: fullShape, via: startId });
+  });
+  return linkShapes;
+}
+
+function renderConflictGeo(i, hlA=-1, hlB=-1) {
+  const wrap = document.getElementById('cmGeoWrap'); if (!wrap) return;
+  if (i<0||!tlsData[i]) { wrap.innerHTML=''; return; }
+  const t   = tlsData[i];
+  const jId = t.id;
+
+  // Collect geometry
+  const jShape = junctionShapes[jId] || [];
+  const junc   = junctionMap[jId];
+  const linkShapes = getLinkShapes(t);
+
+  // Bounding box: via-lane shapes only
+  const allPts = [];
+  Object.values(linkShapes).forEach(arr => arr.forEach(({shape}) => allPts.push(...shape)));
+  // Fallback to junction centroid
+  if (allPts.length < 2 && junc) allPts.push([junc.x-10,junc.y-10],[junc.x+10,junc.y+10]);
+
+  if (allPts.length < 2 && !junc) {
+    wrap.innerHTML='<div style="padding:20px;color:#6b7280;font-family:monospace;font-size:11px">No geometry — load a full .net.xml file</div>';
+    return;
+  }
+  if (allPts.length < 2 && junc) allPts.push([junc.x-10,junc.y-10],[junc.x+10,junc.y+10]);
+
+  // Canvas size = wrap size (CSS driven)
+  const SZ_W = wrap.clientWidth  || 500;
+  const SZ_H = wrap.clientHeight || 560;
+
+  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+  allPts.forEach(([x,y])=>{ xmin=Math.min(xmin,x);xmax=Math.max(xmax,x);ymin=Math.min(ymin,y);ymax=Math.max(ymax,y); });
+
+  const PAD = 40;
+  const rangeX=xmax-xmin||1, rangeY=ymax-ymin||1;
+  const scale = Math.min((SZ_W-2*PAD)/rangeX, (SZ_H-2*PAD)/rangeY);
+  const offX  = PAD + ((SZ_W-2*PAD) - rangeX*scale)/2;
+  const offY  = PAD + ((SZ_H-2*PAD) - rangeY*scale)/2;
+
+  const tx = x => offX + (x-xmin)*scale;
+  const ty = y => SZ_H - offY - (y-ymin)*scale;
+  const pts2line = pts => pts.map(([x,y],k)=>`${k?'L':'M'}${tx(x).toFixed(1)},${ty(y).toFixed(1)}`).join('');
+  const pts2poly = pts => pts.map(([x,y])=>`${tx(x).toFixed(1)},${ty(y).toFixed(1)}`).join(' ');
+
+  const {scale:zs, tx:ztx, ty:zty} = cmZoom;
+  let s = '';
+
+  // ── Background ──
+  s += `<rect width="${SZ_W}" height="${SZ_H}" fill="#0d1117"/>`;
+
+  // ── Zoom group ──
+  s += `<g id="cmZoomGroup" transform="translate(${ztx},${zty}) scale(${zs})">`;
+
+  // Road geometry removed — only via-lane conflict lines are drawn
+
+  // ── Via-lane paths per link index ──
+  const nL = t.phases[0]?.state?.length || 0;
+  const hlActive = hlA>=0 && hlB>=0;
+
+  for (let li=0; li<nL; li++) {
+    const shapes = linkShapes[li] || [];
+    if (!shapes.length) continue;
+    const col = LINK_PALETTE[li % LINK_PALETTE.length];
+    const isHL = (li===hlA||li===hlB);
+    const dimmed = hlActive && !isHL;
+    const lw = isHL ? Math.max(5, scale*2.2) : Math.max(3.5, scale*1.4);
+    const op  = dimmed ? 0.10 : (isHL ? 1.0 : 0.82);
+
+    shapes.forEach(({shape}) => {
+      if (shape.length < 2) return;
+      // Glow for highlighted
+      if (isHL) {
+        s += `<path d="${pts2line(shape)}" fill="none" stroke="${col}" stroke-width="${(lw*3).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.18"/>`;
+        s += `<path d="${pts2line(shape)}" fill="none" stroke="${col}" stroke-width="${(lw*1.6).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>`;
+      }
+      s += `<path d="${pts2line(shape)}" fill="none" stroke="${col}" stroke-width="${lw.toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+
+      // Arrow at end of via-lane (midpoint between last two pts)
+      if (!dimmed && shape.length >= 2) {
+        const n = shape.length;
+        const [ax1,ay1] = shape[n-2], [ax2,ay2] = shape[n-1];
+        const dx=tx(ax2)-tx(ax1), dy=ty(ay2)-ty(ay1);
+        const len=Math.sqrt(dx*dx+dy*dy)||1;
+        const AS = isHL ? 10 : 7;
+        const ex=tx(ax2), ey=ty(ay2);
+        const ang=Math.atan2(dy,dx);
+        s += `<polygon points="${ex},${ey} ${ex-Math.cos(ang-0.4)*AS},${ey-Math.sin(ang-0.4)*AS} ${ex-Math.cos(ang+0.4)*AS},${ey-Math.sin(ang+0.4)*AS}" fill="${col}" opacity="${op}"/>`;
+      }
+
+      // Midpoint label with link index
+      if (!dimmed && shape.length >= 2) {
+        const mid = Math.floor(shape.length/2);
+        const [mx,my] = shape[mid];
+        const fs = isHL ? Math.max(10, scale*1.0) : Math.max(8, scale*0.75);
+        const br = fs*0.72;
+        s += `<circle cx="${tx(mx).toFixed(1)}" cy="${ty(my).toFixed(1)}" r="${br.toFixed(1)}" fill="#0d1117" stroke="${col}" stroke-width="${isHL?2:1.5}" opacity="${op}"/>`;
+        s += `<text x="${tx(mx).toFixed(1)}" y="${ty(my).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" fill="${col}" font-size="${fs.toFixed(1)}" font-family="monospace" font-weight="bold" opacity="${op}">${li}</text>`;
+      }
+    });
+  }
+
+  // ── Conflict pair cross-marker (only when hovering) ──
+  if (hlActive && t.conflictMatrix?.[hlA]?.[hlB]) {
+    // Find intersection point(s) between hlA and hlB via-shapes
+    const sA = linkShapes[hlA]||[], sB = linkShapes[hlB]||[];
+    sA.forEach(({shape:sa}) => sB.forEach(({shape:sb}) => {
+      for (let p=0;p<sa.length-1;p++) for (let q=0;q<sb.length-1;q++) {
+        const ix = segIntersect(sa[p],sa[p+1],sb[q],sb[q+1]);
+        if (ix) {
+          const cx=tx(ix[0]), cy=ty(ix[1]);
+          s += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9" fill="none" stroke="#ef4444" stroke-width="2.5" opacity="0.9"/>`;
+          s += `<line x1="${(cx-6).toFixed(1)}" y1="${(cy-6).toFixed(1)}" x2="${(cx+6).toFixed(1)}" y2="${(cy+6).toFixed(1)}" stroke="#ef4444" stroke-width="2" opacity="0.9"/>`;
+          s += `<line x1="${(cx+6).toFixed(1)}" y1="${(cy-6).toFixed(1)}" x2="${(cx-6).toFixed(1)}" y2="${(cy+6).toFixed(1)}" stroke="#ef4444" stroke-width="2" opacity="0.9"/>`;
+        }
+      }
+    }));
+  }
+
+  s += `</g>`; // end zoom group
+
+  // ── Zoom indicator ──
+  s += `<g style="pointer-events:none">`;
+  s += `<rect x="${SZ_W-60}" y="${SZ_H-22}" width="56" height="18" rx="3" fill="#0d1117" fill-opacity="0.8"/>`;
+  s += `<text id="cmZoomLabel" x="${SZ_W-32}" y="${SZ_H-9}" text-anchor="middle" font-family="monospace" font-size="10" fill="#6b7280">x${zs.toFixed(2)}</text>`;
+  s += `</g>`;
+
+  wrap.innerHTML = `<svg id="cmGeoSvg" width="${SZ_W}" height="${SZ_H}" xmlns="http://www.w3.org/2000/svg" style="display:block;cursor:grab;user-select:none">${s}</svg>`;
+  initCmZoom(SZ_W, SZ_H, i);
+}
+
+function cmHover(i, a, b) {
+  renderConflictGeo(i, a, b);
+}
+
+// Segment intersection helper (same as polylinesConflict's inner logic but returns point)
+function segIntersect([ax1,ay1],[ax2,ay2],[bx1,by1],[bx2,by2]) {
+  const dx1=ax2-ax1, dy1=ay2-ay1, dx2=bx2-bx1, dy2=by2-by1;
+  const denom = dx1*dy2 - dy1*dx2;
+  if (Math.abs(denom)<1e-10) return null;
+  const t = ((bx1-ax1)*dy2-(by1-ay1)*dx2)/denom;
+  const u = ((bx1-ax1)*dy1-(by1-ay1)*dx1)/denom;
+  if (t>0.01&&t<0.99&&u>0.01&&u<0.99) return [ax1+t*dx1, ay1+t*dy1];
+  return null;
+}
+
+function initCmZoom(sw, sh, tlsIdx) {
+  const svg = document.getElementById('cmGeoSvg'); if (!svg) return;
+  const MIN_SCALE=0.3, MAX_SCALE=30;
+
+  function applyTransform() {
+    const g   = document.getElementById('cmZoomGroup');
+    const lbl = document.getElementById('cmZoomLabel');
+    if (g)   g.setAttribute('transform',`translate(${cmZoom.tx},${cmZoom.ty}) scale(${cmZoom.scale})`);
+    if (lbl) lbl.textContent='x'+cmZoom.scale.toFixed(cmZoom.scale<10?2:1);
+  }
+
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect=svg.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(sw/rect.width);
+    const my=(e.clientY-rect.top)*(sh/rect.height);
+    const factor=e.deltaY<0?1.15:1/1.15;
+    const ns=Math.max(MIN_SCALE,Math.min(MAX_SCALE,cmZoom.scale*factor));
+    const ratio=ns/cmZoom.scale;
+    cmZoom.tx=mx+(cmZoom.tx-mx)*ratio;
+    cmZoom.ty=my+(cmZoom.ty-my)*ratio;
+    cmZoom.scale=ns;
+    applyTransform();
+  },{passive:false});
+
+  let drag=null;
+  svg.addEventListener('mousedown', e=>{
+    if(e.button!==0) return;
+    drag={x:e.clientX,y:e.clientY,tx:cmZoom.tx,ty:cmZoom.ty};
+    svg.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove', e=>{
+    if(!drag) return;
+    const rect=svg.getBoundingClientRect();
+    cmZoom.tx=drag.tx+(e.clientX-drag.x)*(sw/rect.width);
+    cmZoom.ty=drag.ty+(e.clientY-drag.y)*(sh/rect.height);
+    applyTransform();
+  });
+  window.addEventListener('mouseup', ()=>{ if(drag){drag=null;svg.style.cursor='grab';} });
+
+  svg.addEventListener('dblclick', ()=>{
+    cmZoom={scale:1,tx:0,ty:0};
+    applyTransform();
+  });
+}
+
+
+// Cell click: left = toggle 0/1; right = prompt for value
+// Current edit mode of the unified matrix. Persists across TLS switches so
+// the user's preference sticks. Default: 'sg' (matches the user's most
+// recent workflow of laying out signal groups before conflicts).
+let _matrixEditMode = 'conflict';   // basisversie: alleen conflicten bewerken
+
+function setMatrixEditMode(i, mode) {
+  if (mode !== 'conflict') return;
+  _matrixEditMode = mode;
+  document.body.setAttribute('data-cm-mode', mode);
+  document.querySelectorAll('.cm-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+  });
+}
+
+function cmCellClick(i, a, b, _ev) {
+  const t = tlsData[i]; if (!t) return;
+  const nL = t.phases[0]?.state?.length || 0;
+
+  // Conflict mode: toggle conflict on/off — but only for inter-group pairs.
+  const comps = computeSgComponents(t, nL);
+  const compOf = new Array(nL);
+  comps.forEach((m, ci) => m.forEach(x => { compOf[x] = ci; }));
+  if (compOf[a] === compOf[b]) {
+    // Same signal group → no conflict to set.
+    setStatus('Same signal group — no conflict applies', 'warn');
+    return;
+  }
+  if (!t.conflictMatrix) t.conflictMatrix = makeZeroMatrix(nL);
+  const m = t.conflictMatrix;
+  if (m[a][b]) m[a][b] = m[b][a] = 0;
+  else         m[a][b] = m[b][a] = 1;
+  saveConflictMatrix(i);
+  renderConflictMatrix(i);
+}
+
+// Right-click on cell to set exact intergreen value
+document.addEventListener('contextmenu', ev => {
+  const cell = ev.target.closest('.cm-cell.conflict, .cm-cell.compat');
+  if (!cell) return;
+  ev.preventDefault();
+  // Extract indices from onclick attribute
+  const onclk = cell.getAttribute('onclick')||'';
+  const m = onclk.match(/cmCellClick\((\d+),(\d+),(\d+)/);
+  if (!m) return;
+  const [,ti,a,b] = m.map(Number);
+  showIntergreensPopup(ti,a,b,ev.clientX,ev.clientY);
+});
+
+let _popupCleanup = null;
+function showIntergreensPopup(ti, a, b, px, py) {
+  document.getElementById('cmEditPopup')?.remove();
+  if (_popupCleanup) { document.removeEventListener('mousedown',_popupCleanup); _popupCleanup=null; }
+  const t = tlsData[ti]; if (!t?.conflictMatrix) return;
+  const na = groupKeyOf(t, a), nb = groupKeyOf(t, b);
+  const vab = t.conflictMatrix[a][b], vba = t.conflictMatrix[b][a];
+  const show = v => (v && v !== 1) ? v : '';
+  const popup = document.createElement('div');
+  popup.id = 'cmEditPopup';
+  popup.className = 'cm-edit-popup';
+  popup.style.left = Math.min(px, window.innerWidth-260)+'px';
+  popup.style.top  = Math.min(py, window.innerHeight-170)+'px';
+  popup.innerHTML = `
+    <label>Intergreen (s) · end of green → start of green</label>
+    <div style="display:grid;grid-template-columns:auto 70px;gap:4px 8px;align-items:center;font-family:var(--mono);font-size:12px">
+      <span>${esc(na)} → ${esc(nb)}</span><input id="cmEditAB" type="number" min="0" max="99" step="1" value="${show(vab)}">
+      <span>${esc(nb)} → ${esc(na)}</span><input id="cmEditBA" type="number" min="0" max="99" step="1" value="${show(vba)}">
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin:4px 0">Applies to all conflicting links of both groups. Both empty/0 = no conflict.</div>
+    <div class="cm-edit-btns">
+      <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="applyIntergreen(${ti},${a},${b})">Apply</button>
+      <button class="btn" style="padding:4px 10px;font-size:12px" onclick="document.getElementById('cmEditPopup')?.remove()">✕</button>
+    </div>`;
+  document.body.appendChild(popup);
+  const inp = popup.querySelector('#cmEditAB');
+  inp.focus(); inp.select();
+  popup.querySelectorAll('input').forEach(x => x.addEventListener('keydown', ev => {
+    if (ev.key==='Enter') applyIntergreen(ti,a,b); if (ev.key==='Escape') popup.remove(); }));
+  _popupCleanup = ev => { if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('mousedown',_popupCleanup); _popupCleanup=null; } };
+  setTimeout(() => document.addEventListener('mousedown',_popupCleanup), 50);
+}
+
+function applyIntergreen(ti, a, b) {
+  const t = tlsData[ti]; if (!t?.conflictMatrix) return;
+  const num = id => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) || v <= 0 ? 0 : v; };
+  let vab = num('cmEditAB'), vba = num('cmEditBA');
+  if (!vab && vba) vab = vba;
+  if (!vba && vab) vba = vab;
+  const m = t.conflictMatrix;
+  // groepsbreed: alle links van groep a tegenover alle links van groep b die een conflict hebben (+ deze cel)
+  const ga = groupMembers(t, groupKeyOf(t, a)), gb = groupMembers(t, groupKeyOf(t, b));
+  let n = 0;
+  ga.forEach(x => gb.forEach(y => {
+    if (x === y) return;
+    if (!(m[x][y] || m[y][x]) && !(x === a && y === b)) return;
+    m[x][y] = vab; m[y][x] = vba; n++;
+  }));
+  document.getElementById('cmEditPopup')?.remove();
+  saveConflictMatrix(ti);
+  renderConflictMatrix(ti);
+  if (t.phaseDesign) { recomputeInterstages(ti); savePhaseDesign(ti); renderPhaseDesign(ti); }
+  setStatus(vab ? `Intergreen ${groupKeyOf(t,a)} → ${groupKeyOf(t,b)} = ${vab} s, ${groupKeyOf(t,b)} → ${groupKeyOf(t,a)} = ${vba} s (${n} link pairs)`
+                : `Conflict removed (${n} link pairs)`, 'ok');
+}
+
+function saveConflictMatrix(i) {
+  if (!tlsData[i]?.conflictMatrix) return;
+  const t = tlsData[i];
+  const nL = t.conflictMatrix.length;
+  const pairs = [];
+  for (let a=0;a<nL;a++) for (let b=a+1;b<nL;b++) {
+    const v = t.conflictMatrix[a][b], w = t.conflictMatrix[b][a];
+    if (v || w) {
+      if (v === w) pairs.push(v === 1 ? `${a}-${b}` : `${a}-${b}=${v}`);
+      else pairs.push(`${a}-${b}=${v || 1}/${w || 1}`);      // a->b / b->a
+    }
+  }
+  const value = pairs.join(',');
+  let paramNode = null;
+  t.tlLogicNode.querySelectorAll('param').forEach(p => { if(p.getAttribute('key')==='conflictMatrix') paramNode=p; });
+  if (!paramNode) {
+    paramNode = xmlDoc.createElement('param');
+    paramNode.setAttribute('key','conflictMatrix');
+    t.tlLogicNode.insertBefore(paramNode, t.tlLogicNode.querySelector('phase')||null);
+  }
+  paramNode.setAttribute('value', value);
+  refreshXML(t);
+  const badge = document.getElementById('cmSavedBadge');
+  if (badge) { badge.classList.add('show'); setTimeout(()=>badge.classList.remove('show'),1800); }
+}
+
+function clearConflictMatrix(i) {
+  if (!tlsData[i]) return;
+  const nL = tlsData[i].phases[0]?.state?.length||0;
+  tlsData[i].conflictMatrix = nL ? makeZeroMatrix(nL) : null;
+  saveConflictMatrix(i); renderConflictMatrix(i);
+}
+
+function countConflicts(m) {
+  if (!m) return 0;
+  let c=0;
+  for (let a=0;a<m.length;a++) for (let b=a+1;b<m.length;b++) if(m[a][b]) c++;
+  return c;
+}
+
+// ── Bike-lane detection ───────────────────────────────────────────────
+const MOTOR_CLASSES = ['passenger','private','taxi','bus','coach','truck','trailer',
+                       'motorcycle','moped','emergency','authority','army','vip',
+                       'hov','custom1','custom2'];
+
+function isBikeLane(allow, disallow) {
+  if (!allow && !disallow) return false;
+  if (allow) {
+    const classes = allow.toLowerCase().split(/\s+/);
+    if (!classes.includes('bicycle')) return false;
+    return !MOTOR_CLASSES.some(mc => classes.includes(mc));
+  }
+  if (disallow.toLowerCase().includes('all')) return true;
+  return false;
+}
+
+// Returns {linkIndex: 'bike'|'ped'|'motor'|'mixed'} for a TLS
+function getLinkTypes(tlsId) {
+  const conns = connectionsByTLS[tlsId] || [];
+  const types = {};
+  conns.forEach(c => {
+    if (types[c.linkIndex] !== undefined) return;
+    const laneId = `${c.from}_${c.fromLane}`;
+    const ln = laneMap[laneId];
+    if (!ln) { types[c.linkIndex] = 'mixed'; return; }
+    const allow = ln.allow || '', dis = ln.disallow || '';
+    const classes = allow.toLowerCase().split(/\s+/);
+    if (isBikeLane(allow, dis)) {
+      types[c.linkIndex] = 'bike';
+    } else if (allow && classes.includes('pedestrian') && !MOTOR_CLASSES.some(mc=>classes.includes(mc))) {
+      types[c.linkIndex] = 'ped';
+    } else {
+      types[c.linkIndex] = 'motor';
+    }
+  });
+  return types;
+}
+
+function linkTypeIcon(type) {
+  if (type === 'bike') return '<span title="Bicycle lane" style="font-size:12px">🚲</span>';
+  if (type === 'ped')  return '<span title="Pedestrian path" style="font-size:12px">🚶</span>';
+  return '';
+}
+
+// Build per-TLS map: linkIndex → Set of destination edge ids
+function getLinkDestinations(tlsId) {
+  const dest = {};
+  (connectionsByTLS[tlsId] || []).forEach(c => {
+    if (!dest[c.linkIndex]) dest[c.linkIndex] = new Set();
+    dest[c.linkIndex].add(c.to);
+  });
+  return dest;
+}
+
+// Two links "converge" if both are bike/ped AND share a destination edge
+function linksConverge(a, b, dest, types) {
+  const ta = types[a], tb = types[b];
+  if (ta !== 'bike' && ta !== 'ped') return false;
+  if (tb !== 'bike' && tb !== 'ped') return false;
+  const setA = dest[a], setB = dest[b];
+  if (!setA || !setB) return false;
+  for (const d of setA) if (setB.has(d)) return true;
+  return false;
+}
+
+// Post-process an existing matrix: clear conflicts between converging bike/ped links
+function applyBikeConvergenceRule(i) {
+  if (!tlsData[i]?.conflictMatrix) { setStatus('No conflict matrix to process','warn'); return; }
+  const t = tlsData[i];
+  const types = getLinkTypes(t.id);
+  const dest  = getLinkDestinations(t.id);
+  const nL    = t.conflictMatrix.length;
+  let cleared = 0;
+  for (let a=0;a<nL;a++) for (let b=a+1;b<nL;b++) {
+    if (t.conflictMatrix[a][b] && linksConverge(a, b, dest, types)) {
+      t.conflictMatrix[a][b] = t.conflictMatrix[b][a] = 0;
+      cleared++;
+    }
+  }
+  saveConflictMatrix(i);
+  renderConflictMatrix(i);
+  setStatus(cleared
+    ? `Convergence rule: cleared ${cleared} bike/ped merge pair${cleared>1?'s':''}.`
+    : 'No converging bike/ped pairs found (check geometry is loaded).', cleared?'ok':'warn');
+}
+
+
+
+// Helper: get intergreen time between two stages from the conflict matrix
+function computeIntergreenRaw(m, nL, assignment, fromStage, toStage) {
+  let max = 0;
+  for (let d=0; d<nL; d++) {
+    if (assignment[d] !== fromStage) continue;
+    for (let e=0; e<nL; e++) {
+      if (assignment[e] !== toStage) continue;
+      if (m[d]?.[e] > max) max = m[d][e];
+    }
+  }
+  return max;
+}
+
+// Greedy graph-colouring phase proposal (largest-degree-first)
+// ── Greedy phase assignment given a group ordering ────────────────────
+// ── Phase proposal algorithm ──────────────────────────────────────────
+
+// Serialize assignment for dedup (canonical: stage labels by first appearance)
+function assignKey(a) {
+  const remap = {}, out = [];
+  let next = 0;
+  for (const s of a) {
+    if (!(s in remap)) remap[s] = next++;
+    out.push(remap[s]);
+  }
+  return out.join(',');
+}
+
+function scoreAssignment(assignment, nL, m) {
+  const nStages = new Set(assignment).size;
+  let conflicts = 0;
+  if (m) for (let a=0;a<nL;a++) for (let b=a+1;b<nL;b++)
+    if (assignment[a]===assignment[b] && m[a][b]>0) conflicts++;
+  return { nStages, conflicts };
+}
+
+// Backtracking k-coloring: find up to maxFind valid k-colorings.
+// Explores groups in the given order; uses canonical key for dedup.
+function kColoringsFor(nL, m, k, maxFind, groupOrder) {
+  const solutions = [];
+  const seen = new Set();
+  const assignment = new Array(nL).fill(-1);
+
+  function bt(pos) {
+    if (solutions.length >= maxFind) return;
+    if (pos === nL) {
+      const key = assignKey(assignment);
+      if (!seen.has(key)) { seen.add(key); solutions.push([...assignment]); }
+      return;
+    }
+    const g = groupOrder[pos];
+    for (let c = 0; c < k; c++) {
+      // Prune: skip if this color conflicts with any already-placed group
+      let ok = true;
+      if (m) for (let prev = 0; prev < pos; prev++) {
+        const g2 = groupOrder[prev];
+        if (assignment[g2] === c && m[g][g2] > 0) { ok = false; break; }
+      }
+      if (!ok) continue;
+      assignment[g] = c;
+      bt(pos + 1);
+      if (solutions.length >= maxFind) { assignment[g] = -1; return; }
+    }
+    assignment[g] = -1;
+  }
+
+  bt(0);
+  return solutions;
+}
+
+function proposePhasing(i) {
+  if (!tlsData[i]) return;
+  const t = tlsData[i];
+  const nL = t.phases[0]?.state?.length || 0;
+  if (!nL) { setStatus('No signal groups defined yet','warn'); return; }
+  const m = t.conflictMatrix;
+  const linked = t.phaseDesign?.linkedGroups || [];
+
+  // Build a canonical representative map: each group → its "root" group in its linked set
+  // (Union-Find style: linked groups share the same color in k-coloring)
+  const root = Array.from({length:nL},(_,g)=>g);
+  linked.forEach(grp => {
+    const r = grp[0];
+    grp.slice(1).forEach(g => { root[g] = r; });
+  });
+
+  // Build a reduced conflict matrix for representative nodes only
+  const reps = [...new Set(root)];  // unique roots
+  const repIdx = {};
+  reps.forEach((r,i) => repIdx[r] = i);
+  const nR = reps.length;
+
+  // Reduced conflict matrix: rep A conflicts with rep B if any group under A conflicts with any group under B
+  const mR = nR > 0 ? Array.from({length:nR},()=>new Array(nR).fill(0)) : null;
+  if (m && mR) {
+    for (let a=0;a<nL;a++) for (let b=0;b<nL;b++) {
+      if (a===b) continue;
+      const ra=repIdx[root[a]], rb=repIdx[root[b]];
+      if (ra!==rb && m[a][b]>0) mR[ra][rb]=Math.max(mR[ra][rb],m[a][b]);
+    }
+  }
+
+  const base = Array.from({length:nR},(_,g)=>g);
+  const degrees = base.map(g => mR ? mR[g].reduce((s,v)=>s+(v>0?1:0),0) : 0);
+
+  const orderings = [
+    base.slice().sort((a,b)=>degrees[b]-degrees[a]),
+    base.slice().sort((a,b)=>degrees[a]-degrees[b]),
+    base.slice(), base.slice().reverse(),
+  ];
+  for (let seed=0;seed<12;seed++) {
+    const arr=base.slice();
+    for (let k=arr.length-1;k>0;k--) { const j=(k*7+seed*13+3)%(k+1); [arr[k],arr[j]]=[arr[j],arr[k]]; }
+    orderings.push(arr);
+  }
+
+  const seen = new Set();
+  const proposals = [];
+  const maxK = Math.min(nR, 6);
+
+  for (let k=1;k<=maxK && proposals.length<24;k++) {
+    for (const order of orderings) {
+      const solutions = kColoringsFor(nR, mR, k, 4, order);
+      for (const solR of solutions) {
+        // Expand reduced solution back to all nL groups
+        const sol = Array.from({length:nL},(_,g)=>solR[repIdx[root[g]]]);
+        const key = assignKey(sol);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const {nStages, conflicts} = scoreAssignment(sol, nL, m);
+        if (nStages!==k) continue;
+        proposals.push({assignment:sol, nStages, conflicts});
+        if (proposals.length>=24) break;
+      }
+      if (proposals.length>=24) break;
+    }
+  }
+
+  proposals.sort((a,b)=>a.conflicts!==b.conflicts ? a.conflicts-b.conflicts : a.nStages-b.nStages);
+
+  if (proposals.length===0) { setStatus('No valid proposal found','warn'); return; }
+  if (proposals.length===1) {
+    applyProposal(i, proposals[0].assignment);
+    setStatus(`Phase proposal: ${proposals[0].nStages} stages applied`, 'ok');
+    return;
+  }
+  renderProposalChooser(i, proposals);
+  const cFree = proposals.filter(p=>p.conflicts===0).length;
+  setStatus(`Found ${proposals.length} distinct assignments (${cFree} conflict-free) — pick one below`, 'ok');
+}
+
+function renderProposalChooser(i, proposals) {
+  const wrap = document.getElementById('pdProposalChooser'); if (!wrap) return;
+  const t = tlsData[i];
+  const sg = t.signalGroups || {};
+  const lbl = g => sg[g] || `L${g}`;
+
+  // Group proposals by stage count
+  const byStage = {};
+  proposals.forEach(p => {
+    if (!byStage[p.nStages]) byStage[p.nStages] = [];
+    byStage[p.nStages].push(p);
+  });
+
+  let html = `<div style="margin-bottom:8px;font-size:11px;color:var(--text-muted);font-family:var(--mono)">
+    <b style="color:var(--text)">${proposals.length}</b> distinct assignment${proposals.length>1?'s':''} found — click one to apply:
+  </div><div class="pd-proposals-scroller"><div class="pd-proposals">`;
+
+  Object.keys(byStage).sort((a,b)=>a-b).forEach(k => {
+    const group = byStage[k];
+    const cFree = group.filter(p=>p.conflicts===0).length;
+    html += `<div class="pd-proposal-group-hdr"><b>${k}-stage</b> — ${group.length} option${group.length>1?'s':''}${cFree<group.length?` · <span style="color:var(--red)">${group.length-cFree} with conflicts</span>`:''}${cFree>0?` · <span style="color:var(--green)">${cFree} conflict-free</span>`:''}</div>`;
+    group.forEach((p, idx) => {
+      const byStageArr = Array.from({length:p.nStages}, (_,s) =>
+        p.assignment.map((st,g)=>st===s?lbl(g):null).filter(Boolean));
+      const summary = byStageArr.map((grps,s)=>
+        `<span style="color:var(--amber);font-weight:700">S${s+1}</span> ${grps.join(' ')}`).join(' &nbsp;·&nbsp; ');
+      const conflictNote = p.conflicts > 0
+        ? `<span style="color:var(--red);margin-left:8px">⚠ ${p.conflicts} conflict${p.conflicts>1?'s':''}</span>`
+        : `<span style="color:var(--green);margin-left:8px">✓</span>`;
+      html += `<button class="pd-proposal-btn" onclick="applyProposal(${i},${JSON.stringify(p.assignment)});document.querySelectorAll('.pd-proposal-btn').forEach(b=>b.classList.remove('selected'));this.classList.add('selected')">
+        <span class="pd-proposal-badge">${p.nStages}</span>
+        <span class="pd-proposal-desc">${summary}${conflictNote}</span>
+      </button>`;
+    });
+  });
+
+  html += `</div></div>`;
+  wrap.innerHTML = html;
+}
+
+function applyProposal(i, assignment) {
+  const t = tlsData[i]; if (!t) return;
+  const nL = t.phases[0]?.state?.length || 0;
+  const m  = t.conflictMatrix;
+  const numStages = Math.max(...assignment) + 1;
+  const stages = Array.from({length:numStages}, () => ({minGreen:15, maxGreen:60}));
+  const interstages = Array.from({length:numStages}, (_,p) => {
+    const q=(p+1)%numStages;
+    const comp = m ? computeIntergreenRaw(m,nL,assignment,p,q) : 0;
+    return {duration:comp, computed:comp, override:false};
+  });
+  t.phaseDesign = {assignment:[...assignment], stages, interstages,
+                   linkedGroups: t.phaseDesign?.linkedGroups || []};
+  savePhaseDesign(i);
+  renderPhaseDesign(i);
+}
+
+function addStage(i) {
+  if (!tlsData[i]) return;
+  const t = tlsData[i];
+  if (!t.phaseDesign) initPhaseDesignEmpty(i);
+  const pd = t.phaseDesign;
+  pd.stages.push({minGreen:15, maxGreen:60});
+  const nL = t.phases[0]?.state?.length || 0;
+  // Interstage for new last → first wrap, plus previous last → new last
+  const m = t.conflictMatrix;
+  const numStages = pd.stages.length;
+  // Recompute all interstages
+  pd.interstages = Array.from({length:numStages}, (_,p) => {
+    const q = (p+1)%numStages;
+    const comp = m ? computeIntergreenRaw(m, nL, pd.assignment, p, q) : 0;
+    const existing = pd.interstages[p];
+    return {duration: existing?.override ? existing.duration : comp, computed:comp, override: existing?.override||false};
+  });
+  savePhaseDesign(i); renderPhaseDesign(i);
+}
+
+function removeLastStage(i) {
+  if (!tlsData[i]?.phaseDesign) return;
+  const pd = tlsData[i].phaseDesign;
+  if (pd.stages.length <= 1) { setStatus('Must keep at least one stage','warn'); return; }
+  const lastStage = pd.stages.length - 1;
+  // Reassign groups in last stage to stage 0
+  pd.assignment = pd.assignment.map(s => s===lastStage ? 0 : s);
+  pd.stages.pop();
+  const numStages = pd.stages.length;
+  const nL = tlsData[i].phases[0]?.state?.length || 0;
+  const m = tlsData[i].conflictMatrix;
+  pd.interstages = Array.from({length:numStages}, (_,p) => {
+    const q=(p+1)%numStages;
+    const comp = m ? computeIntergreenRaw(m,nL,pd.assignment,p,q) : 0;
+    const ex = pd.interstages[p];
+    return {duration: ex?.override ? ex.duration : comp, computed:comp, override:ex?.override||false};
+  });
+  savePhaseDesign(i); renderPhaseDesign(i);
+}
+
+function initPhaseDesignEmpty(i) {
+  const t = tlsData[i];
+  const nL = t.phases[0]?.state?.length || 0;
+  t.phaseDesign = {
+    assignment: new Array(nL).fill(0),
+    stages: [{minGreen:15, maxGreen:60}],
+    interstages: [{duration:4, computed:0, override:false}],
+    linkedGroups: []
+  };
+}
+
+// ── Render phase assignment grid ────────────────────────────────────
+function renderPhaseDesign(i) {
+  const gridWrap    = document.getElementById('pdGridWrap');
+  const timelineWrap = document.getElementById('siTimelineWrap');
+  const previewWrap  = document.getElementById('pdPreviewWrap');
+  const bannerWrap   = document.getElementById('pdConflictBanner');
+  if (!gridWrap) return;
+  if (!tlsData[i]) { gridWrap.innerHTML=''; if(bannerWrap)bannerWrap.innerHTML=''; return; }
+  const t = tlsData[i];
+  const nL = t.phases[0]?.state?.length || 0;
+  if (!nL) {
+    gridWrap.innerHTML = `<div class="cm-notice">Add phases with state strings first, then come back to assign groups to stages.</div>`;
+    if(bannerWrap)bannerWrap.innerHTML='';
+    return;
+  }
+  if (!t.phaseDesign) {
+    gridWrap.innerHTML = `<div class="cm-notice">Click <b>Auto-propose</b> to generate a conflict-free phase assignment, or manually assign groups below.<br><button class="btn" style="margin-top:8px;padding:4px 12px" onclick="initPhaseDesignEmpty(${i});renderPhaseDesign(${i})">Create empty (1 stage)</button></div>`;
+    if (timelineWrap) timelineWrap.innerHTML='';
+    if (previewWrap)  previewWrap.innerHTML='';
+    if (bannerWrap)   bannerWrap.innerHTML='';
+    return;
+  }
+  recomputeInterstages(i);
+  const pd = t.phaseDesign;
+  const sg = t.signalGroups || {};
+  const m  = t.conflictMatrix;
+  const numStages = pd.stages.length;
+
+  // ── Conflict banner ──
+  if (bannerWrap) {
+    if (!m) {
+      bannerWrap.innerHTML = `<div class="pd-conflict-banner" style="background:rgba(96,165,250,.08);border-color:rgba(96,165,250,.3);color:#93c5fd">ℹ No conflict matrix — cannot validate. Run <b>Detect from geometry</b> first.</div>`;
+    } else {
+      // Count all conflicting pairs in the same stage
+      const pairs = [];
+      for (let a=0;a<nL;a++) for (let b=a+1;b<nL;b++)
+        if (pd.assignment[a]===pd.assignment[b] && m[a][b]>0)
+          pairs.push(`${sg[a]||'L'+a} ✕ ${sg[b]||'L'+b} (S${pd.assignment[a]+1})`);
+      if (pairs.length) {
+        bannerWrap.innerHTML = `<div class="pd-conflict-banner">⚠ <b>${pairs.length} conflict${pairs.length>1?'s':''} in same stage:</b> ${pairs.slice(0,5).map(esc).join(' · ')}${pairs.length>5?' …':''}</div>`;
+      } else {
+        bannerWrap.innerHTML = `<div class="pd-conflict-banner ok">✓ Assignment is conflict-free</div>`;
+      }
+    }
+  }
+
+  // ── Link UI (must-be-together selector + chips) ──
+  const linkUIHtml = renderLinkUI(i);
+
+  // ── Assignment grid ──
+  const stageHeaders = Array.from({length:numStages}, (_,p) =>
+    `<th class="pd-stagenum">S${p+1}</th>`).join('');
+  const linkTypes = getLinkTypes(t.id);
+  const linked = pd.linkedGroups || [];
+
+  const rows = Array.from({length:nL}, (_,g) => {
+    const myStage = pd.assignment[g];
+    const conflictPartners = m
+      ? Array.from({length:nL},(_,other)=>other)
+          .filter(other => other!==g && pd.assignment[other]===myStage && m[g][other]>0)
+      : [];
+    const hasConflict = conflictPartners.length > 0;
+    const tipParts = conflictPartners.map(o => sg[o]||'L'+o).join(', ');
+
+    // Link-set coloring
+    const linkIdx = getLinkIndex(pd, g);
+    const linkCol = linkIdx >= 0 ? LINK_PALETTE[linkIdx % LINK_PALETTE.length] : null;
+    const dotHtml = linkCol
+      ? `<span class="link-dot" style="background:${linkCol}" title="Linked group"></span>`
+      : '';
+    const rowStyle = linkCol ? ` style="background:${linkCol}09"` : '';
+
+    const icon  = linkTypeIcon(linkTypes[g]);
+    const label = sg[g] ? `${dotHtml}${icon}<b>${esc(sg[g])}</b>` : `${dotHtml}${icon}L${g}`;
+    const cells = Array.from({length:numStages}, (_,p) => {
+      const assigned = pd.assignment[g]===p;
+      const cls = assigned ? (hasConflict ? 'pd-cell conflicted' : 'pd-cell assigned') : 'pd-cell';
+      const tip = assigned && hasConflict ? ` title="Conflicts with: ${esc(tipParts)}"` : '';
+      // For unassigned cells: compute what would conflict if g moved here
+      const wouldConflict = !assigned && m
+        ? Array.from({length:nL},(_,o)=>o)
+            .filter(o => o!==g && pd.assignment[o]===p && m[g][o]>0)
+            .map(o => sg[o]||'L'+o)
+        : [];
+      const hoverIn  = `pdCellHover(this,${i},${g},${p})`;
+      const hoverOut = `pdCellLeave(this)`;
+      const conflictData = wouldConflict.length ? ` data-wc="${esc(wouldConflict.join(','))}"` : '';
+      return `<td class="${cls}" onclick="assignGroup(${i},${g},${p})"${tip}${conflictData} onmouseenter="${hoverIn}" onmouseleave="${hoverOut}"><div class="pd-dot"></div></td>`;
+    }).join('');
+    const warn = hasConflict
+      ? `<td class="pd-conflict-col" title="Conflicts with: ${esc(tipParts)}">⚠</td>`
+      : `<td class="pd-conflict-col"></td>`;
+    return `<tr id="pd-row-${g}"${rowStyle}><td class="pd-grouplabel">${label}</td>${cells}${warn}</tr>`;
+  }).join('');
+
+  gridWrap.innerHTML = `${linkUIHtml}<div class="pd-grid-wrap"><table class="pd-grid">
+    <thead><tr><th style="text-align:left;padding-left:6px">Group</th>${stageHeaders}<th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+
+  // ── Stage/Interstage timeline ──
+  if (timelineWrap) renderSITimeline(i);
+}
+
+function assignGroup(i, g, stage) {
+  if (!tlsData[i]?.phaseDesign) return;
+  const t = tlsData[i];
+  const pd = t.phaseDesign;
+  const m  = t.conflictMatrix;
+  const sg = t.signalGroups || {};
+
+  // Check if move would create conflicts
+  if (m && pd.assignment[g] !== stage) {
+    const nL = t.phases[0]?.state?.length || 0;
+    const conflicts = Array.from({length:nL},(_,o)=>o)
+      .filter(o => o!==g && pd.assignment[o]===stage && m[g][o]>0)
+      .map(o => sg[o]||'L'+o);
+    if (conflicts.length) {
+      // Flash the conflicting rows
+      conflicts.forEach(name => {
+        // find the row by scanning — name to index
+        const idx = Array.from({length:nL},(_,o)=>o).find(o=>(sg[o]||'L'+o)===name);
+        if (idx!=null) {
+          const row = document.getElementById(`pd-row-${idx}`);
+          if (row) { row.classList.remove('pd-row-flash'); void row.offsetWidth; row.classList.add('pd-row-flash'); }
+        }
+      });
+      // Show inline warning in banner
+      const banner = document.getElementById('pdConflictBanner');
+      if (banner) {
+        banner.innerHTML = `<div class="pd-conflict-banner">⚠ Moving <b>${sg[g]||'L'+g}</b> to S${stage+1} creates ${conflicts.length} conflict${conflicts.length>1?'s':''}: <b>${conflicts.join(', ')}</b> — proceeding anyway.</div>`;
+      }
+    }
+  }
+
+  pd.assignment[g] = stage;
+  // Move all linked partners to the same stage
+  const linked = pd.linkedGroups || [];
+  linked.forEach(grp => {
+    if (grp.includes(g)) grp.forEach(other => { pd.assignment[other] = stage; });
+  });
+  recomputeInterstages(i);
+  savePhaseDesign(i);
+  renderPhaseDesign(i);
+}
+
+// Hover: preview whether moving group g to stage p would create conflicts
+function pdCellHover(cell, i, g, p) {
+  const wc = cell.getAttribute('data-wc');
+  if (!wc) {
+    // Would-ok: show green hint on empty cells
+    if (!cell.classList.contains('assigned') && !cell.classList.contains('conflicted'))
+      cell.classList.add('would-ok');
+    return;
+  }
+  cell.classList.add('would-conflict');
+  cell.title = `⚠ Would conflict with: ${wc}`;
+  // Also flash the row labels of conflicting groups
+  const t = tlsData[i]; if (!t?.phaseDesign) return;
+  const nL = t.phases[0]?.state?.length || 0;
+  const sg = t.signalGroups || {};
+  wc.split(',').forEach(name => {
+    const idx = Array.from({length:nL},(_,o)=>o).find(o=>(sg[o]||'L'+o)===name);
+    if (idx!=null) {
+      const row = document.getElementById(`pd-row-${idx}`);
+      if (row) row.classList.add('pd-row-flash');
+    }
+  });
+}
+
+function pdCellLeave(cell) {
+  cell.classList.remove('would-conflict','would-ok');
+  // Remove any lingering title set by hover
+  if (cell.getAttribute('data-wc')) cell.removeAttribute('title');
+}
+
+function recomputeInterstages(i) {
+  const t = tlsData[i]; if (!t?.phaseDesign) return;
+  const pd = t.phaseDesign, n = pd.stages.length;
+  while (pd.interstages.length < n) pd.interstages.push({duration:0, computed:0, override:false});
+  pd.interstages.length = n;
+  pd.interstages.forEach((ig, p) => {
+    ig.computed = planInterstage(t, p, (p+1) % n).T;
+    if (!ig.override || ig.duration < ig.computed) { ig.duration = ig.computed; ig.override = false; }
+  });
+}
+
+// Interfase van stand p naar q.
+// Startmoment van de nieuwe groepen = T. Een stoppende link d stopt (einde groen) ten laatste op
+// T - need_d, met need_d = max(tussengroentijd d -> startende links, oranjegeel van d).
+// Links met een korte tussengroentijd blijven dus langer groen: elke kleurwissel = een extra SUMO-fase.
+function planInterstage(t, p, q) {
+  const pd = t.phaseDesign, nL = t.phases[0]?.state?.length || 0, m = t.conflictMatrix;
+  const dep = [], ent = [];
+  for (let g = 0; g < nL; g++) {
+    if (p === q) break;
+    if (pd.assignment[g] === p) dep.push(g);
+    if (pd.assignment[g] === q) ent.push(g);
+  }
+  const need = {}, crit = {};
+  dep.forEach(d => {
+    let n = yellowOfLink(t, d), c = null;
+    ent.forEach(e => { const v = m?.[d]?.[e] || 0; if (v > 1 && v > n) { n = v; c = e; } });
+    need[d] = n; crit[d] = c;
+  });
+  const T = dep.length ? Math.max(...dep.map(d => need[d])) : 0;
+  return { dep, ent, need, crit, T };
+}
+
+function stageChars(t, p) {
+  const pd = t.phaseDesign, nL = t.phases[0]?.state?.length || 0;
+  const types = getLinkTypes(t.id), geo = t.geoConflicts, conns = connectionsByTLS[t.id] || [];
+  const dirOf = li => (conns.find(c => c.linkIndex === li) || {}).dir || 's';
+  return Array.from({length:nL}, (_, g) => {
+    if (pd.assignment[g] !== p) return 'r';
+    // afslaande auto met een conflict binnen dezelfde stand (deelconflict) -> voorrang verlenen
+    if (types[g] === 'motor' && geo && dirOf(g) !== 's') {
+      const clash = Array.from({length:nL}, (_, o) => o).some(o => o !== g && pd.assignment[o] === p && geo[g]?.[o]);
+      if (clash) return 'g';
+    }
+    return 'G';
+  });
+}
+
+function interstagePhases(t, p) {
+  const pd = t.phaseDesign, n = pd.stages.length, q = (p+1) % n;
+  const nL = t.phases[0]?.state?.length || 0;
+  const pl = planInterstage(t, p, q), ig = pd.interstages[p];
+  const Tu = Math.max(pl.T, ig?.duration || 0);
+  const green = stageChars(t, p);
+  const stop = d => pl.T - pl.need[d];                 // einde groen van d, t.o.v. start interfase
+  const pts = new Set([0, Tu]);
+  pl.dep.forEach(d => { pts.add(stop(d)); pts.add(stop(d) + yellowOfLink(t, d)); });
+  const times = [...pts].filter(x => x >= 0 && x <= Tu).sort((a, b) => a - b);
+  const segs = [];
+  for (let k = 0; k < times.length - 1; k++) {
+    const a = times[k], b = times[k+1];
+    if (b - a <= 1e-9) continue;
+    const st = Array.from({length:nL}, (_, g) => {
+      if (!pl.dep.includes(g)) return 'r';
+      if (a < stop(g)) return green[g];
+      if (a < stop(g) + yellowOfLink(t, g)) return 'y';
+      return 'r';
+    }).join('');
+    const last = segs[segs.length - 1];
+    if (last && last.state === st) last.dur += b - a; else segs.push({ dur: b - a, state: st });
+  }
+  const letters = 'abcdefghij';
+  segs.forEach((sg, k) => {
+    sg.dur = Math.round(sg.dur * 10) / 10;
+    sg.kind = /G|g/.test(sg.state) ? 'extra' : (/y/.test(sg.state) ? 'yellow' : 'all red');
+    sg.name = `IF ${p+1}→${q+1} ${letters[k] || k} (${sg.kind})`;
+  });
+  return { segs, T: Tu, plan: pl };
+}
+
+// ── Stage/Interstage timeline render ──────────────────────────────
+function renderSITimeline(i) {
+  const wrap = document.getElementById('siTimelineWrap'); if (!wrap) return;
+  const t = tlsData[i]; if (!t?.phaseDesign) return;
+  const pd = t.phaseDesign;
+  const sg = t.signalGroups||{};
+  const m  = t.conflictMatrix;
+  const nL = t.phases[0]?.state?.length||0;
+  const numStages = pd.stages.length;
+  const siLinkTypes = getLinkTypes(t.id);
+
+  const lbl = g => sg[g] || `L${g}`;
+  const chipLabel = g => `${linkTypeIcon(siLinkTypes[g])}${esc(lbl(g))}`;
+
+  // Build segments: Stage 0, IG 0→1, Stage 1, IG 1→2, ..., IG N-1→0 (wrap)
+  let html = `<div class="si-timeline">`;
+
+  for (let p=0; p<numStages; p++) {
+    const st = pd.stages[p];
+    // Groups in this stage
+    const greens = Array.from({length:nL},(_,g)=>g).filter(g=>pd.assignment[g]===p);
+
+    html += `<div class="si-stage">
+      <div class="si-stage-header">Stage ${p+1}</div>
+      <div class="si-body">
+        <div class="si-field"><label>Min green (s)</label>
+          <input class="si-input" type="number" min="1" value="${st.minGreen}"
+            onchange="setStageParam(${i},${p},'minGreen',this.value)"></div>
+        <div class="si-field"><label>Max green (s)</label>
+          <input class="si-input" type="number" min="1" value="${st.maxGreen}"
+            onchange="setStageParam(${i},${p},'maxGreen',this.value)"></div>
+        <div class="si-groups">${greens.map(g=>`<span class="si-group-chip">${chipLabel(g)}</span>`).join('')||'<span style="font-size:10px;color:var(--text-muted)">empty</span>'}</div>
+      </div>
+    </div>`;
+
+    // Interstage after this stage
+    const ig = pd.interstages[p];
+    const nextStage = (p+1)%numStages;
+    const departing = Array.from({length:nL},(_,g)=>g).filter(g=>pd.assignment[g]===p && pd.assignment[g]!==nextStage);
+    const entering  = Array.from({length:nL},(_,g)=>g).filter(g=>pd.assignment[g]===nextStage && pd.assignment[g]!==p);
+    const ip = interstagePhases(t, p);
+    let critNote = '';
+    { let bestD=-1,bestE=-1,bestV=0;
+      departing.forEach(d=>entering.forEach(e=>{if(m?.[d]?.[e]>1 && m[d][e]>bestV){bestV=m[d][e];bestD=d;bestE=e;}}));
+      if (bestD>=0) critNote = `${esc(lbl(bestD))}→${esc(lbl(bestE))}=${bestV}s`; }
+    const splitNote = ip.segs.map(sg => `${sg.dur}s ${sg.kind}`).join(' + ');
+    const isOverride = ig.override;
+    html += `<div class="si-ig">
+      <div class="si-ig-header">IG ${p+1}→${nextStage+1}</div>
+      <div class="si-body">
+        <div class="si-field"><label>Duration (s)${isOverride?' <span style="color:var(--blue)">↺</span>':''}</label>
+          <input class="si-input ${isOverride?'override':'computed'}" type="number" min="1" value="${ig.duration}"
+            onchange="setIGDuration(${i},${p},this.value)"
+            title="${isOverride?'Manual override — click computed value to reset':'Auto from intergreen matrix'}">
+        </div>
+        ${critNote?`<div class="si-computed-note">critical: ${critNote}</div>`:''}
+        <div class="si-computed-note">= ${splitNote || '—'}</div>
+        ${isOverride?`<button class="btn" style="padding:2px 8px;font-size:10px;margin-top:2px" onclick="resetIG(${i},${p})">↺ Reset to ${ig.computed||'?'}s</button>`:''}
+        <div class="si-groups">
+          ${[...new Set(departing.map(g=>groupKeyOf(t,g)))].map(k=>{
+              const d = departing.find(g=>groupKeyOf(t,g)===k);
+              const stopAt = ip.plan.T - ip.plan.need[d];
+              return `<span class="si-group-chip yellow" title="stops ${stopAt}s after start of interstage">${esc(k)} ${stopAt>0?'+'+stopAt+'s ':''}y${yellowOfLink(t,d)}</span>`; }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  html += `</div>`;
+
+  // Oranjegeel per signaalgroep
+  const types = getLinkTypes(t.id);
+  html += `<div style="margin:10px 0 6px;font-size:11px;color:var(--text-muted);font-family:var(--mono)">Yellow per signal group (s) · default from lane speed: ≤50 km/h 3 s, 70 km/h 4 s, 90 km/h 5 s · bike 3 s · pedestrian 0 s</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${groupKeys(t).map(k => {
+      const ms = groupMembers(t, k), ty = types[ms[0]];
+      const own = t.yellowByGroup?.[k] !== undefined;
+      return `<label style="display:flex;align-items:center;gap:4px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-family:var(--mono);font-size:12px">${linkTypeIcon(ty)}${esc(k)}
+        <input type="number" min="0" max="9" step="1" value="${yellowOfGroup(t,k)}" title="default ${defaultYellowOfGroup(t,k)} s"
+          style="width:42px;background:var(--bg-deep);color:${own?'var(--blue)':'var(--amber)'};border:1px solid var(--border);border-radius:3px;padding:2px 4px;font-family:var(--mono)"
+          onchange="setGroupYellow(${i},'${ea(k)}',this.value)"></label>`; }).join('')}</div>`;
+
+  // Preview of generated phases
+  html += buildPhasePreview(i);
+  wrap.innerHTML = html;
+}
+
+function setStageParam(i,p,field,val) {
+  if (!tlsData[i]?.phaseDesign) return;
+  tlsData[i].phaseDesign.stages[p][field] = parseInt(val)||1;
+  savePhaseDesign(i);
+  renderSITimeline(i);
+}
+
+function setIGDuration(i,p,val) {
+  if (!tlsData[i]?.phaseDesign) return;
+  const ig = tlsData[i].phaseDesign.interstages[p];
+  const v = parseFloat(val) || 0;
+  if (v <= ig.computed) { ig.override = false; ig.duration = ig.computed; }   // nooit korter dan de grootste tussengroentijd
+  else { ig.override = true; ig.duration = v; }
+  savePhaseDesign(i);
+  renderSITimeline(i);
+}
+
+function resetIG(i,p) {
+  if (!tlsData[i]?.phaseDesign) return;
+  const ig = tlsData[i].phaseDesign.interstages[p];
+  ig.override = false;
+  recomputeInterstages(i);
+  savePhaseDesign(i);
+  renderSITimeline(i);
+}
+
+// ── Phase preview builder ──────────────────────────────────────────
+
+function buildPhasePreview(i) {
+  const t = tlsData[i]; if (!t?.phaseDesign) return '';
+  const pd = t.phaseDesign;
+  const nL = t.phases[0]?.state?.length||0;
+  if (!nL) return '';
+  const numStages = pd.stages.length;
+  let lines = [], totalCycle = 0;
+  for (let p=0; p<numStages; p++) {
+    const st = pd.stages[p];
+    lines.push(`<span style="color:var(--green)">Stage ${p+1}</span>         dur=${st.minGreen}s (min) …${st.maxGreen}s (max)  state: ${colorState(stageChars(t,p).join(''))}`);
+    totalCycle += st.minGreen;
+    interstagePhases(t, p).segs.forEach(sg => {
+      lines.push(`<span style="color:var(--red)">${sg.name.padEnd(22)}</span> dur=${sg.dur}s  state: ${colorState(sg.state)}`);
+      totalCycle += sg.dur;
+    });
+  }
+  totalCycle = Math.round(totalCycle*10)/10;
+  lines.push(`<span style="color:var(--amber)">Cycle = ${totalCycle}s min · ${totalCycle + pd.stages.reduce((s,st)=>s+(st.maxGreen-st.minGreen),0)}s max</span>`);
+  return `<div style="font-size:11px;color:var(--text-muted);font-family:var(--mono);margin-bottom:8px;margin-top:4px">Preview (min green durations):</div>
+          <div class="pd-preview">${lines.join('\n')}</div>`;
+}
+
+function colorState(s) {
+  return Array.from(s).map(c=>{
+    if(c==='G'||c==='g') return `<span class="ph-green">${c}</span>`;
+    if(c==='y'||c==='Y') return `<span class="ph-yellow">${c}</span>`;
+    return `<span class="ph-red">${c}</span>`;
+  }).join('');
+}
+
+// ── Generate + apply SUMO phases ──────────────────────────────────
+function generateSUMOPhases(i) {
+  const t = tlsData[i]; if (!t?.phaseDesign) { setStatus('No phase design defined','warn'); return; }
+  const pd = t.phaseDesign;
+  const nL = t.phases[0]?.state?.length || 0;
+  if (!nL) { setStatus('No signal groups','warn'); return; }
+  recomputeInterstages(i);
+  const numStages = pd.stages.length;
+  const newPhases = [];
+  let nIF = 0;
+  for (let p=0; p<numStages; p++) {
+    const st = pd.stages[p];
+    newPhases.push({ duration: String(st.minGreen), minDur: String(st.minGreen), maxDur: String(st.maxGreen),
+                     state: stageChars(t, p).join(''), name: `Stage ${p+1}` });
+    interstagePhases(t, p).segs.forEach(sg => {
+      newPhases.push({ duration: String(sg.dur), minDur: '', maxDur: '', state: sg.state, name: sg.name }); nIF++;
+    });
+  }
+  if (!confirm(`Replace all current phases with ${newPhases.length} generated phases (${numStages} stages + ${nIF} interstage phases)?`)) return;
+  t.phases = newPhases;
+  Array.from(t.tlLogicNode.querySelectorAll('phase')).forEach(n => t.tlLogicNode.removeChild(n));
+  newPhases.forEach(ph => {
+    const n = xmlDoc.createElement('phase');
+    n.setAttribute('duration', ph.duration);
+    if (ph.minDur) n.setAttribute('minDur', ph.minDur);
+    if (ph.maxDur) n.setAttribute('maxDur', ph.maxDur);
+    n.setAttribute('state', ph.state);
+    if (ph.name)  n.setAttribute('name',  ph.name);
+    t.tlLogicNode.appendChild(n);
+  });
+  schematicPhase = 0;
+  renderPhaseStrip(t);
+  renderPhases(i);
+  renderList();
+  refreshXML(t);
+  setStatus(`Generated ${newPhases.length} phases: ${numStages} stages + ${nIF} interstage phases (yellow per group, groups stop as late as possible) ✓`, 'ok');
+}
+
+function getLinkIndex(pd, g) {
+  return (pd.linkedGroups||[]).findIndex(grp => grp.includes(g));
+}
+
+// Add a link between two groups (merge their sets if either is already in one)
+function linkGroups(i, a, b) {
+  if (a === b || !tlsData[i]?.phaseDesign) return;
+  const pd = tlsData[i].phaseDesign;
+  if (!pd.linkedGroups) pd.linkedGroups = [];
+
+  const idxA = getLinkIndex(pd, a);
+  const idxB = getLinkIndex(pd, b);
+
+  if (idxA >= 0 && idxB >= 0) {
+    if (idxA === idxB) return; // already in same set
+    pd.linkedGroups[idxA] = [...new Set([...pd.linkedGroups[idxA], ...pd.linkedGroups[idxB]])];
+    pd.linkedGroups.splice(idxB, 1);
+  } else if (idxA >= 0) {
+    pd.linkedGroups[idxA].push(b);
+  } else if (idxB >= 0) {
+    pd.linkedGroups[idxB].push(a);
+  } else {
+    pd.linkedGroups.push([a, b]);
+  }
+
+  // Move b to same stage as a
+  pd.assignment[b] = pd.assignment[a];
+  recomputeInterstages(i);
+  savePhaseDesign(i);
+  renderPhaseDesign(i);
+}
+
+function unlinkGroup(i, g) {
+  if (!tlsData[i]?.phaseDesign) return;
+  const pd = tlsData[i].phaseDesign;
+  const idx = getLinkIndex(pd, g);
+  if (idx < 0) return;
+  pd.linkedGroups[idx] = pd.linkedGroups[idx].filter(x => x !== g);
+  if (pd.linkedGroups[idx].length < 2) pd.linkedGroups.splice(idx, 1);
+  savePhaseDesign(i);
+  renderPhaseDesign(i);
+}
+
+// Render the link-management UI: chips of existing links + selector to add new ones
+function renderLinkUI(i) {
+  const t = tlsData[i]; if (!t?.phaseDesign) return '';
+  const pd = t.phaseDesign;
+  const sg = t.signalGroups || {};
+  const nL = t.phases[0]?.state?.length || 0;
+  const linked = pd.linkedGroups || [];
+
+  const lbl = g => sg[g] || `L${g}`;
+
+  // Existing link chips (read-only — they mirror the signal-group matrix)
+  let chips = '';
+  if (linked.length) {
+    chips = linked.map((grp, li) => {
+      const col = LINK_PALETTE[li % LINK_PALETTE.length];
+      const members = grp.map(g => `<span>${esc(lbl(g))}</span>`)
+        .join('<span style="opacity:.5;padding:0 2px">⛓</span>');
+      return `<div class="pd-link-chip" style="color:${col};border-color:${col}40;background:${col}12">${members}</div>`;
+    }).join('');
+  }
+
+  return `
+    ${linked.length ? `<div class="pd-link-chips" id="pdLinkChips">${chips}</div>` : ''}
+    <div class="pd-link-bar">
+      <label>⛓ Linked groups:</label>
+      <span style="font-size:10px;color:var(--text-muted);font-style:italic">auto-synced from signal group matrix — edit there to change</span>
+    </div>`;
+}
+
+function clearAllLinks(i) {
+  if (!tlsData[i]?.phaseDesign) return;
+  tlsData[i].phaseDesign.linkedGroups = [];
+  savePhaseDesign(i);
+  renderPhaseDesign(i);
+}
+
+// ── Save phaseDesign to XML params ────────────────────────────────
+function savePhaseDesign(i) {
+  const t = tlsData[i]; if (!t?.phaseDesign) return;
+  const pd = t.phaseDesign;
+
+  const assignVal = pd.assignment.join(',');
+  const stagesVal = pd.stages.map(s=>`${s.minGreen}:${s.maxGreen}`).join(',');
+  const igVal     = pd.interstages.map(ig=>ig.duration).join(',');
+  const linkedVal = (pd.linkedGroups||[]).map(grp=>grp.join('+')).join(',');
+
+  const paramKeys = {
+    phaseAssignment:  assignVal,
+    stageParams:      stagesVal,
+    interstageParams: igVal,
+    linkedGroups:     linkedVal,
+  };
+  Object.entries(paramKeys).forEach(([key, value]) => {
+    let node = null;
+    t.tlLogicNode.querySelectorAll('param').forEach(p => { if(p.getAttribute('key')===key) node=p; });
+    if (value) {
+      if (!node) {
+        node = xmlDoc.createElement('param');
+        node.setAttribute('key', key);
+        t.tlLogicNode.insertBefore(node, t.tlLogicNode.querySelector('phase')||null);
+      }
+      node.setAttribute('value', value);
+    } else if (node) {
+      // Remove param when value is empty (e.g. all links cleared)
+      t.tlLogicNode.removeChild(node);
+    }
+  });
+
+  refreshXML(t);
+  const badge = document.getElementById('pdSavedBadge');
+  if (badge) { badge.classList.add('show'); setTimeout(()=>badge.classList.remove('show'),1800); }
+}
+
+// ── Timing diagram ────────────────────────────────────────────────────
+function renderDiagram(t) {
+  const el=document.getElementById('phaseDiagram'); if(!el||!t.phases.length) return;
+  const cycle=t.phases.reduce((s,p)=>s+parseFloat(p.duration||0),0); if(cycle<=0) return;
+  const nL=t.phases[0]?.state?.length||0; if(!nL) return;
+
+  // Compute label width based on longest signal group name (prefix emoji adds ~2 chars)
+  const sg = t.signalGroups || {};
+  const linkTypes = getLinkTypes(t.id);
+  const diagLabel = li => (linkTypes[li]==='bike'?'⬡ ':linkTypes[li]==='ped'?'⬡ ':'') + (sg[li]||`L${li}`);
+  const maxLabelLen = Math.max(...Array.from({length:nL},(_,li) => diagLabel(li).length));
+  const LW = Math.max(32, maxLabelLen * 7 + 4);
+
+  const RH=18,PT=26,PB=8,WC=Math.max(500,t.phases.length*80),W=LW+WC,H=PT+nL*RH+PB;
+  let svg=`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" fill="#0d1117"/>`;
+  let xc=LW;
+  t.phases.forEach((ph,pi)=>{
+    const dur=parseFloat(ph.duration||0),cw=(dur/cycle)*WC,cx=xc+cw/2;
+    svg+=`<rect x="${xc}" y="${PT}" width="${cw}" height="${nL*RH}" fill="${pi%2?'transparent':'rgba(255,255,255,.02)'}"/>`;
+    svg+=`<text x="${cx}" y="${PT-10}" fill="#6b7280" text-anchor="middle" font-size="9" font-family="monospace">${pi+1}</text>`;
+    svg+=`<text x="${cx}" y="${PT-1}"  fill="#f0a500" text-anchor="middle" font-size="9" font-family="monospace">${ph.duration}s</text>`;
+    if(pi>0)svg+=`<line x1="${xc}" y1="${PT}" x2="${xc}" y2="${PT+nL*RH}" stroke="#2d3748"/>`;
+    xc+=cw;
+  });
+  for(let li=0;li<nL;li++){
+    const y=PT+li*RH;
+    const label    = sg[li] || `L${li}`;
+    const ltype    = linkTypes[li];
+    const labelCol = ltype==='bike' ? '#38bdf8'    // sky-blue
+                   : ltype==='ped'  ? '#a78bfa'    // purple
+                   : sg[li]         ? '#f0a500'    // amber (named motor)
+                   :                  '#6b7280';   // gray (unnamed)
+    svg+=`<text x="${LW-5}" y="${y+RH/2+3}" fill="${labelCol}" text-anchor="end" font-size="9" font-family="monospace">${esc(label)}</text>`;
+    if(li>0)svg+=`<line x1="${LW}" y1="${y}" x2="${W}" y2="${y}" stroke="#2d3748" stroke-width=".5"/>`;
+    let x=LW;
+    t.phases.forEach(ph=>{
+      const dur=parseFloat(ph.duration||0),bw=(dur/cycle)*WC,ch=ph.state[li]||'?',col=SIG_COLORS[ch]||'#374151';
+      svg+=`<rect x="${(x+1).toFixed(1)}" y="${y+2}" width="${Math.max(1,bw-2).toFixed(1)}" height="${RH-4}" fill="${col}" rx="2"/>`;
+      if(bw>13)svg+=`<text x="${(x+bw/2).toFixed(1)}" y="${y+RH/2+3}" fill="rgba(0,0,0,.75)" text-anchor="middle" font-weight="bold" font-size="9" font-family="monospace">${ch}</text>`;
+      x+=bw;
+    });
+  }
+  svg+=`<rect x="${LW}" y="${PT}" width="${WC}" height="${nL*RH}" fill="none" stroke="#2d3748"/></svg>`;
+  el.innerHTML=svg;
+}
+
+// ── XML preview ───────────────────────────────────────────────────────
+function refreshXML(t) { const el=document.getElementById('xmlPre'); if(el) el.innerHTML=hlXML(buildTLSXML(t)); }
+function buildTLSXML(t) {
+  const sg = t.signalGroups || {};
+  const nL = t.phases[0]?.state?.length || 0;
+  const pairs = Array.from({length:nL},(_,li)=>sg[li]?`${li}:${sg[li]}`:null).filter(Boolean);
+  const paramLine = pairs.length ? `\n    <param key="signalGroups" value="${ea(pairs.join(','))}"/>` : '';
+  return `<tlLogic id="${ea(t.id)}" type="${ea(t.type)}" programID="${ea(t.programID)}" offset="${ea(t.offset)}">${paramLine}\n`+
+    t.phases.map(ph=>{
+      let a=`duration="${ea(ph.duration)}"`;
+      if(ph.minDur)a+=` minDur="${ea(ph.minDur)}"`;
+      if(ph.maxDur)a+=` maxDur="${ea(ph.maxDur)}"`;
+      a+=` state="${ea(ph.state)}"`;
+      if(ph.name)a+=` name="${ea(ph.name)}"`;
+      return `    <phase ${a}/>`;
+    }).join('\n')+'\n</tlLogic>';
+}
+function hlXML(x) {
+  return x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/&lt;(\/?[\w]+)/g,'<span class="xml-kw">&lt;$1</span>')
+    .replace(/(\/?&gt;)/g,'<span class="xml-kw">$1</span>')
+    .replace(/([\w:]+)=&quot;/g,'<span class="xml-attr">$1</span>=<span class="xml-val">&quot;')
+    .replace(/&quot;(?=[ \/\n]|&gt;)/g,'&quot;</span>');
+}
+function copyXML() { if(selectedIndex<0)return; navigator.clipboard.writeText(buildTLSXML(tlsData[selectedIndex])).then(()=>setStatus('Copied','ok')); }
+
+// ── Attribute changes ─────────────────────────────────────────────────
+function onAttrChange() {
+  if(selectedIndex<0)return;
+  const t=tlsData[selectedIndex];
+  t.id=document.getElementById('fId')?.value||t.id;
+  t.type=document.getElementById('fType')?.value||t.type;
+  t.programID=document.getElementById('fProgID')?.value||t.programID;
+  t.offset=document.getElementById('fOffset')?.value||t.offset;
+  ['id','type','programID','offset'].forEach(a=>t.tlLogicNode.setAttribute(a,t[a]));
+  renderList(); refreshXML(t);
+}
+function phaseChange(ti,pi,field,val) {
+  if(!tlsData[ti])return;
+  const t=tlsData[ti]; t.phases[pi][field]=val;
+  const ns=t.tlLogicNode.querySelectorAll('phase');
+  if(ns[pi]){
+    if(['duration','state'].includes(field))ns[pi].setAttribute(field,val);
+    else{if(val)ns[pi].setAttribute(field,val);else ns[pi].removeAttribute(field);}
+  }
+  if(schematicPhase===pi)renderSchematic(ti);
+  renderPhaseStrip(t); updateCycleLabel(t); refreshXML(t); renderDiagram(t); renderList();
+}
+
+// ── Phase add/delete/move ─────────────────────────────────────────────
+function addPhase(i) {
+  const t=tlsData[i],nL=t.phases[0]?.state?.length||4,np={duration:'30',minDur:'',maxDur:'',state:'r'.repeat(nL),name:''};
+  t.phases.push(np);
+  const n=xmlDoc.createElement('phase');n.setAttribute('duration',np.duration);n.setAttribute('state',np.state);
+  t.tlLogicNode.appendChild(n);renderPhaseStrip(t);renderPhases(i);renderSignalGroups(i);renderList();
+}
+function duplicatePhase(i) {
+  const t=tlsData[i];if(!t.phases.length){addPhase(i);return;}
+  const last={...t.phases[t.phases.length-1]};t.phases.push(last);
+  const n=xmlDoc.createElement('phase');n.setAttribute('duration',last.duration);
+  if(last.minDur)n.setAttribute('minDur',last.minDur);if(last.maxDur)n.setAttribute('maxDur',last.maxDur);
+  n.setAttribute('state',last.state);if(last.name)n.setAttribute('name',last.name);
+  t.tlLogicNode.appendChild(n);renderPhaseStrip(t);renderPhases(i);renderSignalGroups(i);renderList();
+}
+function deletePhase(i,pi) {
+  const t=tlsData[i];if(t.phases.length<=1){setStatus('Must have at least one phase','warn');return;}
+  t.phases.splice(pi,1);
+  const ns=Array.from(t.tlLogicNode.querySelectorAll('phase'));if(ns[pi])t.tlLogicNode.removeChild(ns[pi]);
+  if(schematicPhase>=t.phases.length)schematicPhase=t.phases.length-1;
+  renderPhaseStrip(t);renderPhases(i);renderSchematic(i);renderList();
+}
+function movePhase(i,pi,dir) {
+  const t=tlsData[i],ni=pi+dir;if(ni<0||ni>=t.phases.length)return;
+  [t.phases[pi],t.phases[ni]]=[t.phases[ni],t.phases[pi]];
+  const ns=Array.from(t.tlLogicNode.querySelectorAll('phase'));ns.forEach(n=>t.tlLogicNode.removeChild(n));
+  t.phases.forEach(ph=>{const n=xmlDoc.createElement('phase');n.setAttribute('duration',ph.duration);
+    if(ph.minDur)n.setAttribute('minDur',ph.minDur);if(ph.maxDur)n.setAttribute('maxDur',ph.maxDur);
+    n.setAttribute('state',ph.state);if(ph.name)n.setAttribute('name',ph.name);t.tlLogicNode.appendChild(n);});
+  if(schematicPhase===pi)schematicPhase=ni;
+  renderPhaseStrip(t);renderPhases(i);renderSchematic(i);
+}
+
+// ── Add/delete TLS ────────────────────────────────────────────────────
+function addNewTLS() {
+  if(!xmlDoc)return;const id=prompt('New TLS ID:',`tls_${tlsData.length}`);if(!id)return;
+  const node=xmlDoc.createElement('tlLogic');
+  node.setAttribute('id',id);node.setAttribute('type','static');node.setAttribute('programID','0');node.setAttribute('offset','0');
+  const ph=xmlDoc.createElement('phase');ph.setAttribute('duration','30');ph.setAttribute('state','GGrr');node.appendChild(ph);
+  xmlDoc.documentElement.appendChild(node);
+  tlsData.push({id,type:'static',programID:'0',offset:'0',phases:[{duration:'30',minDur:'',maxDur:'',state:'GGrr',name:''}],signalGroups:{},conflictMatrix:null,phaseDesign:null,tlLogicNode:node});
+  selectedIndex=tlsData.length-1;schematicPhase=0;
+  document.getElementById('tlsCountBadge').textContent=`${tlsData.length} TLS loaded`;
+  renderList();showEditor(selectedIndex);updateToolbar();setStatus(`Added "${id}"`,'ok');
+}
+function deleteCurrentTLS() {
+  if(selectedIndex<0)return;const t=tlsData[selectedIndex];
+  if(!confirm(`Delete TLS "${t.id}"?`))return;
+  t.tlLogicNode.parentNode?.removeChild(t.tlLogicNode);tlsData.splice(selectedIndex,1);
+  selectedIndex=Math.min(selectedIndex,tlsData.length-1);
+  document.getElementById('tlsCountBadge').textContent=`${tlsData.length} TLS loaded`;
+  renderList();showEditor(selectedIndex);updateToolbar();setStatus(`Deleted "${t.id}"`,'warn');
+}
+
+// ── Export ────────────────────────────────────────────────────────────
+function exportXML() {
+  if(!xmlDoc)return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(xmlDoc).replace(/></g,'>\n<')],{type:'application/xml'}));
+  a.download=originalFileName.replace(/\.xml$/i,'')+'_tls_edited.xml';a.click();
+  setStatus(`Exported as ${a.download}`,'ok');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function ea(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function updateToolbar(){document.getElementById('btnExport').disabled=!xmlDoc;document.getElementById('btnAddTLS').disabled=!xmlDoc;document.getElementById('btnDeleteTLS').disabled=selectedIndex<0}
+function updateStatus(t){
+  if(!t){document.getElementById('statusPhases').textContent='';document.getElementById('statusCycle').textContent='';return;}
+  const c=t.phases.reduce((s,p)=>s+parseFloat(p.duration||0),0),l=t.phases[0]?.state?.length||0,n=(connectionsByTLS[t.id]||[]).length;
+  document.getElementById('statusPhases').textContent=`phases: ${t.phases.length}`;
+  document.getElementById('statusCycle').textContent=`cycle: ${c}s · links: ${l} · connections: ${n}`;
+}
+function setStatus(msg,type='ok'){const el=document.getElementById('statusMsg');el.textContent=msg;el.className='status-'+type}
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO TLS Editor · Handleiding SUMO-tools</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5b6475; --line:#e2e5eb; --accent:#1f6feb; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1c2027; --fg:#e6e9ef; --muted:#9aa3b2; --line:#2c323c; --accent:#58a6ff; --code:#262b34; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; }
+  @media (max-width:760px) { .wrap { grid-template-columns:1fr; gap:16px; } nav { position:static !important; } }
+  nav { position:sticky; top:24px; align-self:start; font-size:14px; }
+  nav .home { display:block; font-weight:700; margin-bottom:12px; color:var(--fg); text-decoration:none; }
+  nav a { display:block; padding:6px 10px; border-radius:6px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); background:var(--card); }
+  nav a.active { color:var(--accent); background:var(--card); border:1px solid var(--line); }
+  nav .back { margin-top:16px; font-size:13px; }
+  article { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:28px 32px; min-width:0; }
+  @media (max-width:760px) { article { padding:20px 18px; } }
+  h1 { margin:0 0 12px; font-size:28px; line-height:1.25; }
+  h2 { margin:32px 0 8px; font-size:20px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h3 { margin:22px 0 6px; font-size:16px; }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em; background:var(--code); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="index.html">Handleiding</a>
+    <a href="index.html">Overzicht</a>
+    <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>
+    <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>
+    <a href="SUMO-VRI-Manager.html">SUMO VRI Manager</a>
+    <a href="SUMO-TLS-Editor.html" class="active">SUMO TLS Editor</a>
+    <a href="SUMO-Network-Link-Manager.html">SUMO Network Link Manager</a>
+    <a href="SUMO-Decal-Generator.html">SUMO Decal Generator</a>
+    <a class="back" href="../index.html">← alle tools</a>
+  </nav>
+  <article>
+<h1>SUMO TLS Editor</h1>
+<p>Bouwt een verkeerslichtenregeling op in de browser: signaalgroepen → conflicten → tussengroentijden → standen → interfase → SUMO-fasen. Basisversie, gebruikt in modules 4 en 5 van de cursus.</p>
+<p><b>Openen:</b> <a href="../sumo_tls_editor.html">https://wimmichiels76.github.io/sumo-tools/sumo_tls_editor.html</a></p>
+<h2>Wat je nodig hebt</h2>
+<ul>
+<li>Een SUMO-netwerk (<code>.net.xml</code>) met het kruispunt als verkeerslicht.</li>
+<li>Chrome of Edge. De tool werkt offline; er wordt niets doorgestuurd.</li>
+</ul>
+<h2>Werkwijze</h2>
+<table><thead><tr><th>Stap</th><th>Blok in de editor</th><th>Wat je doet</th></tr></thead><tbody><tr><td>1</td><td>Load .net.xml</td><td>netwerk inladen, verkeerslicht kiezen</td></tr><tr><td>2</td><td>namenstrook (onder de matrix)</td><td>elke link een signaalgroep geven</td></tr><tr><td>3</td><td>Signal Groups &amp; Conflict Matrix</td><td>conflicten en tussengroentijden</td></tr><tr><td>4</td><td>Phase Assignment</td><td>groepen over standen verdelen</td></tr><tr><td>5</td><td>Stage &amp; Interstage Durations</td><td>groen, oranjegeel, interfase → SUMO-fasen</td></tr><tr><td>6</td><td>Phase Scheme · Export / Copy</td><td>nakijken en bewaren</td></tr></tbody></table>
+<h3>1 · Netwerk laden</h3>
+<ul>
+<li><b>Load .net.xml</b> (of sleep het bestand in de linkerkolom). Links verschijnen alle verkeerslichten; klik er een aan.</li>
+<li><b>Junction Geometry</b> tekent het kruispunt. Eronder staat de linktabel: per <code>linkIndex</code> van welke rijstrook naar welke, en de richting (<code>r</code>, <code>s</code>, <code>l</code>).</li>
+</ul>
+<h3>2 · Signaalgroepen</h3>
+<ul>
+<li>Typ in de namenstrook onder de matrix per link de naam van de signaalgroep. <b>Zelfde naam = zelfde groep.</b></li>
+<li>Een oversteekplaats is een eigen link (achteraan, ·voet). <b>⊖ Lx</b> haalt een link uit zijn groep; <b>Clear names</b> maakt alles los.</li>
+</ul>
+<h3>3 · Conflicten en tussengroentijden</h3>
+<ul>
+<li><b>⚙ Detect from geometry</b> zet een ✕ waar twee banen kruisen.</li>
+<li><b>Linksklik</b> op een cel: conflict aan/uit. <b>Rechtsklik</b>: tussengroentijden invullen (in beide richtingen, voor de hele groep).</li>
+<li><b>🚲 Apply convergence rule</b> wist conflicten tussen fiets- of voetgangerslinks met dezelfde bestemming.</li>
+</ul>
+<h3>4 · Standen</h3>
+<ul>
+<li><b>✨ Auto-propose</b> zoekt verdelingen zonder conflicten; klik een voorstel aan.</li>
+<li>Of met de hand: <b>＋ Add stage</b> en klik in het rooster. De balk erboven meldt <b>✓ Assignment is conflict-free</b> of somt de conflicten op.</li>
+</ul>
+<h3>5 · Groen, oranjegeel en interfase</h3>
+<ul>
+<li>Per stand <b>Min green</b> en <b>Max green</b>.</li>
+<li><b>Yellow per signal group:</b> standaard uit de snelheid van de inkomende rijstrook (≤ 50 km/u 3 s, 70 km/u 4 s, 90 km/u 5 s; fietsers 3 s; voetgangers 0 s). Een eigen waarde wordt blauw.</li>
+<li>De <b>interfase</b> duurt minstens de grootste tussengroentijd. Elke kleurwissel wordt een eigen SUMO-fase; de Preview toont ze allemaal.</li>
+<li><b>⚡ Generate SUMO phases</b> vervangt alle fasen. Afslagers met een conflict in dezelfde stand krijgen <code>g</code> (groen, voorrang verlenen).</li>
+</ul>
+<h3>6 · Bewaren</h3>
+<ul>
+<li><b>⬇ Export Modified XML:</b> het hele netwerk als <code>&lt;naam&gt;_tls_edited.xml</code>, met groepen, matrix en standen als parameters. Later opnieuw in te laden.</li>
+<li><b>Copy (XML Preview):</b> alleen de <code>&lt;tlLogic&gt;</code>, om in een additional te plakken met een nieuwe <code>programID</code>.</li>
+</ul>
+<h2>Waar let je op?</h2>
+<ul>
+<li><b>Nakijken, niet blind volgen.</b> De geometrie kent geen regels: mag een linksafslager samen met de tegenrichting groen krijgen (deelconflict), klik dat conflict dan weg.</li>
+<li><b>Tussengroentijden zijn niet symmetrisch.</b> Een ✕ zonder getal telt als "alleen oranjegeel": vul de echte waarden in uit het V-plan, de regelaar of een berekening.</li>
+<li><b>Oranjegeel</b> komt uit de snelheid in OSM; controleer tegen de regelaar.</li>
+<li><b>Static of actuated:</b> bij <code>static</code> gebruikt SUMO alleen de duur, niet minDur/maxDur.</li>
+<li><b>Save to XML</b> bewaart alleen in de editor; pas <b>Export</b> of <b>Copy</b> schrijft iets weg.</li>
+<li>Test het resultaat in sumo-gui: teleports, wachtrijen, krijgt elke groep groen?</li>
+</ul>
+<p><b>Kort:</b> laden → namen = groepen → Detect from geometry → deelconflicten wegklikken → tussengroentijden (rechtsklik) → Auto-propose → min/max groen → oranjegeel → Generate → type en G/g nakijken → Copy → testen.</p>
+  </article>
+</div>
+</body>
+</html>
