@@ -1,6 +1,6 @@
 # SUMO-tools
 
-Browsertools voor SUMO-microsimulatie, gepubliceerd via GitHub Pages.
+Browsertools voor SUMO-microsimulatie, gepubliceerd via GitHub Pages. Handleidingen staan in de [wiki](https://github.com/wimmichiels76/sumo-tools/wiki).
 
 | Tool | Bestand |
 |---|---|
