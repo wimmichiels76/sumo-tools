@@ -110,9 +110,22 @@
             border-left: 1px solid #313244;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow-y: auto;
             flex-shrink: 0;
         }
+
+        /* auto background */
+        .row select {
+            flex: 1;
+            background: #1e1e2e;
+            border: 1px solid #313244;
+            border-radius: 4px;
+            color: #cdd6f4;
+            font-size: 11px;
+            padding: 3px 5px;
+        }
+        .row select:focus { outline: none; border-color: #cba6f7; }
+        .hintline { font-size: 10px; color: #6c7086; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .panel-section {
             padding: 12px 14px;
@@ -205,8 +218,8 @@
 
         /* decal list */
         #decalList {
-            flex: 1;
-            overflow-y: auto;
+            flex: 1 0 auto;
+            min-height: 120px;
             padding: 10px 14px;
         }
         #decalList h2 {
@@ -321,6 +334,7 @@
 
     <input type="file" id="netInput"   accept=".xml,.net.xml">
     <input type="file" id="imageInput" accept="image/png,image/jpeg,image/gif">
+    <input type="file" id="osmInput"   accept=".osm,.xml">
 
     <button class="btn btn-purple" onclick="document.getElementById('netInput').click()">Load .net.xml</button>
     <span id="netStatus" class="net-none">No network</span>
@@ -339,6 +353,42 @@
     <div id="map"></div>
 
     <div id="panel">
+
+        <!-- Auto background: aerial photo or OSM map for the network extent -->
+        <div class="panel-section" id="autoSection">
+            <h2>Auto Background</h2>
+            <div class="row">
+                <label>Source</label>
+                <select id="bgSource" onchange="onBgSourceChange()">
+                    <option value="vl">Aerial · Digitaal Vlaanderen</option>
+                    <option value="esri">Aerial · Esri World Imagery</option>
+                    <option value="osm">OSM map · from .osm file</option>
+                </select>
+            </div>
+            <div class="row" id="osmRow" style="display:none">
+                <label>.osm file</label>
+                <button class="btn btn-surface" style="padding:3px 9px;font-size:11px"
+                        onclick="document.getElementById('osmInput').click()">Load .osm</button>
+                <span id="osmStatus" class="hintline">none loaded</span>
+            </div>
+            <div class="row">
+                <label>Resolution</label>
+                <input type="number" id="bgRes" value="0.25" min="0.05" step="0.05" onchange="updateBgInfo()">
+                <span class="unit" style="width:auto">m/px</span>
+            </div>
+            <div class="row">
+                <label>Margin</label>
+                <input type="number" id="bgMargin" value="50" min="0" step="10" onchange="updateBgInfo()">
+                <span class="unit">m</span>
+            </div>
+            <div class="row" id="roadsRow" style="display:none">
+                <label style="width:auto; color:#6c7086; font-size:10px">🛣 Draw roads too</label>
+                <input type="checkbox" id="bgRoads" style="accent-color:#cba6f7">
+            </div>
+            <div class="tile-info" id="bgInfo">Load a .net.xml first: the background covers the network extent.</div>
+            <button class="btn btn-purple" id="btnBg" style="width:100%; margin-top:8px"
+                    onclick="generateBackground()" disabled>Generate background decals</button>
+        </div>
 
         <!-- Current image info + coords -->
         <div class="panel-section">
@@ -438,6 +488,8 @@
                 <button class="btn btn-surface" onclick="generateXML()">Refresh</button>
                 <button class="btn btn-green"   onclick="downloadXML()">XML only</button>
                 <button class="btn btn-yellow"  onclick="downloadZIP()" id="btnZip" disabled>Tiles + XML (ZIP)</button>
+                <button class="btn btn-purple"  onclick="saveToFolder()" id="btnSave" disabled
+                        title="Write the images and viewsettings.xml into the background/ folder of your SUMO project">Save to background/ folder</button>
             </div>
         </div>
 
@@ -555,10 +607,15 @@ document.getElementById('netInput').addEventListener('change', function(e) {
             const offsetStr = loc.getAttribute('netOffset') || '0,0';
             const projStr   = loc.getAttribute('projParameter') || '';
             const origStr   = loc.getAttribute('origBoundary') || '';
+            const convStr   = loc.getAttribute('convBoundary') || '';
 
             const offParts = offsetStr.split(',').map(Number);
             netOffsetX = offParts[0];
             netOffsetY = offParts[1];
+
+            const cb = convStr.split(',').map(Number);
+            netConvBoundary = (cb.length === 4 && cb.every(Number.isFinite)) ? cb : null;
+            osmXYCache = null;   // OSM node coordinates depend on the network projection
 
             if (projStr && projStr.trim() !== '!') {
                 proj4.defs('SUMONET', projStr.trim());
@@ -633,6 +690,7 @@ document.getElementById('netInput').addEventListener('change', function(e) {
             document.getElementById('noNetWarn').style.display = 'none';
             updateCoordDisplay();
             updateTileInfo();
+            updateBgInfo();
             generateXML();
             toast(`Network loaded — offset (${netOffsetX.toFixed(1)}, ${netOffsetY.toFixed(1)})`);
         } catch(err) {
@@ -1326,6 +1384,7 @@ function downloadXML() {
 function updateZipBtn() {
     const hasTiles = decalList.some(d => d.kind === 'tile' && d.blob);
     document.getElementById('btnZip').disabled = !hasTiles;
+    document.getElementById('btnSave').disabled = !decalList.length;
 }
 
 async function downloadZIP() {
@@ -1358,10 +1417,506 @@ async function downloadZIP() {
     toast(`ZIP downloaded (${tiles.length} tiles + decals.xml)`);
 }
 
+// ── Auto background: aerial photo or OSM map for the network extent ──
+// The background is rendered straight onto the SUMO x/y grid (north-up,
+// metres), so every decal is axis-aligned (rotation 0) and lines up with the
+// network exactly. Aerial sources come in Web Mercator and are resampled.
+let netConvBoundary = null;   // [xmin, ymin, xmax, ymax] in SUMO coordinates
+let osmData = null;           // parsed .osm: { nodes, ways, rels, name }
+let osmXYCache = null;        // Map node id -> [x, y] in SUMO coordinates
+let bgOutline = null;
+const BG_TILE_PX = 2048;      // max decal side in px: safe texture size on every GPU
+const BG_MAX_PX  = 80e6;      // guard on total pixels per background
+const R_EARTH = 6378137;
+
+const BG_SOURCES = {
+    vl:   { name: 'aerial_vl',   kind: 'wms', ext: 'jpg', maxPx: 2048,
+            url: 'https://geo.api.vlaanderen.be/OMWRGBMRVL/wms', layer: 'Ortho',
+            note: 'Orthophoto © Digitaal Vlaanderen (open data). Flanders only.' },
+    esri: { name: 'aerial_esri', kind: 'xyz', ext: 'jpg', maxZoom: 19,
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            note: 'Imagery © Esri. Check Esri\'s terms before sharing the images.' },
+    osm:  { name: 'osm_map',     kind: 'osm', ext: 'png',
+            note: 'Drawn from your .osm file. Data © OpenStreetMap contributors (ODbL).' },
+};
+
+function onBgSourceChange() {
+    const s = document.getElementById('bgSource').value;
+    document.getElementById('osmRow').style.display   = s === 'osm' ? '' : 'none';
+    document.getElementById('roadsRow').style.display = s === 'osm' ? '' : 'none';
+    const res = document.getElementById('bgRes');
+    if (s === 'osm' && +res.value < 0.5) res.value = 0.5;   // a drawn map needs less detail
+    if (s !== 'osm' && +res.value > 0.5) res.value = 0.25;
+    updateBgInfo();
+}
+
+function bgExtent() {
+    if (!netConvBoundary) return null;
+    const m = Math.max(0, +document.getElementById('bgMargin').value || 0);
+    const [x0, y0, x1, y1] = netConvBoundary;
+    return { x0: x0 - m, y0: y0 - m, x1: x1 + m, y1: y1 + m };
+}
+
+// Pixel grid for the background: tiles of at most BG_TILE_PX, equal size.
+function bgPlan() {
+    const ext = bgExtent();
+    if (!ext) return null;
+    let r = Math.max(0.05, +document.getElementById('bgRes').value || 0.25);
+    const W = ext.x1 - ext.x0, H = ext.y1 - ext.y0;
+    let capped = false;
+    if ((W / r) * (H / r) > BG_MAX_PX) { r = Math.ceil(Math.sqrt(W * H / BG_MAX_PX) * 100) / 100; capped = true; }
+    const wpx = Math.ceil(W / r), hpx = Math.ceil(H / r);
+    const cols = Math.ceil(wpx / BG_TILE_PX), rows = Math.ceil(hpx / BG_TILE_PX);
+    const tw = Math.ceil(wpx / cols), th = Math.ceil(hpx / rows);
+    // grow the extent symmetrically so it is an exact multiple of the tile size
+    const cx = (ext.x0 + ext.x1) / 2, cy = (ext.y0 + ext.y1) / 2;
+    const fullW = cols * tw * r, fullH = rows * th * r;
+    return { r, capped, rows, cols, tw, th, wpx: cols * tw, hpx: rows * th,
+             x0: cx - fullW / 2, x1: cx + fullW / 2, y0: cy - fullH / 2, y1: cy + fullH / 2 };
+}
+
+function updateBgInfo() {
+    const info = document.getElementById('bgInfo');
+    const btn  = document.getElementById('btnBg');
+    const src  = BG_SOURCES[document.getElementById('bgSource').value];
+    if (!netConvBoundary || !projDefined) {
+        info.innerHTML = netConvBoundary
+            ? '<span class="warn">This network has no geo-projection: a background cannot be placed.</span>'
+            : 'Load a .net.xml first: the background covers the network extent.';
+        btn.disabled = true;
+        return;
+    }
+    const p = bgPlan();
+    const mb = p.wpx * p.hpx * (src.kind === 'osm' ? 0.3 : 0.25) / 1e6;
+    let h = `Area: <b>${Math.round(p.x1 - p.x0)} × ${Math.round(p.y1 - p.y0)} m</b><br>`
+          + `Image: <b>${p.wpx} × ${p.hpx} px</b> → <b>${p.rows}×${p.cols}</b> decal${p.rows * p.cols > 1 ? 's' : ''} · ~${mb.toFixed(1)} MB<br>`;
+    if (p.capped) h += `<span class="warn">Too many pixels: resolution raised to ${p.r} m/px.</span><br>`;
+    if (src.kind === 'osm' && !osmData) h += '<span class="warn">Load an .osm file of this area.</span><br>';
+    h += `<span style="color:#6c7086">${src.note}</span>`;
+    info.innerHTML = h;
+    btn.disabled = src.kind === 'osm' && !osmData;
+}
+
+// ── geometry helpers ──
+function mercFromLatLon(lat, lon) {
+    return [R_EARTH * lon * Math.PI / 180,
+            R_EARTH * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))];
+}
+function sumoToMerc(x, y) {
+    const ll = sumoToLatLon(x, y);
+    return ll ? mercFromLatLon(ll.lat, ll.lon) : null;
+}
+
+function loadImg(url) {
+    return new Promise((res, rej) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => res(img);
+        img.onerror = () => rej(new Error('Could not load ' + url.split('?')[0]));
+        img.src = url;
+    });
+}
+
+// Run async jobs with limited concurrency.
+async function pool(jobs, n) {
+    let i = 0;
+    const worker = async () => { while (i < jobs.length) { const j = jobs[i++]; await j(); } };
+    await Promise.all(Array.from({ length: Math.min(n, jobs.length) }, worker));
+}
+
+// Fetch a Web-Mercator raster covering the given SUMO extent.
+// Returns { canvas, ox, oy, res }: merc x of the left edge, merc y of the top edge, merc metres per px.
+async function fetchMercRaster(src, ext, r) {
+    let mx0 = Infinity, my0 = Infinity, mx1 = -Infinity, my1 = -Infinity;
+    for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) {
+        const m = sumoToMerc(ext.x0 + (ext.x1 - ext.x0) * i / 8, ext.y0 + (ext.y1 - ext.y0) * j / 8);
+        mx0 = Math.min(mx0, m[0]); mx1 = Math.max(mx1, m[0]);
+        my0 = Math.min(my0, m[1]); my1 = Math.max(my1, m[1]);
+    }
+    const lat = sumoToLatLon((ext.x0 + ext.x1) / 2, (ext.y0 + ext.y1) / 2).lat;
+    const mres = r / Math.cos(lat * Math.PI / 180);   // merc metres per ground metre = 1/cos(lat)
+    const pad = 4 * mres;
+    mx0 -= pad; my0 -= pad; mx1 += pad; my1 += pad;
+
+    if (src.kind === 'wms') {
+        const w = Math.ceil((mx1 - mx0) / mres), h = Math.ceil((my1 - my0) / mres);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        const jobs = [];
+        for (let py = 0; py < h; py += src.maxPx) for (let px = 0; px < w; px += src.maxPx) {
+            const cw = Math.min(src.maxPx, w - px), ch = Math.min(src.maxPx, h - py);
+            const bx0 = mx0 + px * mres, bx1 = bx0 + cw * mres;
+            const by1 = my1 - py * mres, by0 = by1 - ch * mres;
+            const url = `${src.url}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${src.layer}&STYLES=`
+                      + `&CRS=EPSG:3857&BBOX=${bx0},${by0},${bx1},${by1}&WIDTH=${cw}&HEIGHT=${ch}&FORMAT=image/jpeg`;
+            jobs.push(async () => ctx.drawImage(await loadImg(url), px, py, cw, ch));
+        }
+        await pool(jobs, 4);
+        return { canvas, ox: mx0, oy: my1, res: mres };
+    }
+
+    // XYZ tiles: pick the zoom level whose pixel is at least as fine as needed
+    const world = 2 * Math.PI * R_EARTH;
+    const z = Math.min(src.maxZoom, Math.max(0, Math.ceil(Math.log2(world / (256 * mres)))));
+    const ts = world / 2 ** z;
+    const tx0 = Math.floor((mx0 + world / 2) / ts), tx1 = Math.floor((mx1 + world / 2) / ts);
+    const ty0 = Math.floor((world / 2 - my1) / ts), ty1 = Math.floor((world / 2 - my0) / ts);
+    const canvas = document.createElement('canvas');
+    canvas.width = (tx1 - tx0 + 1) * 256; canvas.height = (ty1 - ty0 + 1) * 256;
+    const ctx = canvas.getContext('2d');
+    const jobs = [];
+    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const url = src.url.replace('{z}', z).replace('{x}', tx).replace('{y}', ty);
+        jobs.push(async () => ctx.drawImage(await loadImg(url), (tx - tx0) * 256, (ty - ty0) * 256));
+    }
+    await pool(jobs, 8);
+    return { canvas, ox: tx0 * ts - world / 2, oy: world / 2 - ty0 * ts, res: ts / 256 };
+}
+
+// Resample a Mercator raster onto the SUMO grid (north-up, r metres per px).
+// Merc coordinates are computed on a coarse grid and interpolated per pixel.
+function reprojectToSumo(srcR, ext, w, h, r) {
+    const sctx = srcR.canvas.getContext('2d');
+    const sw = srcR.canvas.width, sh = srcR.canvas.height;
+    const sd = sctx.getImageData(0, 0, sw, sh).data;
+    const out = document.createElement('canvas');
+    out.width = w; out.height = h;
+    const octx = out.getContext('2d');
+    const od = octx.createImageData(w, h);
+    const G = 32, gw = Math.ceil(w / G) + 1, gh = Math.ceil(h / G) + 1;
+    const gx = new Float64Array(gw * gh), gy = new Float64Array(gw * gh);
+    for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+        const m = sumoToMerc(ext.x0 + i * G * r, ext.y1 - j * G * r);
+        gx[j * gw + i] = (m[0] - srcR.ox) / srcR.res;   // source pixel coordinates
+        gy[j * gw + i] = (srcR.oy - m[1]) / srcR.res;
+    }
+    let o = 0;
+    for (let py = 0; py < h; py++) {
+        const j = Math.floor((py + 0.5) / G), fy = (py + 0.5) / G - j;
+        for (let px = 0; px < w; px++, o += 4) {
+            const i = Math.floor((px + 0.5) / G), fx = (px + 0.5) / G - i;
+            const k = j * gw + i;
+            const sx = (gx[k] * (1 - fx) + gx[k + 1] * fx) * (1 - fy) + (gx[k + gw] * (1 - fx) + gx[k + gw + 1] * fx) * fy - 0.5;
+            const sy = (gy[k] * (1 - fx) + gy[k + 1] * fx) * (1 - fy) + (gy[k + gw] * (1 - fx) + gy[k + gw + 1] * fx) * fy - 0.5;
+            const x0 = Math.floor(sx), y0 = Math.floor(sy);
+            if (x0 < 0 || y0 < 0 || x0 + 1 >= sw || y0 + 1 >= sh) { od.data[o + 3] = 0; continue; }
+            const ax = sx - x0, ay = sy - y0;
+            const a = (y0 * sw + x0) * 4, b = a + 4, c = a + sw * 4, d = c + 4;
+            for (let ch = 0; ch < 3; ch++) {
+                od.data[o + ch] = (sd[a + ch] * (1 - ax) + sd[b + ch] * ax) * (1 - ay)
+                                + (sd[c + ch] * (1 - ax) + sd[d + ch] * ax) * ay;
+            }
+            od.data[o + 3] = 255;
+        }
+    }
+    octx.putImageData(od, 0, 0);
+    return out;
+}
+
+// ── OSM file → map rendering ──
+document.getElementById('osmInput').addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById('osmStatus');
+    status.textContent = 'reading…';
+    const reader = new FileReader();
+    reader.onload = ev => {
+        try {
+            osmData = parseOsm(ev.target.result, file.name);
+            osmXYCache = null;
+            status.textContent = `✓ ${file.name}`;
+            status.title = `${osmData.ways.length.toLocaleString()} ways, ${osmData.rels.length.toLocaleString()} relations`;
+            updateBgInfo();
+            toast(`OSM loaded: ${osmData.ways.length.toLocaleString()} ways`);
+        } catch (err) {
+            status.textContent = 'error';
+            toast('Error reading .osm: ' + err.message, true);
+        }
+    };
+    reader.readAsText(file);
+    this.value = '';
+});
+
+function parseOsm(text, name) {
+    const doc = new DOMParser().parseFromString(text, 'text/xml');
+    if (doc.querySelector('parsererror')) throw new Error('not valid XML');
+    const tagsOf = el => {
+        const t = {};
+        for (const tg of el.children) if (tg.tagName === 'tag') t[tg.getAttribute('k')] = tg.getAttribute('v');
+        return t;
+    };
+    const nodes = new Map();
+    for (const n of doc.getElementsByTagName('node'))
+        nodes.set(n.getAttribute('id'), [+n.getAttribute('lat'), +n.getAttribute('lon')]);
+    const ways = [], wayById = new Map();
+    for (const w of doc.getElementsByTagName('way')) {
+        const nds = [];
+        for (const c of w.children) if (c.tagName === 'nd') nds.push(c.getAttribute('ref'));
+        const way = { id: w.getAttribute('id'), nds, tags: tagsOf(w) };
+        ways.push(way); wayById.set(way.id, way);
+    }
+    const rels = [];
+    for (const rel of doc.getElementsByTagName('relation')) {
+        const tags = tagsOf(rel);
+        if (tags.type !== 'multipolygon') continue;
+        const members = [];
+        for (const c of rel.children)
+            if (c.tagName === 'member' && c.getAttribute('type') === 'way')
+                members.push({ ref: c.getAttribute('ref'), role: c.getAttribute('role') });
+        rels.push({ tags, members });
+    }
+    return { nodes, ways, wayById, rels, name };
+}
+
+// Colours after the standard OpenStreetMap style (osm-carto).
+const OSM_AREA = {
+    landuse: { residential: '#e0dfdf', commercial: '#f2dad9', retail: '#ffd6d1', industrial: '#ebdbe8',
+               railway: '#ebdbe8', farmland: '#eef0d5', farmyard: '#f5dcba', meadow: '#cdebb0',
+               grass: '#cdebb0', village_green: '#cdebb0', forest: '#add19e', orchard: '#aedfa3',
+               vineyard: '#aedfa3', allotments: '#c9e1bf', cemetery: '#aacbaf', construction: '#c7c7b4',
+               brownfield: '#c7c7b4', greenfield: '#f1eee8', recreation_ground: '#dffce2',
+               religious: '#d0d0d0', military: '#f3e3dd', garages: '#dfddce', plant_nursery: '#aedfa3',
+               reservoir: '#aad3df', basin: '#aad3df', flowerbed: '#cdebb0' },
+    natural:  { wood: '#add19e', scrub: '#c8d7ab', heath: '#d6d99f', grassland: '#cdebb0',
+               wetland: '#d6e8d2', sand: '#f5e9c6', beach: '#fff1ba', bare_rock: '#eee5dc',
+               water: '#aad3df', bay: '#aad3df' },
+    leisure:  { park: '#c8facc', garden: '#cdebb0', pitch: '#aae0cb', playground: '#dffce2',
+               golf_course: '#def6c0', sports_centre: '#dffce2', stadium: '#dffce2', track: '#aae0cb',
+               swimming_pool: '#aad3df', dog_park: '#e0fce3' },
+    amenity:  { parking: '#eeeeee', school: '#ffffe5', university: '#ffffe5', college: '#ffffe5',
+               kindergarten: '#ffffe5', hospital: '#ffffe5', grave_yard: '#aacbaf' },
+};
+const OSM_Z = { landuse: 10, natural: 11, amenity: 12, leisure: 13 };
+const WATER = '#aad3df';
+const WATERWAY_W = { river: 10, canal: 12, stream: 3, ditch: 1.5, drain: 1.5 };
+const ROAD_W = { motorway: 14, trunk: 12, primary: 11, secondary: 10, tertiary: 9, unclassified: 7,
+                 residential: 7, living_street: 6, service: 4.5, motorway_link: 7, trunk_link: 7,
+                 primary_link: 7, secondary_link: 7, tertiary_link: 6, pedestrian: 5, track: 3,
+                 cycleway: 2, footway: 1.5, path: 1.5 };
+
+function osmAreaStyle(t) {
+    if (t.building && t.building !== 'no') return { fill: '#d9d0c9', stroke: '#c4b6ab', z: 50 };
+    if (t.waterway === 'riverbank' || t.natural === 'water' || t.landuse === 'reservoir' || t.landuse === 'basin')
+        return { fill: WATER, z: 30 };
+    for (const k of ['leisure', 'amenity', 'natural', 'landuse'])
+        if (t[k] && OSM_AREA[k][t[k]]) return { fill: OSM_AREA[k][t[k]], z: OSM_Z[k] };
+    return null;
+}
+
+function osmXY() {
+    if (osmXYCache) return osmXYCache;
+    osmXYCache = new Map();
+    for (const [id, [lat, lon]] of osmData.nodes) {
+        const p = latLonToSumo(lat, lon);
+        osmXYCache.set(id, [p.x, p.y]);
+    }
+    return osmXYCache;
+}
+
+// Join the member ways of a multipolygon into closed rings.
+function assembleRings(seqs) {
+    const left = seqs.filter(s => s.length > 1).map(s => s.slice()), rings = [];
+    while (left.length) {
+        const ring = left.pop();
+        let grown = true;
+        while (ring[0] !== ring[ring.length - 1] && grown) {
+            grown = false;
+            for (let i = 0; i < left.length; i++) {
+                const s = left[i], end = ring[ring.length - 1];
+                if (s[0] === end)                 ring.push(...s.slice(1));
+                else if (s[s.length - 1] === end) ring.push(...s.slice(0, -1).reverse());
+                else if (s[s.length - 1] === ring[0]) ring.unshift(...s.slice(0, -1));
+                else if (s[0] === ring[0])        ring.unshift(...s.slice(1).reverse());
+                else continue;
+                left.splice(i, 1); grown = true; break;
+            }
+        }
+        rings.push(ring);
+    }
+    return rings;
+}
+
+function buildOsmDrawList(withRoads) {
+    const items = [];
+    for (const w of osmData.ways) {
+        const t = w.tags;
+        const closed = w.nds.length > 3 && w.nds[0] === w.nds[w.nds.length - 1];
+        const st = osmAreaStyle(t);
+        if (st && closed) { items.push({ z: st.z, rings: [w.nds], style: st }); continue; }
+        if (t.waterway && WATERWAY_W[t.waterway])
+            items.push({ z: 31, line: w.nds, color: WATER, width: WATERWAY_W[t.waterway] });
+        else if (t.railway === 'rail' || t.railway === 'tram' || t.railway === 'light_rail')
+            items.push({ z: 60, line: w.nds, color: '#8f8f8f', width: t.railway === 'rail' ? 1.6 : 1 });
+        else if (withRoads && t.highway && ROAD_W[t.highway] && t.area !== 'yes')
+            items.push({ z: 55, line: w.nds, color: '#ffffff', casing: '#bbbbbb', width: ROAD_W[t.highway] });
+    }
+    for (const rel of osmData.rels) {
+        const st = osmAreaStyle(rel.tags);
+        if (!st) continue;
+        const seqs = rel.members.map(m => osmData.wayById.get(m.ref)).filter(Boolean).map(w => w.nds);
+        items.push({ z: st.z, rings: assembleRings(seqs), style: st });
+    }
+    return items.sort((a, b) => a.z - b.z);
+}
+
+function renderOsmTile(items, ext, w, h, r) {
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f2efe9';                       // osm-carto land colour
+    ctx.fillRect(0, 0, w, h);
+    ctx.setTransform(1 / r, 0, 0, -1 / r, -ext.x0 / r, ext.y1 / r);   // SUMO metres → pixels
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const xy = osmXY();
+    const trace = (ids, close) => {
+        let first = true;
+        for (const id of ids) {
+            const p = xy.get(id);
+            if (!p) continue;
+            if (first) { ctx.moveTo(p[0], p[1]); first = false; } else ctx.lineTo(p[0], p[1]);
+        }
+        if (close && !first) ctx.closePath();
+    };
+    // roads get their casing first so crossings stay clean
+    for (const it of items) if (it.casing) {
+        ctx.beginPath(); trace(it.line, false);
+        ctx.strokeStyle = it.casing; ctx.lineWidth = it.width + 1.2; ctx.stroke();
+    }
+    for (const it of items) {
+        ctx.beginPath();
+        if (it.rings) {
+            for (const ring of it.rings) trace(ring, true);
+            ctx.fillStyle = it.style.fill; ctx.fill('evenodd');
+            if (it.style.stroke) { ctx.strokeStyle = it.style.stroke; ctx.lineWidth = Math.max(0.3, r * 0.8); ctx.stroke(); }
+        } else {
+            trace(it.line, false);
+            ctx.strokeStyle = it.color; ctx.lineWidth = it.width; ctx.stroke();
+        }
+    }
+    return canvas;
+}
+
+// ── generate ──
+async function generateBackground() {
+    const key = document.getElementById('bgSource').value;
+    const src = BG_SOURCES[key];
+    const p = bgPlan();
+    if (!p) return;
+    if (p.capped) document.getElementById('bgRes').value = p.r;
+    const btn = document.getElementById('btnBg'), info = document.getElementById('bgInfo');
+    btn.disabled = true;
+    const sourceFile = `${src.name}.${src.ext}`;
+
+    // regenerating the same source replaces its previous tiles
+    const old = tileGroups.find(g => g.sourceFile === sourceFile);
+    if (old) {
+        decalList = decalList.filter(d => d.kind !== 'tile' || d.groupId !== old.id);
+        tileGroups = tileGroups.filter(g => g !== old);
+    }
+
+    const items = src.kind === 'osm' ? buildOsmDrawList(document.getElementById('bgRoads').checked) : null;
+    const groupId = nextTileGroupId();
+    const tiles = [];
+    try {
+        for (let row = 0; row < p.rows; row++) for (let col = 0; col < p.cols; col++) {
+            const n = row * p.cols + col + 1;
+            info.innerHTML = `Rendering decal <b>${n}</b> of <b>${p.rows * p.cols}</b>…`;
+            await new Promise(res => setTimeout(res, 0));   // not rAF: that stalls in a background tab
+            const ext = { x0: p.x0 + col * p.tw * p.r, x1: p.x0 + (col + 1) * p.tw * p.r,
+                          y1: p.y1 - row * p.th * p.r, y0: p.y1 - (row + 1) * p.th * p.r };
+            const canvas = src.kind === 'osm'
+                ? renderOsmTile(items, ext, p.tw, p.th, p.r)
+                : reprojectToSumo(await fetchMercRaster(src, ext, p.r), ext, p.tw, p.th, p.r);
+            const blob = await new Promise(res => canvas.toBlob(res, src.ext === 'jpg' ? 'image/jpeg' : 'image/png', 0.9));
+            const single = p.rows * p.cols === 1;
+            tiles.push({
+                kind: 'tile',
+                file: single ? sourceFile : `${src.name}_r${row}_c${col}.${src.ext}`,
+                centerX: ((ext.x0 + ext.x1) / 2).toFixed(2),
+                centerY: ((ext.y0 + ext.y1) / 2).toFixed(2),
+                width:   (ext.x1 - ext.x0).toFixed(2),
+                height:  (ext.y1 - ext.y0).toFixed(2),
+                rotation: '0.00',
+                blob, groupId, row, col,
+            });
+        }
+    } catch (err) {
+        toast('Background failed: ' + err.message, true);
+        updateBgInfo();
+        return;
+    }
+
+    decalList.push(...tiles);
+    tileGroups.push({ id: groupId, sourceFile, rows: p.rows, cols: p.cols, rotation: 0, open: false });
+
+    // outline of the generated area on the map
+    if (bgOutline) map.removeLayer(bgOutline);
+    const corners = [[p.x0, p.y0], [p.x1, p.y0], [p.x1, p.y1], [p.x0, p.y1]]
+        .map(([x, y]) => { const ll = sumoToLatLon(x, y); return [ll.lat, ll.lon]; });
+    bgOutline = L.polygon(corners, { color: '#f9e2af', weight: 2, fill: false, dashArray: '4,4' })
+        .bindTooltip(`Background: ${sourceFile}`).addTo(map);
+
+    renderDecalList();
+    generateXML();
+    updateZipBtn();
+    updateBgInfo();
+    toast(`${tiles.length} background decal${tiles.length > 1 ? 's' : ''} added — save them to background/`);
+}
+
+// ── save into the project's background/ folder ──
+async function writeFile(dir, name, data) {
+    const fh = await dir.getFileHandle(name, { create: true });
+    const w = await fh.createWritable();
+    await w.write(data);
+    await w.close();
+}
+
+async function saveToFolder() {
+    if (!window.showDirectoryPicker) {
+        toast('This browser cannot write to folders — use Chrome/Edge, or the ZIP', true);
+        return;
+    }
+    let dir;
+    try { dir = await window.showDirectoryPicker({ id: 'sumoproject', mode: 'readwrite' }); }
+    catch (e) { return; }   // cancelled
+
+    let bg = null;
+    if (dir.name.toLowerCase() === 'background') bg = dir;
+    else {
+        try { bg = await dir.getDirectoryHandle('background'); }
+        catch (e) {
+            if (!confirm(`No background/ folder in "${dir.name}". Create it?`)) return;
+            bg = await dir.getDirectoryHandle('background', { create: true });
+        }
+    }
+
+    try {
+        const imgs = decalList.filter(d => d.blob);
+        for (const d of imgs) await writeFile(bg, d.file, d.blob);
+
+        // viewsettings.xml: replace only the <decals> block, keep the rest (scheme, delay, viewport)
+        const decalsBlock = generateXML().match(/<decals>[\s\S]*<\/decals>/)[0];
+        let vs = null;
+        try { vs = await (await (await bg.getFileHandle('viewsettings.xml')).getFile()).text(); } catch (e) {}
+        if (vs && /<decals>[\s\S]*?<\/decals>/.test(vs))      vs = vs.replace(/<decals>[\s\S]*?<\/decals>/, decalsBlock);
+        else if (vs && /<\/viewsettings>/.test(vs))           vs = vs.replace(/<\/viewsettings>/, '    ' + decalsBlock + '\n</viewsettings>');
+        else                                                  vs = generateXML() + '\n';
+        await writeFile(bg, 'viewsettings.xml', vs);
+
+        const own = decalList.filter(d => !d.blob).length;
+        toast(`Saved ${imgs.length} image${imgs.length === 1 ? '' : 's'} + viewsettings.xml in ${bg.name}/`
+              + (own ? ` — copy your own ${own} image file(s) there too` : ''));
+    } catch (err) {
+        toast('Saving failed: ' + err.message, true);
+    }
+}
+
 // ── Init ──────────────────────────────────────────────────────────
 renderDecalList();
 generateXML();
 updateZipBtn();
+updateBgInfo();
 </script>
 </body>
 </html>
