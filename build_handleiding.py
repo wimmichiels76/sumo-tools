@@ -15,7 +15,7 @@ SITE = "https://wimmichiels76.github.io/sumo-tools/"
 
 # volgorde in de navigatie
 PAGES = ["Home", "netconvert Batch Generator", "SUMO Simulation Manager", "SUMO VRI Manager",
-         "SUMO TLS Editor", "SUMO Network Link Manager", "SUMO Decal Generator"]
+         "SUMO TLS Editor", "SUMO Network Link Manager", "SUMO Decal Generator", "Masterplan Designer"]
 
 
 def slug(name):

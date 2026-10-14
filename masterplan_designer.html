@@ -751,7 +751,8 @@ const BASE_DEFS={
 };
 function baseUrl(d){return d.url;}
 const LS_BASE=LS+'_basemap';
-let baseKey=(function(){try{return BASE_DEFS[localStorage.getItem(LS_BASE)]?localStorage.getItem(LS_BASE):'grb';}catch(e){return 'grb';}})();
+// standaard: topografische kaart; een eerder gekozen ondergrond blijft bewaard
+let baseKey=(function(){try{return BASE_DEFS[localStorage.getItem(LS_BASE)]?localStorage.getItem(LS_BASE):'topo';}catch(e){return 'topo';}})();
 // de 3D-weergave vraagt altijd z ≤ 19, dus binnen bereik van elke bron
 function tileUrl3D(z,x,y){const d=BASE_DEFS[baseKey]||BASE_DEFS.grb;
  return baseUrl(d).replace('{z}',z).replace('{x}',x).replace('{y}',y);}

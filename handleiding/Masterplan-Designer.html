@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Masterplan Designer · Handleiding SUMO-tools</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5b6475; --line:#e2e5eb; --accent:#1f6feb; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1c2027; --fg:#e6e9ef; --muted:#9aa3b2; --line:#2c323c; --accent:#58a6ff; --code:#262b34; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; }
+  @media (max-width:760px) { .wrap { grid-template-columns:1fr; gap:16px; } nav { position:static !important; } }
+  nav { position:sticky; top:24px; align-self:start; font-size:14px; }
+  nav .home { display:block; font-weight:700; margin-bottom:12px; color:var(--fg); text-decoration:none; }
+  nav a { display:block; padding:6px 10px; border-radius:6px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); background:var(--card); }
+  nav a.active { color:var(--accent); background:var(--card); border:1px solid var(--line); }
+  nav .back { margin-top:16px; font-size:13px; }
+  article { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:28px 32px; min-width:0; }
+  @media (max-width:760px) { article { padding:20px 18px; } }
+  h1 { margin:0 0 12px; font-size:28px; line-height:1.25; }
+  h2 { margin:32px 0 8px; font-size:20px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h3 { margin:22px 0 6px; font-size:16px; }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em; background:var(--code); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="index.html">Handleiding</a>
+    <a href="index.html">Overzicht</a>
+    <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>
+    <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>
+    <a href="SUMO-VRI-Manager.html">SUMO VRI Manager</a>
+    <a href="SUMO-TLS-Editor.html">SUMO TLS Editor</a>
+    <a href="SUMO-Network-Link-Manager.html">SUMO Network Link Manager</a>
+    <a href="SUMO-Decal-Generator.html">SUMO Decal Generator</a>
+    <a href="Masterplan-Designer.html" class="active">Masterplan Designer</a>
+    <a class="back" href="../index.html">← alle tools</a>
+  </nav>
+  <article>
+<h1>Masterplan Designer</h1>
+<p>Schets een masterplan op de kaart en zie meteen wat het betekent: bouwprogramma en 3D-massamodel, ruimtebalans, verkeersgeneratie en parkeerbehoefte volgens het Richtlijnenboek Mobiliteitseffectenstudies (RLB 2025), en een kostenraming. Geen SUMO-tool, maar de resultaten gaan wel mee naar ANYWAYS.</p>
+<p><b>Openen:</b> <a href="../masterplan_designer.html">https://wimmichiels76.github.io/sumo-tools/masterplan_designer.html</a></p>
+<h2>Wat je nodig hebt</h2>
+<ul>
+<li>Alleen een browser. Je werk wordt automatisch in die browser bewaard; met 💾 maak je een projectbestand om te bewaren of door te geven.</li>
+</ul>
+<h2>Bovenbalk</h2>
+<ul>
+<li><b>Projectnaam</b>, <b>gebiedstype (RLB)</b> en <b>maatgevende dag</b> (weekdag, vrijdag, zaterdag, woensdag). Het gebiedstype bepaalt welke kencijfers gelden.</li>
+<li>Rechts: export en project (zie <i>Bewaren en exporteren</i> onderaan).</li>
+</ul>
+<h2>Werkwijze per tabblad</h2>
+<h3>1 · Gebouwen</h3>
+<ul>
+<li>Zoek je locatie met het vergrootglas op de kaart. Kies de ondergrond rechtsboven (standaard <i>Topografisch wereld</i>; in Vlaanderen zijn GRB en de luchtfoto het nauwkeurigst).</li>
+<li><b>Tekenen:</b> kies wat je tekent (<i>Gebouw</i>, <i>Privé</i>, <i>Publiek</i>, <i>Weg-zone</i> of <i>Parkeren</i>) en de vorm (<b>⬠ Veelhoek</b> of <b>▭ Rechthoek</b>). <b>✕ Klaar</b> stopt met tekenen.</li>
+<li><b>Weg:</b> teken de aslijn (dubbelklik = einde) en kies een weglayout (dwarsprofiel). Met <b>⚙ Weglayouts beheren</b> stel je profielen samen uit rijstroken, fietspaden, voetpaden en parkeerstroken; een wijziging werkt door in alle wegen met die layout.</li>
+<li><b>Raster:</b> toon een raster, kies maat en draaiing, en klik vast op het raster voor rechte blokken. <b>Gevelmaten tonen</b> zet de lengtes langs de gevels.</li>
+<li>Geef elk gebouw rechts een naam.</li>
+</ul>
+<h3>2 · Programma &amp; 3D</h3>
+<ul>
+<li>Per gebouw een stapel <b>bouwlagen met een functie</b> (bv. laag 0 = winkel, lagen 1–5 = wonen). De bruto vloeroppervlakte (BVO) per functie = grondoppervlak × aantal lagen.</li>
+<li>Het <b>3D-massamodel</b> toont het resultaat, met schaduw en optioneel de OSM-omgeving. Draai, kantel en verplaats de zon met de knoppen; klik een gebouw om ernaartoe te springen.</li>
+</ul>
+<h3>3 · Ruimtebalans</h3>
+<ul>
+<li>Verdeling van het terrein over gebouwen, privé, publiek, wegen en parkeren, plus een overzicht van het programma. Teken de zones in tab 1.</li>
+</ul>
+<h3>4 · Verkeer &amp; parkeren</h3>
+<ul>
+<li><b>Scenario:</b> reductie door mobiliteitsmaatregelen (%), combinatiefactor voor gedeeld parkeren, parkeernorm (krap, basis, ruim), deelwagens en hoeveel privéwagens elke deelwagen vervangt, en de piekuren.</li>
+<li><b>Resultaten:</b> auto's in de ochtend- en avondspits (in/uit), AADT, etmaalprofiel, modal split, verkeer per functie, parkeerbehoefte, en productie en attractie per gebouw.</li>
+<li><b>⚙ Kencijfers (MOBER) configureren</b> toont alle kencijfers uit het Richtlijnenboek (hfst. 9). Je kunt ze per functie aanpassen; <b>↺ RLB-standaard</b> zet ze terug.</li>
+</ul>
+<h3>5 · Financieel</h3>
+<ul>
+<li>Bouwkosten per functie (€/m² BVO), grond, wegen, parkeren (ook ondergronds) en ereloon + onvoorzien. De tool maakt er een kostenraming van.</li>
+<li>De bouwkosten zijn indicatieve richtprijzen (België, 2025): pas ze aan het project aan.</li>
+</ul>
+<h2>Bewaren en exporteren</h2>
+<table><thead><tr><th>Knop</th><th>Wat je krijgt</th></tr></thead><tbody><tr><td><b>⬇ ANYWAYS</b></td><td>GeoJSON-puntlaag: per gebouw een punt met productie, attractie en AADT, om in ANYWAYS te laden</td></tr><tr><td><b>⬇ GeoJSON</b></td><td>alle getekende vormen (gebouwen, zones, wegen) als polygonen</td></tr><tr><td><b>⬇ CSV</b></td><td>het bouwprogramma als tabel</td></tr><tr><td><b>💾</b></td><td>het volledige project als <code>.json</code></td></tr><tr><td><b>📂</b></td><td>een opgeslagen project openen</td></tr><tr><td><b>🗑</b></td><td>alles wissen</td></tr></tbody></table>
+<h2>Tips</h2>
+<ul>
+<li><b>Bewaar met 💾.</b> De automatische opslag zit in de browser en per website: wat je lokaal maakte, zie je online niet, en omgekeerd. Met het <code>.json</code>-bestand neem je een project overal mee.</li>
+<li><b>Kencijfers zijn richtwaarden.</b> Gebruik projectspecifieke cijfers als je ze hebt, en vermeld welke je gebruikte.</li>
+<li>Kies eerst het juiste <b>gebiedstype</b>: de kencijfers en de parkeernormen hangen ervan af.</li>
+</ul>
+  </article>
+</div>
+</body>
+</html>
