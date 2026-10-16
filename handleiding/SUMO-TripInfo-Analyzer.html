@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO TripInfo Analyzer · Handleiding SUMO-tools</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5b6475; --line:#e2e5eb; --accent:#1f6feb; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1c2027; --fg:#e6e9ef; --muted:#9aa3b2; --line:#2c323c; --accent:#58a6ff; --code:#262b34; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; }
+  @media (max-width:760px) { .wrap { grid-template-columns:1fr; gap:16px; } nav { position:static !important; } }
+  nav { position:sticky; top:24px; align-self:start; font-size:14px; }
+  nav .home { display:block; font-weight:700; margin-bottom:12px; color:var(--fg); text-decoration:none; }
+  nav a { display:block; padding:6px 10px; border-radius:6px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); background:var(--card); }
+  nav a.active { color:var(--accent); background:var(--card); border:1px solid var(--line); }
+  nav .back { margin-top:16px; font-size:13px; }
+  article { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:28px 32px; min-width:0; }
+  @media (max-width:760px) { article { padding:20px 18px; } }
+  h1 { margin:0 0 12px; font-size:28px; line-height:1.25; }
+  h2 { margin:32px 0 8px; font-size:20px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h3 { margin:22px 0 6px; font-size:16px; }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em; background:var(--code); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="index.html">Handleiding</a>
+    <a href="index.html">Overzicht</a>
+    <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>
+    <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>
+    <a href="SUMO-VRI-Manager.html">SUMO VRI Manager</a>
+    <a href="SUMO-TLS-Editor.html">SUMO TLS Editor</a>
+    <a href="SUMO-TripInfo-Analyzer.html" class="active">SUMO TripInfo Analyzer</a>
+    <a href="SUMO-Network-Link-Manager.html">SUMO Network Link Manager</a>
+    <a href="SUMO-Decal-Generator.html">SUMO Decal Generator</a>
+    <a class="back" href="../index.html">← alle tools</a>
+  </nav>
+  <article>
+<h1>SUMO TripInfo Analyzer</h1>
+<p>Analyseert de <code>tripinfo</code>-output van SUMO en vergelijkt meerdere scenario's naast elkaar: reistijd, tijdverlies, afstand en snelheid, per voertuigtype en per herkomst-bestemming, met een samenvatting om als PDF te bewaren.</p>
+<p><b>Openen:</b> <a href="../sumo_tripinfo_analyzer.html">https://wimmichiels76.github.io/sumo-tools/sumo_tripinfo_analyzer.html</a></p>
+<h2>Wat je nodig hebt</h2>
+<ul>
+<li>Een of meer <code>tripinfo</code>-bestanden uit je simulaties (<code>tripinfo_*.xml</code>), bv. per variant of per seed. Zet in je <code>.sumocfg</code> de optie <code>tripinfo-output</code> aan (zie <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>, tab 3).</li>
+<li>Een internetverbinding bij het openen (voor de grafiekbibliotheken). De bestanden zelf worden niet geüpload.</li>
+</ul>
+<h2>Werkwijze</h2>
+<ol>
+<li><b>Scenario's laden:</b> sleep een of meer <code>tripinfo</code>-bestanden in de pagina, of klik <b>Select Files</b>. Met <b>📂 Add Scenario</b> voeg je later nog scenario's toe. Het eerste scenario is de <b>baseline</b>: de verschillen worden telkens daartegenover getoond.</li>
+<li><b>📊 Overview:</b> samenvatting per scenario met de verschillen tegenover de baseline, en verdelingen van reistijd, tijdverlies, routelengte en gemiddelde snelheid.</li>
+<li><b>🚦 Vehicle Types:</b> reistijd en tijdverlies per voertuigtype, per scenario.</li>
+<li><b>🗺 OD Analysis:</b> overzicht van alle herkomst-bestemmingsparen. Kies een herkomst, een bestemming en eventueel een voertuigtype en klik <b>Analyze ▶</b> om op één relatie in te zoomen.</li>
+<li><b>📋 Executive Summary:</b> de kerncijfers op één pagina, met tijdverlies per voertuigtype en tijdverlies volgens vertrektijd. <b>⬇ Export PDF</b> bewaart ze als PDF.</li>
+</ol>
+<h2>Tips</h2>
+<ul>
+<li>Laad de scenario's in een vaste volgorde, met de referentiesituatie eerst: dan lezen de verschillen als "variant tegenover bestaande toestand".</li>
+<li>Vergelijk varianten met dezelfde seed, of neem het gemiddelde over meerdere seeds: één run kan toevallig gunstig of ongunstig uitvallen.</li>
+<li>Tijdverlies (<code>timeLoss</code>) is de vertraging tegenover vrij rijden; dat is meestal de beste maat voor het effect van een ingreep.</li>
+</ul>
+  </article>
+</div>
+</body>
+</html>

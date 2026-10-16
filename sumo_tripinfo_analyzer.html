@@ -1,0 +1,2197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUMO TripInfo Analyzer — Compare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #07090f;
+  --bg2:     #0c1018;
+  --bg3:     #141c28;
+  --bg4:     #1a2232;
+  --border:  #263550;
+  --border2: #2e4060;
+  --text:    #ddeaf6;
+  --text2:   #9ab8d0;
+  --muted:   #607a96;
+  --accent:  #f5a623;
+  --accent2: #0db4e4;
+  --green:   #1ad9a0;
+  --red:     #f05050;
+  --purple:  #b06af5;
+  --card:    #0a0f1a;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  min-height: 100vh;
+}
+
+/* ─── HEADER ─── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-wrap: wrap;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  background: var(--accent);
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #000;
+  font-size: 13px;
+  letter-spacing: -1px;
+  flex-shrink: 0;
+}
+
+.logo-text { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+.logo-sub  { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); margin-top: 1px; }
+
+.header-sep { width: 1px; height: 28px; background: var(--border); margin: 0 4px; }
+
+/* ─── SIMULATION CHIPS ─── */
+.sim-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.sim-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 5px 5px 10px;
+  border-radius: 18px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  max-width: 260px;
+  transition: border-color 0.15s;
+}
+.sim-chip:hover { border-color: var(--border2); }
+.sim-chip.baseline { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(245,166,35,0.25) inset; }
+.chip-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.chip-name {
+  outline: none;
+  cursor: text;
+  min-width: 20px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.chip-name:hover { background: rgba(255,255,255,0.05); }
+.chip-name:focus { background: rgba(255,255,255,0.08); box-shadow: 0 0 0 1px var(--accent2); }
+.chip-n {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text2);
+}
+.chip-close {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+}
+.chip-close:hover { background: rgba(240,80,80,0.2); color: var(--red); }
+
+.header-load {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  padding: 5px 14px;
+  border-radius: 5px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.header-load:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ─── UPLOAD ─── */
+#upload-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 52px);
+  padding: 40px 20px;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border2);
+  border-radius: 14px;
+  padding: 64px 80px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  max-width: 520px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.drop-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(245,166,35,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(245,166,35,0.04);
+}
+.drop-icon { font-size: 52px; margin-bottom: 18px; display: block; }
+.drop-title { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+.drop-sub { color: var(--text2); font-size: 15px; margin-bottom: 28px; font-weight: 400; }
+.drop-spec {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 16px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 10px 28px;
+  border-radius: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: #e0952a; }
+
+/* ─── DASHBOARD ─── */
+#dashboard { display: none; }
+
+/* ─── TABS ─── */
+.tabs {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  padding: 0 20px;
+  gap: 2px;
+  overflow-x: auto;
+}
+.tab {
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tab:hover { color: #fff; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ─── TAB CONTENT ─── */
+.tab-pane { display: none; padding: 20px; }
+.tab-pane.active { display: block; }
+
+/* ─── KPI CARDS (small ones) ─── */
+.mini-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.mini-kpi {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+}
+.mini-kpi::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+.mini-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+.mini-kpi-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 22px;
+  color: #fff;
+  font-weight: 500;
+  line-height: 1;
+}
+.mini-kpi-unit { font-size: 12px; color: var(--text2); margin-left: 3px; }
+
+/* ─── SECTION TITLE ─── */
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text2);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.section-title .help {
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: none;
+}
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+}
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.full-col { margin-bottom: 14px; }
+
+/* ─── STATS TABLE ─── */
+.stats-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stats-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  background: var(--bg2);
+}
+.stats-table th.r { text-align: right; }
+.stats-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(38,53,80,0.6);
+  vertical-align: middle;
+}
+.stats-table td.r {
+  text-align: right;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.stats-table tbody tr:hover td { background: rgba(255,255,255,0.015); }
+
+/* sub-rows (grouped) */
+.stats-table tr.group-hdr td {
+  background: var(--bg3);
+  font-weight: 700;
+  color: #fff;
+  border-top: 2px solid var(--border2);
+  padding-top: 10px;
+  padding-bottom: 8px;
+}
+
+.vbadge, .sbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sbadge .swatch {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.bar-wrap { display: flex; align-items: center; gap: 8px; }
+.mini-bar { height: 3px; border-radius: 2px; min-width: 2px; background: var(--accent); opacity: 0.6; flex-shrink: 0; }
+
+/* delta indicators */
+.delta { font-family: 'DM Mono', monospace; font-size: 11px; }
+.delta-up    { color: var(--red); }     /* worse — numbers went up for duration/loss */
+.delta-down  { color: var(--green); }   /* better */
+.delta-same  { color: var(--muted); }
+
+/* ─── BOX PLOT SECTION ─── */
+.bp-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+/* ─── OD SECTION ─── */
+.od-controls {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); }
+.form-select {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 7px 12px;
+  border-radius: 5px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 200px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-select:focus { border-color: var(--accent); }
+
+.btn-analyze {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 7px 22px;
+  border-radius: 5px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: background 0.15s;
+}
+.btn-analyze:hover { background: #e0952a; }
+
+/* OD result */
+.od-header { margin-bottom: 16px; }
+.od-title  { font-size: 26px; font-weight: 700; color: #fff; }
+.od-sub    { color: var(--text2); font-size: 14px; margin-top: 4px; }
+.od-arrow  { color: var(--accent); margin: 0 8px; }
+
+/* per-sim OD cards */
+.sim-od-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.sim-od-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+.sim-od-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+}
+.sim-od-card-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.sim-od-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sim-od-grid-kpi {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 14px;
+}
+.sim-od-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sim-od-kpi-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text2);
+}
+.sim-od-kpi-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  color: #fff;
+}
+
+.chart-box { position: relative; height: 280px; }
+
+.no-data {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text2);
+}
+.no-data-icon { font-size: 40px; margin-bottom: 12px; }
+.no-data-text { font-size: 17px; }
+
+/* Trips table */
+.trips-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text2);
+  padding: 10px 0;
+  user-select: none;
+}
+.trips-toggle:hover { color: #fff; }
+.trips-toggle-icon { transition: transform 0.2s; }
+.trips-table-wrap { display: none; overflow-x: auto; }
+
+/* baseline indicator in chip */
+.baseline-pill {
+  font-size: 9px;
+  font-family: 'DM Mono', monospace;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border: 1px solid rgba(245,166,35,0.4);
+  border-radius: 3px;
+  margin-right: 2px;
+}
+
+/* ─── EXECUTIVE SUMMARY ─── */
+.exec-header {
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.exec-header-text { flex: 1; min-width: 0; }
+.exec-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.exec-subtitle {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text2);
+  letter-spacing: 0.5px;
+}
+.btn-export-pdf {
+  background: var(--accent);
+  color: #07090f;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s ease;
+}
+.btn-export-pdf:hover { filter: brightness(1.1); }
+.btn-export-pdf:disabled { opacity: 0.6; cursor: wait; }
+
+/* Apply during PDF capture so html2pdf doesn't slice cards/charts mid-element */
+.pdf-export-mode .exec-kpi-card,
+.pdf-export-mode .exec-section {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.exec-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.exec-kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 24px;
+  position: relative;
+  overflow: hidden;
+}
+.exec-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent-col, var(--accent));
+}
+.exec-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.exec-card-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exec-card-meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.exec-metric-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.exec-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+.exec-metric-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 34px;
+  font-weight: 500;
+  color: #fff;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.exec-metric-unit {
+  font-size: 14px;
+  color: var(--text2);
+  font-weight: 400;
+}
+.exec-metric-delta {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  margin-top: 6px;
+  display: block;
+  min-height: 15px;
+}
+.exec-metric-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.exec-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 26px;
+  margin-bottom: 18px;
+}
+.exec-section .section-title {
+  font-size: 13px;
+  letter-spacing: 1.6px;
+  margin-bottom: 18px;
+}
+.exec-chart-box {
+  position: relative;
+  height: 420px;
+}
+
+/* color helpers */
+.c-green  { color: var(--green) !important; }
+.c-amber  { color: var(--accent) !important; }
+.c-red    { color: var(--red) !important; }
+.c-blue   { color: var(--accent2) !important; }
+.c-muted  { color: var(--muted) !important; }
+
+@media (max-width: 700px) {
+  .two-col { grid-template-columns: 1fr; }
+  .mini-kpi-row { grid-template-columns: repeat(2,1fr); }
+  .exec-metric-row { grid-template-columns: 1fr; gap: 16px; }
+  .exec-metric-value { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">▶S</div>
+    <div>
+      <div class="logo-text">TripInfo Analyzer</div>
+      <div class="logo-sub">SUMO · MULTI-SIM COMPARE</div>
+    </div>
+  </div>
+  <div class="header-sep" id="header-sep" style="display:none"></div>
+  <div class="sim-chips" id="sim-chips"></div>
+  <button class="header-load" onclick="document.getElementById('file-input').click()">📂 Add Scenario</button>
+  <input type="file" id="file-input" accept=".xml" multiple style="display:none" onchange="handleFiles(event)">
+</div>
+
+<!-- UPLOAD -->
+<div id="upload-section">
+  <div class="drop-zone" id="drop-zone">
+    <span class="drop-icon">🚗</span>
+    <div class="drop-title">Drop one or more tripinfo files</div>
+    <div class="drop-sub">SUMO simulation output — tripinfo_*.xml<br>Load multiple to compare scenarios side-by-side</div>
+    <button class="btn-primary" onclick="document.getElementById('file-input').click()">Select Files</button>
+    <div class="drop-spec">Supports SUMO tripinfo_file.xsd format · multi-file</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('overview')" id="t-overview">📊 Overview</div>
+    <div class="tab" onclick="switchTab('vtypes')"   id="t-vtypes">🚦 Vehicle Types</div>
+    <div class="tab" onclick="switchTab('od')"       id="t-od">🗺 OD Analysis</div>
+    <div class="tab" onclick="switchTab('exec')"     id="t-exec">📋 Executive Summary</div>
+  </div>
+
+  <!-- ═══ TAB: OVERVIEW ═══ -->
+  <div class="tab-pane active" id="pane-overview">
+    <div class="mini-kpi-row" id="mini-kpi-row"></div>
+
+    <div class="full-col">
+      <div class="card">
+        <div class="section-title">
+          Scenario Summary
+          <span class="help" id="scenario-help">deltas shown vs baseline scenario</span>
+        </div>
+        <div id="tbl-scenarios"></div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="section-title">Travel Time — by Vehicle Type</div>
+        <div id="tbl-duration"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Time Loss — by Vehicle Type</div>
+        <div id="tbl-timeloss"></div>
+      </div>
+    </div>
+    <div class="full-col">
+      <div class="card">
+        <div class="section-title">OD Pair Summary — All Routes</div>
+        <div id="tbl-od"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: VEHICLE TYPES ═══ -->
+  <div class="tab-pane" id="pane-vtypes">
+    <div class="bp-card">
+      <div class="section-title">Travel Duration Distribution (seconds)</div>
+      <div id="bp-duration"></div>
+    </div>
+    <div class="bp-card">
+      <div class="section-title">Time Loss Distribution (seconds)</div>
+      <div id="bp-timeloss"></div>
+    </div>
+    <div class="bp-card">
+      <div class="section-title">Route Length Distribution (metres)</div>
+      <div id="bp-routelen"></div>
+    </div>
+    <div class="bp-card">
+      <div class="section-title">Average Travel Speed Distribution (km/h)</div>
+      <div id="bp-speed"></div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: OD ANALYSIS ═══ -->
+  <div class="tab-pane" id="pane-od">
+    <div class="od-controls">
+      <div class="form-group">
+        <label class="form-label">Origin (departure)</label>
+        <select class="form-select" id="od-origin">
+          <option value="">— select origin —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Destination (arrival)</label>
+        <select class="form-select" id="od-dest">
+          <option value="">— select destination —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vehicle Type</label>
+        <select class="form-select" id="od-vtype">
+          <option value="">All types</option>
+        </select>
+      </div>
+      <button class="btn-analyze" onclick="analyzeOD()">Analyze ▶</button>
+    </div>
+    <div id="od-results">
+      <div class="no-data">
+        <div class="no-data-icon">🗺</div>
+        <div class="no-data-text">Select an origin and destination to drill into a trajectory</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: EXECUTIVE SUMMARY ═══ -->
+  <div class="tab-pane" id="pane-exec">
+    <div class="exec-header">
+      <div class="exec-header-text">
+        <div class="exec-title">Executive Summary</div>
+        <div class="exec-subtitle" id="exec-subtitle">—</div>
+      </div>
+      <button class="btn-export-pdf" id="btn-export-pdf" onclick="exportExecSummaryPDF()">⬇ Export PDF</button>
+    </div>
+
+    <div class="exec-kpi-grid" id="exec-kpi-grid"></div>
+
+    <div class="exec-section">
+      <div class="section-title">Time Loss Distribution by Vehicle Type</div>
+      <div id="exec-bp-timeloss"></div>
+    </div>
+
+    <div class="exec-section">
+      <div class="section-title">
+        Time Loss vs Departure Time
+        <span class="help">rolling average of trip time loss, binned by departure time</span>
+      </div>
+      <div class="exec-chart-box"><canvas id="exec-scatter-tl"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════════════════
+//  STATE
+// ═════════════════════════════════════════════════════════════════
+let simulations = []; // [{id, name, color, filename, trips}]
+let simCounter = 0;
+
+// Distinct palette for scenarios. First color matches the app accent so a
+// single-scenario view keeps its familiar amber look.
+const SIM_COLORS = [
+  '#f5a623', // amber
+  '#0db4e4', // cyan
+  '#1ad9a0', // green
+  '#b06af5', // purple
+  '#f05050', // red
+  '#ffd166', // yellow
+  '#7bc950', // lime
+  '#ff6b9d', // pink
+  '#42c2ff', // sky
+  '#c9b37a', // sand
+];
+
+const VTYPE_COLORS = {
+  'normal_car':    '#f5a623',
+  'extra_car':     '#0db4e4',
+  'bus':           '#1ad9a0',
+  'extra_trailer': '#b06af5',
+};
+function vtColor(vt) { return VTYPE_COLORS[vt] || '#7a96b0'; }
+
+// ═════════════════════════════════════════════════════════════════
+//  DRAG & DROP  /  FILE LOADING
+// ═════════════════════════════════════════════════════════════════
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+
+// global drop target when dashboard is visible
+document.body.addEventListener('dragover', e => {
+  if (document.getElementById('dashboard').style.display === 'block') {
+    e.preventDefault();
+  }
+});
+document.body.addEventListener('drop', e => {
+  if (document.getElementById('dashboard').style.display === 'block') {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
+  }
+});
+
+function handleFiles(evOrList) {
+  const files = (evOrList && evOrList.target) ? evOrList.target.files : evOrList;
+  if (!files || !files.length) return;
+  Array.from(files).forEach(processFile);
+  // clear the input so the same file can be loaded again later
+  const inp = document.getElementById('file-input');
+  if (inp) inp.value = '';
+}
+
+function processFile(file) {
+  const r = new FileReader();
+  r.onload = e => {
+    const trips = parseXML(e.target.result);
+    if (!trips.length) {
+      alert(`No <tripinfo> elements found in ${file.name}`);
+      return;
+    }
+    addSimulation(trips, file.name);
+  };
+  r.readAsText(file);
+}
+
+function parseXML(text) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/xml');
+  const els = doc.querySelectorAll('tripinfo');
+
+  return Array.from(els).map(el => {
+    const depLane = el.getAttribute('departLane') || '';
+    const arrLane = el.getAttribute('arrivalLane') || '';
+    const dur     = parseFloat(el.getAttribute('duration'))     || 0;
+    const rlen    = parseFloat(el.getAttribute('routeLength'))  || 0;
+    return {
+      id:          el.getAttribute('id') || '',
+      depart:      parseFloat(el.getAttribute('depart'))        || 0,
+      departLane:  depLane,
+      departDelay: parseFloat(el.getAttribute('departDelay'))   || 0,
+      arrival:     parseFloat(el.getAttribute('arrival'))       || 0,
+      arrivalLane: arrLane,
+      duration:    dur,
+      routeLength: rlen,
+      waitingTime: parseFloat(el.getAttribute('waitingTime'))   || 0,
+      waitingCount:parseInt(el.getAttribute('waitingCount'))    || 0,
+      timeLoss:    parseFloat(el.getAttribute('timeLoss'))      || 0,
+      vType:       el.getAttribute('vType') || 'unknown',
+      origin:      depLane.replace(/_\d+$/, ''),
+      destination: arrLane.replace(/_\d+$/, ''),
+      speedKmh:    dur > 0 ? (rlen / dur) * 3.6 : 0,
+    };
+  });
+}
+
+function addSimulation(trips, filename) {
+  const base = filename.replace(/\.xml$/i, '').replace(/^tripinfo[_\-\s]*/i, '');
+  const name = base || `Scenario ${simulations.length + 1}`;
+  const color = SIM_COLORS[simulations.length % SIM_COLORS.length];
+  const id = 'sim_' + (++simCounter);
+  simulations.push({ id, name, color, filename, trips });
+
+  // Switch to dashboard view
+  document.getElementById('upload-section').style.display  = 'none';
+  document.getElementById('dashboard').style.display       = 'block';
+  document.getElementById('header-sep').style.display      = 'block';
+
+  buildAll();
+}
+
+function removeSimulation(id) {
+  simulations = simulations.filter(s => s.id !== id);
+  if (simulations.length === 0) {
+    document.getElementById('upload-section').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('header-sep').style.display = 'none';
+    document.getElementById('sim-chips').innerHTML = '';
+    return;
+  }
+  buildAll();
+}
+
+function renameSimulation(id, newName) {
+  const s = simulations.find(x => x.id === id);
+  if (!s) return;
+  const trimmed = (newName || '').trim();
+  if (!trimmed) return;
+  s.name = trimmed;
+  buildAll();
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  STATS
+// ═════════════════════════════════════════════════════════════════
+function pct(sorted, p) {
+  if (!sorted.length) return 0;
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+function stats(arr) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b);
+  const n = s.length;
+  const mean = arr.reduce((a, b) => a + b, 0) / n;
+  const stdev = Math.sqrt(arr.reduce((a, b) => a + (b - mean) ** 2, 0) / n);
+  return {
+    n, mean, stdev,
+    min: s[0], max: s[n - 1],
+    p10: pct(s, 10), p25: pct(s, 25),
+    median: pct(s, 50),
+    p75: pct(s, 75), p90: pct(s, 90), p95: pct(s, 95),
+  };
+}
+
+function f(v, d = 1) { return (v == null || isNaN(v)) ? '—' : (+v).toFixed(d); }
+function fc(v) {       return v == null ? '—' : (+v).toLocaleString(); }
+
+/**
+ * Compute signed delta of `val` vs `base`.
+ * betterIsLow=true ⇒ an increase is "worse" (red), decrease is "better" (green).
+ * Returns {pct, abs, klass, arrow} or null if base invalid.
+ */
+function delta(val, base, betterIsLow = true) {
+  if (base == null || base === 0 || val == null) return null;
+  const abs = val - base;
+  const p = (abs / base) * 100;
+  let klass = 'delta-same';
+  const sig = Math.abs(p) < 0.5;
+  if (!sig) {
+    if (betterIsLow) klass = abs > 0 ? 'delta-up' : 'delta-down';
+    else             klass = abs > 0 ? 'delta-down' : 'delta-up';
+  }
+  const arrow = sig ? '·' : (abs > 0 ? '▲' : '▼');
+  return { pct: p, abs, klass, arrow };
+}
+
+function fmtDelta(d, unit, dec = 1) {
+  if (!d) return '';
+  const sign = d.pct > 0 ? '+' : '';
+  return `<span class="delta ${d.klass}">${d.arrow} ${sign}${f(d.pct, 1)}%</span>`;
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  TOP-LEVEL RENDER
+// ═════════════════════════════════════════════════════════════════
+function buildAll() {
+  buildSimChips();
+  buildMiniKPIs();
+  buildScenarioSummaryTable();
+  buildTypeTable('tbl-duration',  'duration', 's');
+  buildTypeTable('tbl-timeloss',  'timeLoss', 's');
+  buildODSummaryTable();
+  buildBoxPlot('bp-duration',  'duration',    's');
+  buildBoxPlot('bp-timeloss',  'timeLoss',    's');
+  buildBoxPlot('bp-routelen',  'routeLength', 'm');
+  buildBoxPlot('bp-speed',     'speedKmh',    'km/h');
+  buildODSelectors();
+  buildExecutiveSummary();
+
+  // help text
+  const ht = document.getElementById('scenario-help');
+  if (ht) ht.textContent = simulations.length > 1
+    ? `deltas shown vs baseline: ${simulations[0].name}`
+    : 'load another scenario to compare';
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  SIMULATION CHIPS (header)
+// ═════════════════════════════════════════════════════════════════
+function buildSimChips() {
+  const el = document.getElementById('sim-chips');
+  el.innerHTML = simulations.map((s, i) => `
+    <div class="sim-chip${i === 0 ? ' baseline' : ''}" title="${escapeAttr(s.filename)}">
+      <span class="chip-dot" style="background:${s.color}"></span>
+      ${i === 0 && simulations.length > 1 ? '<span class="baseline-pill">Base</span>' : ''}
+      <span class="chip-name"
+            contenteditable="true"
+            spellcheck="false"
+            onkeydown="chipKey(event, '${s.id}')"
+            onblur="renameSimulation('${s.id}', this.textContent)">${escapeHTML(s.name)}</span>
+      <span class="chip-n">${fc(s.trips.length)}</span>
+      <button class="chip-close" onclick="removeSimulation('${s.id}')" title="Remove scenario">×</button>
+    </div>
+  `).join('');
+}
+
+function chipKey(ev, id) {
+  if (ev.key === 'Enter') { ev.preventDefault(); ev.target.blur(); }
+  if (ev.key === 'Escape') {
+    ev.preventDefault();
+    const s = simulations.find(x => x.id === id);
+    if (s) ev.target.textContent = s.name;
+    ev.target.blur();
+  }
+}
+
+function escapeHTML(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+// ═════════════════════════════════════════════════════════════════
+//  MINI KPIs  (headline counts across all loaded scenarios)
+// ═════════════════════════════════════════════════════════════════
+function buildMiniKPIs() {
+  const N = simulations.length;
+  const allTrips = simulations.flatMap(s => s.trips);
+  const vtypes  = new Set(allTrips.map(t => t.vType));
+  const origins = new Set(allTrips.map(t => t.origin));
+  const dests   = new Set(allTrips.map(t => t.destination));
+
+  const kpis = [
+    ['Scenarios',    N, ''],
+    ['Total Trips',  fc(allTrips.length), ''],
+    ['Vehicle Types',vtypes.size, ''],
+    ['Origins',      origins.size, ''],
+    ['Destinations', dests.size, ''],
+  ];
+
+  document.getElementById('mini-kpi-row').innerHTML = kpis.map(([l, v, u]) => `
+    <div class="mini-kpi">
+      <div class="mini-kpi-label">${l}</div>
+      <div class="mini-kpi-value">${v}<span class="mini-kpi-unit">${u}</span></div>
+    </div>`).join('');
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  SCENARIO SUMMARY TABLE  (one row per scenario, with deltas)
+// ═════════════════════════════════════════════════════════════════
+function buildScenarioSummaryTable() {
+  const el = document.getElementById('tbl-scenarios');
+  const base = simulations[0];
+  const baseStats = computeScenarioStats(base);
+
+  const rows = simulations.map((sim, i) => {
+    const st = computeScenarioStats(sim);
+    const isBase = i === 0;
+
+    function cell(val, baseVal, unit, betterLow, dec=1) {
+      const d = isBase ? null : delta(val, baseVal, betterLow);
+      return `<td class="r">${f(val, dec)} ${unit} ${d ? fmtDelta(d) : ''}</td>`;
+    }
+
+    return `<tr>
+      <td><span class="sbadge" style="background:${sim.color}1a;color:${sim.color};border:1px solid ${sim.color}4d">
+        <span class="swatch" style="background:${sim.color}"></span>${escapeHTML(sim.name)}
+      </span></td>
+      <td class="r">${fc(st.nTrips)}</td>
+      ${cell(st.avgDur,   baseStats.avgDur,   's', true)}
+      ${cell(st.medDur,   baseStats.medDur,   's', true)}
+      ${cell(st.p85Dur,   baseStats.p85Dur,   's', true)}
+      ${cell(st.avgLoss,  baseStats.avgLoss,  's', true)}
+      ${cell(st.lossRatio,baseStats.lossRatio,'%', true)}
+      ${cell(st.avgSpeed, baseStats.avgSpeed, 'km/h', false)}
+      <td class="r c-muted">${f(st.departMin, 0)}–${f(st.departMax, 0)} s</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="overflow-x:auto">
+      <table class="stats-table">
+        <thead><tr>
+          <th>Scenario</th><th class="r">Trips</th>
+          <th class="r">Avg Dur.</th><th class="r">Median Dur.</th><th class="r">P85 Dur.</th>
+          <th class="r">Avg Loss</th><th class="r">Loss %</th>
+          <th class="r">Avg Speed</th>
+          <th class="r">Depart Range</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function computeScenarioStats(sim) {
+  const trips = sim.trips;
+  const dSt   = stats(trips.map(t => t.duration));
+  const tlSt  = stats(trips.map(t => t.timeLoss));
+  const spSt  = stats(trips.map(t => t.speedKmh));
+  const sDur  = trips.map(t => t.duration).sort((a,b)=>a-b);
+  const totTL = trips.reduce((s,t) => s + t.timeLoss, 0);
+  const totDur= trips.reduce((s,t) => s + t.duration, 0);
+  const deps  = trips.map(t => t.depart);
+  return {
+    nTrips: trips.length,
+    avgDur: dSt.mean,
+    medDur: dSt.median,
+    p85Dur: pct(sDur, 85),
+    avgLoss: tlSt.mean,
+    lossRatio: totDur ? (totTL / totDur) * 100 : 0,
+    avgSpeed: spSt.mean,
+    departMin: Math.min(...deps),
+    departMax: Math.max(...deps),
+  };
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  PER-VTYPE TABLE (grouped — one group per vtype, rows per scenario)
+// ═════════════════════════════════════════════════════════════════
+function buildTypeTable(elId, metric, unit) {
+  const vtypes = [...new Set(simulations.flatMap(s => s.trips.map(t => t.vType)))].sort();
+
+  // gather all (vtype × scenario) rows to find global max for the bar scale
+  const allMeans = [];
+  const data = vtypes.map(vt => ({
+    vt,
+    rows: simulations.map(sim => {
+      const vals = sim.trips.filter(t => t.vType === vt).map(t => t[metric]);
+      const st = stats(vals);
+      if (st) allMeans.push(st.mean);
+      return { sim, st };
+    })
+  }));
+  const maxMean = Math.max(1, ...allMeans);
+
+  // base per-vtype stat for deltas (from simulations[0])
+  const baseByVType = {};
+  vtypes.forEach(vt => {
+    const base = simulations[0];
+    const vals = base.trips.filter(t => t.vType === vt).map(t => t[metric]);
+    baseByVType[vt] = stats(vals);
+  });
+
+  const multi = simulations.length > 1;
+
+  let bodyHTML = '';
+  data.forEach(({ vt, rows }) => {
+    const vtC = vtColor(vt);
+
+    // Single scenario: original compact layout (one row per vtype).
+    if (!multi) {
+      const st = rows[0].st;
+      if (!st) return;
+      const bw = Math.round(st.mean / maxMean * 60);
+      bodyHTML += `<tr>
+        <td><span class="vbadge" style="background:${vtC}1a;color:${vtC}">${vt}</span></td>
+        <td class="r">${fc(st.n)}</td>
+        <td class="r"><div class="bar-wrap"><div class="mini-bar" style="width:${bw}px;background:${vtC}"></div>${f(st.mean)} ${unit}</div></td>
+        <td class="r">${f(st.median)} ${unit}</td>
+        <td class="r">${f(st.p75)} ${unit}</td>
+        <td class="r">${f(st.p90)} ${unit}</td>
+        <td class="r">${f(st.stdev)} ${unit}</td>
+      </tr>`;
+      return;
+    }
+
+    // Multi-scenario: group header + one row per scenario.
+    bodyHTML += `<tr class="group-hdr">
+      <td colspan="7"><span class="vbadge" style="background:${vtC}1a;color:${vtC}">${vt}</span></td>
+    </tr>`;
+    rows.forEach(({ sim, st }, i) => {
+      if (!st) {
+        bodyHTML += `<tr>
+          <td style="padding-left:20px"><span class="sbadge" style="color:${sim.color}">
+            <span class="swatch" style="background:${sim.color}"></span>${escapeHTML(sim.name)}</span></td>
+          <td class="r c-muted" colspan="6">no trips of this type</td>
+        </tr>`;
+        return;
+      }
+      const bw = Math.round(st.mean / maxMean * 60);
+      const isBase = i === 0;
+      const bSt = baseByVType[vt];
+      const dMean   = isBase || !bSt ? null : delta(st.mean,   bSt.mean,   true);
+      const dMedian = isBase || !bSt ? null : delta(st.median, bSt.median, true);
+      const dP75    = isBase || !bSt ? null : delta(st.p75,    bSt.p75,    true);
+      const dP90    = isBase || !bSt ? null : delta(st.p90,    bSt.p90,    true);
+      bodyHTML += `<tr>
+        <td style="padding-left:20px"><span class="sbadge" style="color:${sim.color}">
+          <span class="swatch" style="background:${sim.color}"></span>${escapeHTML(sim.name)}</span></td>
+        <td class="r">${fc(st.n)}</td>
+        <td class="r"><div class="bar-wrap"><div class="mini-bar" style="width:${bw}px;background:${sim.color}"></div>${f(st.mean)} ${unit} ${dMean ? fmtDelta(dMean) : ''}</div></td>
+        <td class="r">${f(st.median)} ${unit} ${dMedian ? fmtDelta(dMedian) : ''}</td>
+        <td class="r">${f(st.p75)} ${unit} ${dP75 ? fmtDelta(dP75) : ''}</td>
+        <td class="r">${f(st.p90)} ${unit} ${dP90 ? fmtDelta(dP90) : ''}</td>
+        <td class="r">${f(st.stdev)} ${unit}</td>
+      </tr>`;
+    });
+  });
+
+  document.getElementById(elId).innerHTML = `
+    <div style="overflow-x:auto">
+      <table class="stats-table">
+        <thead><tr>
+          <th>${multi ? 'Type · Scenario' : 'Type'}</th>
+          <th class="r">n</th><th class="r">Mean</th>
+          <th class="r">Median</th><th class="r">P75</th><th class="r">P90</th><th class="r">σ</th>
+        </tr></thead>
+        <tbody>${bodyHTML}</tbody>
+      </table>
+    </div>`;
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  OD SUMMARY TABLE
+//   - 1 scenario: original columns
+//   - N scenarios: pivoted — one column set per scenario
+// ═════════════════════════════════════════════════════════════════
+function buildODSummaryTable() {
+  const multi = simulations.length > 1;
+
+  // Aggregate all OD pairs across scenarios
+  const pairMap = {};
+  simulations.forEach(sim => {
+    sim.trips.forEach(t => {
+      const k = `${t.origin}||${t.destination}`;
+      if (!pairMap[k]) pairMap[k] = { origin: t.origin, dest: t.destination, bySim: {} };
+      if (!pairMap[k].bySim[sim.id]) pairMap[k].bySim[sim.id] = [];
+      pairMap[k].bySim[sim.id].push(t);
+    });
+  });
+
+  // sort by total trip count (desc)
+  const pairs = Object.values(pairMap).sort((a, b) => {
+    const ta = Object.values(a.bySim).reduce((s,l) => s + l.length, 0);
+    const tb = Object.values(b.bySim).reduce((s,l) => s + l.length, 0);
+    return tb - ta;
+  });
+  const maxN = Math.max(1, ...pairs.map(p => Object.values(p.bySim).reduce((s,l) => s + l.length, 0)));
+
+  // SINGLE SCENARIO — use the original compact schema
+  if (!multi) {
+    const sim = simulations[0];
+    const rows = pairs.map(p => {
+      const list = p.bySim[sim.id] || [];
+      if (!list.length) return '';
+      const ds  = stats(list.map(t => t.duration));
+      const tls = stats(list.map(t => t.timeLoss));
+      const sp  = list.reduce((s, t) => s + t.speedKmh, 0) / list.length;
+      const lr  = ds.mean ? tls.mean / ds.mean * 100 : 0;
+      const bw  = Math.round(list.length / maxN * 60);
+      const lrClass = lr > 30 ? 'c-red' : lr > 15 ? 'c-amber' : 'c-green';
+      return `<tr>
+        <td style="font-family:'DM Mono',monospace;font-size:12px">${p.origin}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px">${p.dest}</td>
+        <td class="r"><div class="bar-wrap"><div class="mini-bar" style="width:${bw}px"></div>${list.length}</div></td>
+        <td class="r">${f(ds.mean)} s</td>
+        <td class="r">${f(ds.median)} s</td>
+        <td class="r">${f(ds.p90)} s</td>
+        <td class="r">${f(tls.mean)} s</td>
+        <td class="r ${lrClass}">${f(lr)}%</td>
+        <td class="r">${f(sp)} km/h</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('tbl-od').innerHTML = `
+      <div style="overflow-x:auto"><table class="stats-table">
+        <thead><tr>
+          <th>Origin</th><th>Destination</th><th class="r">Trips</th>
+          <th class="r">Avg Dur.</th><th class="r">Median Dur.</th><th class="r">P90 Dur.</th>
+          <th class="r">Avg Loss</th><th class="r">Loss%</th><th class="r">Avg Speed</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table></div>`;
+    return;
+  }
+
+  // MULTI-SCENARIO — pivoted: origin, destination, then per-scenario columns
+  // We show: trips, avg dur, loss% for each scenario.
+  const thSims = simulations.map(s => `
+    <th colspan="3" style="text-align:center;color:${s.color};border-left:1px solid var(--border)">
+      <span class="sbadge" style="color:${s.color}">
+        <span class="swatch" style="background:${s.color}"></span>${escapeHTML(s.name)}
+      </span>
+    </th>`).join('');
+  const thCols = simulations.map(() =>
+    `<th class="r" style="border-left:1px solid var(--border)">Trips</th>
+     <th class="r">Avg Dur.</th>
+     <th class="r">Loss %</th>`
+  ).join('');
+
+  const rows = pairs.map(p => {
+    const cells = simulations.map((sim, i) => {
+      const list = p.bySim[sim.id] || [];
+      if (!list.length) {
+        return `<td class="r c-muted" style="border-left:1px solid var(--border)">—</td>
+                <td class="r c-muted">—</td>
+                <td class="r c-muted">—</td>`;
+      }
+      const ds  = stats(list.map(t => t.duration));
+      const tls = stats(list.map(t => t.timeLoss));
+      const lr  = ds.mean ? tls.mean / ds.mean * 100 : 0;
+      const lrClass = lr > 30 ? 'c-red' : lr > 15 ? 'c-amber' : 'c-green';
+
+      // deltas vs base scenario
+      let dDur = '', dLr = '', dTrips = '';
+      if (i > 0) {
+        const baseList = p.bySim[simulations[0].id] || [];
+        if (baseList.length) {
+          const bDs  = stats(baseList.map(t => t.duration));
+          const bTls = stats(baseList.map(t => t.timeLoss));
+          const bLr  = bDs.mean ? bTls.mean / bDs.mean * 100 : 0;
+          const ddur = delta(ds.mean, bDs.mean, true);
+          const dlr  = delta(lr, bLr, true);
+          const dtr  = delta(list.length, baseList.length, false); // more trips isn't "worse"
+          dDur   = ddur ? ' ' + fmtDelta(ddur) : '';
+          dLr    = dlr  ? ' ' + fmtDelta(dlr)  : '';
+          dTrips = dtr  ? ' ' + fmtDelta(dtr)  : '';
+        }
+      }
+
+      const bw = Math.round(list.length / maxN * 40);
+      return `<td class="r" style="border-left:1px solid var(--border)">
+        <div class="bar-wrap"><div class="mini-bar" style="width:${bw}px;background:${sim.color}"></div>${list.length}${dTrips}</div>
+      </td>
+      <td class="r">${f(ds.mean)} s${dDur}</td>
+      <td class="r ${lrClass}">${f(lr)}%${dLr}</td>`;
+    }).join('');
+
+    return `<tr>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${p.origin}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${p.dest}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tbl-od').innerHTML = `
+    <div style="overflow-x:auto"><table class="stats-table">
+      <thead>
+        <tr><th rowspan="2">Origin</th><th rowspan="2">Destination</th>${thSims}</tr>
+        <tr>${thCols}</tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  SVG BOX PLOTS — grouped by vtype, one sub-band per scenario
+// ═════════════════════════════════════════════════════════════════
+function buildBoxPlot(elId, metric, unit) {
+  const vtypes = [...new Set(simulations.flatMap(s => s.trips.map(t => t.vType)))].sort();
+  const multi  = simulations.length > 1;
+
+  // Compute per-vtype-per-scenario stats
+  const groups = vtypes.map(vt => ({
+    vt,
+    bands: simulations.map(sim => {
+      const vals = sim.trips.filter(t => t.vType === vt).map(t => t[metric]).sort((a, b) => a - b);
+      return { sim, st: stats(vals) };
+    }).filter(b => b.st)
+  })).filter(g => g.bands.length > 0);
+
+  if (!groups.length) {
+    document.getElementById(elId).innerHTML = '<div class="no-data-text" style="color:var(--muted);font-size:13px">No data</div>';
+    return;
+  }
+
+  // Global x-domain (clip at P98 across all scenarios)
+  const allVals = simulations.flatMap(s => s.trips.map(t => t[metric])).sort((a, b) => a - b);
+  const domMin = 0;
+  const domMax = pct(allVals, 98) * 1.05 || 1;
+
+  const svgW  = 880;
+  const padL  = 190, padR = 140, padT = 28, padB = 52;
+  const plotW = svgW - padL - padR;
+
+  // Sub-band heights: taller in single-scenario mode (keeps old look)
+  const subBandH = multi ? 30 : 56;
+  const groupPad = multi ? 34 : 18;
+
+  // total plot height
+  let totalH = 0;
+  const groupY = [];
+  groups.forEach(g => {
+    groupY.push(totalH);
+    totalH += g.bands.length * subBandH + groupPad;
+  });
+  const svgH = padT + totalH + padB;
+
+  function xsc(v) {
+    return padL + Math.max(0, Math.min(1, (v - domMin) / (domMax - domMin))) * plotW;
+  }
+
+  // grid + ticks
+  const nTicks = 6;
+  let gridSVG = '', tickSVG = '';
+  for (let i = 0; i <= nTicks; i++) {
+    const v = domMin + (domMax - domMin) * i / nTicks;
+    const x = xsc(v);
+    gridSVG += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + totalH}" stroke="#263550" stroke-width="1"/>`;
+    tickSVG += `<text x="${x}" y="${padT + totalH + 16}" text-anchor="middle" fill="#607a96" font-size="11" font-family="DM Mono, monospace">${
+      unit === 'm' ? Math.round(v) : f(v, unit === 'km/h' ? 1 : 0)
+    }</text>`;
+  }
+
+  const axLabel = `<text x="${padL}" y="${padT - 8}" fill="#607a96" font-size="11" font-family="Barlow Condensed, sans-serif" letter-spacing="0.8">${unit}</text>`;
+
+  // boxes
+  let boxSVG = '';
+  groups.forEach((g, gi) => {
+    const gYStart = padT + groupY[gi];
+
+    // vtype label — placed on the RIGHT of the chart so it never overlaps
+    // the scenario/filename labels that sit on the left in multi-scenario mode.
+    const groupCy = gYStart + (g.bands.length * subBandH) / 2;
+    const vtC = vtColor(g.vt);
+    boxSVG += `<text x="${svgW - padR + 12}" y="${groupCy + 4}" text-anchor="start"
+                fill="${vtC}" font-size="${multi ? 14 : 16}" font-family="Barlow Condensed, sans-serif" font-weight="700">${g.vt}</text>`;
+
+    g.bands.forEach((b, bi) => {
+      const cy = gYStart + subBandH * bi + subBandH / 2;
+      const bh = Math.min(subBandH - 8, multi ? 18 : 26);
+      const c  = multi ? b.sim.color : vtColor(g.vt);
+
+      const x10 = xsc(b.st.p10), x25 = xsc(b.st.p25);
+      const xMd = xsc(b.st.median), xMn = xsc(b.st.mean);
+      const x75 = xsc(b.st.p75), x90 = xsc(b.st.p90);
+
+      // sim label (only in multi mode)
+      if (multi) {
+        boxSVG += `<text x="${padL - 12}" y="${cy + 3}" text-anchor="end"
+                    fill="${c}" font-size="11" font-family="DM Mono, monospace">${escapeHTML(b.sim.name)}  <tspan fill="#607a96">n=${b.st.n}</tspan></text>`;
+      } else {
+        boxSVG += `<text x="${padL - 12}" y="${cy + 14}" text-anchor="end"
+                    fill="#9ab8d0" font-size="11" font-family="DM Mono, monospace">n=${b.st.n}</text>`;
+      }
+
+      boxSVG += `
+        <line x1="${x10}" y1="${cy}" x2="${x90}" y2="${cy}" stroke="${c}" stroke-width="1.5" opacity="0.45"/>
+        <line x1="${x10}" y1="${cy-6}" x2="${x10}" y2="${cy+6}" stroke="${c}" stroke-width="1.5" opacity="0.65"/>
+        <line x1="${x90}" y1="${cy-6}" x2="${x90}" y2="${cy+6}" stroke="${c}" stroke-width="1.5" opacity="0.65"/>
+        <rect x="${x25}" y="${cy - bh/2}" width="${Math.max(2, x75 - x25)}" height="${bh}"
+              fill="${c}" fill-opacity="0.14" stroke="${c}" stroke-width="1.5" rx="2"/>
+        <line x1="${xMd}" y1="${cy - bh/2}" x2="${xMd}" y2="${cy + bh/2}" stroke="${c}" stroke-width="2.5"/>
+        <path d="M${xMn},${cy - bh/2 - 3} L${xMn+5},${cy} L${xMn},${cy + bh/2 + 3} L${xMn-5},${cy} Z" fill="${c}" opacity="0.85"/>
+      `;
+
+      if (!multi) {
+        // median label above box (original look)
+        boxSVG += `<text x="${xMd}" y="${cy - bh/2 - 5}" text-anchor="middle" fill="${c}" font-size="10" font-family="DM Mono, monospace">${f(b.st.median, 0)}</text>`;
+      }
+    });
+
+    // divider line between groups (except last)
+    if (gi < groups.length - 1) {
+      const yDiv = gYStart + g.bands.length * subBandH + groupPad / 2;
+      boxSVG += `<line x1="${padL}" y1="${yDiv}" x2="${svgW - padR}" y2="${yDiv}" stroke="#1a2232" stroke-width="1"/>`;
+    }
+  });
+
+  // legend
+  const lY = padT + totalH + padB - 10;
+  let legendSVG = `
+    <g fill="#9ab8d0" font-size="11" font-family="Barlow Condensed, sans-serif">
+      <line x1="${padL}"    y1="${lY}" x2="${padL+38}" y2="${lY}" stroke="#9ab8d0" stroke-width="1.5"/>
+      <line x1="${padL}"    y1="${lY-5}" x2="${padL}"    y2="${lY+5}" stroke="#9ab8d0" stroke-width="1.5"/>
+      <line x1="${padL+38}" y1="${lY-5}" x2="${padL+38}" y2="${lY+5}" stroke="#9ab8d0" stroke-width="1.5"/>
+      <text x="${padL+44}" y="${lY+4}">P10–P90</text>
+
+      <rect x="${padL+115}" y="${lY-7}" width="24" height="14" fill="#9ab8d0" fill-opacity="0.12" stroke="#9ab8d0" stroke-width="1.5" rx="2"/>
+      <text x="${padL+145}" y="${lY+4}">IQR (P25–P75)</text>
+
+      <line x1="${padL+255}" y1="${lY-7}" x2="${padL+255}" y2="${lY+7}" stroke="#9ab8d0" stroke-width="2.5"/>
+      <text x="${padL+260}" y="${lY+4}">Median</text>
+
+      <path d="M${padL+325},${lY-5} L${padL+330},${lY} L${padL+325},${lY+5} L${padL+320},${lY} Z" fill="#9ab8d0"/>
+      <text x="${padL+335}" y="${lY+4}">Mean</text>
+    </g>`;
+
+  document.getElementById(elId).innerHTML = `
+    <svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"
+         style="width:100%;max-width:${svgW}px;display:block;overflow:visible">
+      ${axLabel}${gridSVG}${tickSVG}${boxSVG}${legendSVG}
+    </svg>`;
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  OD SELECTORS  (pooled origins / destinations across scenarios)
+// ═════════════════════════════════════════════════════════════════
+function buildODSelectors() {
+  const allTrips = simulations.flatMap(s => s.trips);
+  const origins  = [...new Set(allTrips.map(t => t.origin))].sort();
+  const dests    = [...new Set(allTrips.map(t => t.destination))].sort();
+  const vtypes   = [...new Set(allTrips.map(t => t.vType))].sort();
+
+  const oSel = document.getElementById('od-origin');
+  const dSel = document.getElementById('od-dest');
+  const vSel = document.getElementById('od-vtype');
+
+  const prevO = oSel.value, prevD = dSel.value, prevV = vSel.value;
+
+  oSel.innerHTML = `<option value="">— select origin —</option>` +
+    origins.map(o => {
+      const c = allTrips.filter(t => t.origin === o).length;
+      return `<option value="${o}">${o}  (${c})</option>`;
+    }).join('');
+  dSel.innerHTML = `<option value="">— select destination —</option>` +
+    dests.map(d => {
+      const c = allTrips.filter(t => t.destination === d).length;
+      return `<option value="${d}">${d}  (${c})</option>`;
+    }).join('');
+  vSel.innerHTML = `<option value="">All types</option>` +
+    vtypes.map(vt => `<option value="${vt}">${vt}</option>`).join('');
+
+  // restore prior selection if still present
+  if (origins.includes(prevO)) oSel.value = prevO;
+  if (dests.includes(prevD))   dSel.value = prevD;
+  if (vtypes.includes(prevV))  vSel.value = prevV;
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  CHART.JS cleanup
+// ═════════════════════════════════════════════════════════════════
+let chartInstances = [];
+function registerChart(c) { chartInstances.push(c); }
+function destroyCharts() {
+  chartInstances.forEach(c => { try { c.destroy(); } catch(e){} });
+  chartInstances = [];
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  OD ANALYSIS  (multi-scenario overlays)
+// ═════════════════════════════════════════════════════════════════
+function analyzeOD() {
+  const origin = document.getElementById('od-origin').value;
+  const dest   = document.getElementById('od-dest').value;
+  const vtype  = document.getElementById('od-vtype').value;
+
+  if (!origin || !dest) {
+    alert('Please select both an origin and a destination.');
+    return;
+  }
+  destroyCharts();
+
+  // Gather matching trips per scenario
+  const perSim = simulations.map(sim => {
+    let data = sim.trips.filter(t => t.origin === origin && t.destination === dest);
+    if (vtype) data = data.filter(t => t.vType === vtype);
+    return { sim, data };
+  });
+
+  const el = document.getElementById('od-results');
+  const totalTrips = perSim.reduce((s, p) => s + p.data.length, 0);
+
+  if (totalTrips === 0) {
+    el.innerHTML = `<div class="no-data">
+      <div class="no-data-icon">⚠️</div>
+      <div class="no-data-text">No trips found for ${origin} → ${dest}${vtype ? ' (' + vtype + ')' : ''}</div>
+    </div>`;
+    return;
+  }
+
+  // Compute stats per scenario + base
+  const statsPerSim = perSim.map(({ sim, data }) => {
+    if (!data.length) return { sim, data, st: null };
+    const ds  = stats(data.map(t => t.duration));
+    const tls = stats(data.map(t => t.timeLoss));
+    const sps = stats(data.map(t => t.speedKmh));
+    const rs  = stats(data.map(t => t.routeLength));
+    const lr  = ds.mean ? (tls.mean / ds.mean) * 100 : 0;
+    return { sim, data, ds, tls, sps, rs, lr };
+  });
+  const base = statsPerSim[0];
+
+  // build per-scenario cards
+  const simCards = statsPerSim.map((p, i) => {
+    const { sim, data } = p;
+    if (!data.length) {
+      return `<div class="sim-od-card" style="opacity:0.5">
+        <div class="sim-od-card-head">
+          <span class="chip-dot" style="background:${sim.color}"></span>
+          <div class="sim-od-card-name">${escapeHTML(sim.name)}</div>
+        </div>
+        <div class="c-muted" style="font-size:13px">No trips on this OD pair.</div>
+      </div>`;
+    }
+    const { ds, tls, sps, rs, lr } = p;
+    const isBase = i === 0;
+    const dAvgDur = isBase ? null : delta(ds.mean, base.ds && base.ds.mean, true);
+    const dMedDur = isBase ? null : delta(ds.median, base.ds && base.ds.median, true);
+    const dLr     = isBase ? null : delta(lr, base.lr, true);
+    const dSp     = isBase ? null : delta(sps.mean, base.sps && base.sps.mean, false);
+    const dTrips  = isBase ? null : delta(data.length, base.data.length, false);
+
+    const lrClass = lr > 30 ? 'c-red' : lr > 15 ? 'c-amber' : 'c-green';
+
+    return `<div class="sim-od-card" style="--col:${sim.color}">
+      <div style="position:absolute;top:0;left:0;bottom:0;width:3px;background:${sim.color}"></div>
+      <div class="sim-od-card-head">
+        <span class="chip-dot" style="background:${sim.color}"></span>
+        ${i === 0 && simulations.length > 1 ? '<span class="baseline-pill">Base</span>' : ''}
+        <div class="sim-od-card-name">${escapeHTML(sim.name)}</div>
+      </div>
+      <div class="sim-od-grid-kpi">
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">Trips</div>
+          <div class="sim-od-kpi-val">${data.length} ${dTrips ? fmtDelta(dTrips) : ''}</div></div>
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">Avg Duration</div>
+          <div class="sim-od-kpi-val">${f(ds.mean)} s ${dAvgDur ? fmtDelta(dAvgDur) : ''}</div></div>
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">Median Dur.</div>
+          <div class="sim-od-kpi-val">${f(ds.median)} s ${dMedDur ? fmtDelta(dMedDur) : ''}</div></div>
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">P90 Dur.</div>
+          <div class="sim-od-kpi-val">${f(ds.p90)} s</div></div>
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">Avg Time Loss</div>
+          <div class="sim-od-kpi-val">${f(tls.mean)} s</div></div>
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">Loss Ratio</div>
+          <div class="sim-od-kpi-val ${lrClass}">${f(lr)}% ${dLr ? fmtDelta(dLr) : ''}</div></div>
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">Avg Speed</div>
+          <div class="sim-od-kpi-val">${f(sps.mean)} km/h ${dSp ? fmtDelta(dSp) : ''}</div></div>
+        <div class="sim-od-kpi"><div class="sim-od-kpi-label">Route Length</div>
+          <div class="sim-od-kpi-val">${f(rs.mean, 0)} m</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Individual trips (across scenarios)
+  const tripRows = statsPerSim.flatMap(({ sim, data }) =>
+    data.map(t => ({ sim, t }))
+  ).sort((a, b) => a.t.depart - b.t.depart).map(({ sim, t }) => {
+    const vc = vtColor(t.vType);
+    const lr = t.duration > 0 ? t.timeLoss / t.duration * 100 : 0;
+    return `<tr>
+      <td><span class="sbadge" style="color:${sim.color}">
+        <span class="swatch" style="background:${sim.color}"></span>${escapeHTML(sim.name)}</span></td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${t.id}</td>
+      <td class="r">${f(t.depart, 1)} s</td>
+      <td class="r">${f(t.duration, 1)} s</td>
+      <td class="r">${f(t.timeLoss, 1)} s</td>
+      <td class="r">${f(lr, 0)}%</td>
+      <td class="r">${f(t.speedKmh, 1)} km/h</td>
+      <td class="r">${f(t.routeLength, 0)} m</td>
+      <td><span class="vbadge" style="background:${vc}1a;color:${vc};font-size:10px">${t.vType}</span></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="od-header">
+      <div class="od-title">${origin} <span class="od-arrow">→</span> ${dest}
+        ${vtype ? `<span style="color:var(--muted);font-size:14px;font-weight:400;margin-left:10px">/ ${vtype}</span>` : ''}
+      </div>
+      <div class="od-sub">${totalTrips} trips across ${simulations.length} scenario${simulations.length>1?'s':''}</div>
+    </div>
+
+    <div class="sim-od-grid">${simCards}</div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="section-title">Duration vs Departure Time</div>
+        <div class="chart-box"><canvas id="od-scatter-dur"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Duration Distribution (histogram)</div>
+        <div class="chart-box"><canvas id="od-hist-dur"></canvas></div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="section-title">Time Loss vs Departure Time</div>
+        <div class="chart-box"><canvas id="od-scatter-tl"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Time Loss Distribution (histogram)</div>
+        <div class="chart-box"><canvas id="od-hist-tl"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="trips-toggle" onclick="toggleTrips(this)">
+        <span class="trips-toggle-icon">▶</span>
+        Individual Trips (${totalTrips})
+      </div>
+      <div class="trips-table-wrap">
+        <table class="stats-table">
+          <thead><tr>
+            <th>Scenario</th><th>Vehicle ID</th><th class="r">Depart</th><th class="r">Duration</th>
+            <th class="r">TimeLoss</th><th class="r">Loss%</th>
+            <th class="r">Speed</th><th class="r">Route Len.</th><th>Type</th>
+          </tr></thead>
+          <tbody>${tripRows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Render charts — one dataset per scenario
+  requestAnimationFrame(() => {
+    drawMultiScatter('od-scatter-dur', statsPerSim, 'depart', 'duration', 'Departure Time (s)', 'Duration (s)');
+    drawMultiScatter('od-scatter-tl',  statsPerSim, 'depart', 'timeLoss', 'Departure Time (s)', 'Time Loss (s)');
+    drawMultiHistogram('od-hist-dur', statsPerSim, 'duration', 'Duration (s)');
+    drawMultiHistogram('od-hist-tl',  statsPerSim, 'timeLoss', 'Time Loss (s)');
+  });
+}
+
+function toggleTrips(el) {
+  const wrap = el.nextElementSibling;
+  const open = wrap.style.display === 'block';
+  wrap.style.display = open ? 'none' : 'block';
+  el.querySelector('.trips-toggle-icon').textContent = open ? '▶' : '▼';
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  CHART.JS HELPERS
+// ═════════════════════════════════════════════════════════════════
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { duration: 300 },
+  plugins: {
+    legend: { labels: { color: '#9ab8d0', font: { size: 12, family: "'Barlow Condensed', sans-serif" }, boxWidth: 12, boxHeight: 12 } },
+    tooltip: { backgroundColor: '#0c1018', borderColor: '#2e4060', borderWidth: 1, titleColor: '#fff', bodyColor: '#ddeaf6' }
+  },
+};
+const AXIS_STYLE = {
+  grid: { color: '#263550' },
+  ticks: { color: '#9ab8d0', font: { size: 11, family: "'DM Mono', monospace" } },
+  title: { display: true, color: '#9ab8d0', font: { size: 12, family: "'Barlow Condensed', sans-serif" } },
+};
+
+function drawMultiScatter(canvasId, statsPerSim, xKey, yKey, xLabel, yLabel) {
+  const datasets = statsPerSim.filter(p => p.data.length).map(({ sim, data }) => {
+    const pts = data.map(t => ({ x: t[xKey], y: t[yKey] }));
+    const col = sim.color;
+    return {
+      label: sim.name,
+      data: pts,
+      backgroundColor: col + 'bb',
+      borderColor: col,
+      borderWidth: 1,
+      pointRadius: 3.5,
+      pointHoverRadius: 6,
+    };
+  });
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  registerChart(new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      ...CHART_DEFAULTS,
+      scales: {
+        x: { ...AXIS_STYLE, title: { ...AXIS_STYLE.title, text: xLabel } },
+        y: { ...AXIS_STYLE, title: { ...AXIS_STYLE.title, text: yLabel } },
+      },
+    },
+  }));
+}
+
+function drawMultiHistogram(canvasId, statsPerSim, metric, xLabel) {
+  const allVals = statsPerSim.flatMap(p => p.data.map(t => t[metric]));
+  if (!allVals.length) return;
+
+  // shared binning
+  const mn = Math.min(...allVals), mx = Math.max(...allVals);
+  const bins = 18;
+  const bsz = (mx - mn) / bins || 1;
+  const labels = Array.from({ length: bins }, (_, i) => f(mn + i * bsz, 0));
+
+  const datasets = statsPerSim.filter(p => p.data.length).map(({ sim, data }) => {
+    const counts = new Array(bins).fill(0);
+    data.forEach(t => {
+      const v = t[metric];
+      let i = Math.floor((v - mn) / bsz);
+      if (i >= bins) i = bins - 1;
+      if (i < 0) i = 0;
+      counts[i]++;
+    });
+    return {
+      label: sim.name,
+      data: counts,
+      backgroundColor: sim.color + '88',
+      borderColor: sim.color,
+      borderWidth: 1,
+      categoryPercentage: 0.9,
+      barPercentage: 0.9,
+    };
+  });
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  registerChart(new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      ...CHART_DEFAULTS,
+      plugins: {
+        ...CHART_DEFAULTS.plugins,
+        legend: { ...CHART_DEFAULTS.plugins.legend, display: statsPerSim.filter(p => p.data.length).length > 1 }
+      },
+      scales: {
+        x: { ...AXIS_STYLE, title: { ...AXIS_STYLE.title, text: xLabel }, stacked: false },
+        y: { ...AXIS_STYLE, title: { ...AXIS_STYLE.title, text: 'Count' }, stacked: false, beginAtZero: true },
+      },
+    },
+  }));
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  EXECUTIVE SUMMARY  (report-ready headline view)
+// ═════════════════════════════════════════════════════════════════
+function buildExecutiveSummary() {
+  // Subtitle: scenario count + total trips + simulated depart range
+  const allTrips = simulations.flatMap(s => s.trips);
+  const deps = allTrips.map(t => t.depart);
+  const minDep = deps.length ? Math.min(...deps) : 0;
+  const maxDep = deps.length ? Math.max(...deps) : 0;
+  document.getElementById('exec-subtitle').textContent =
+    `${simulations.length} scenario${simulations.length !== 1 ? 's' : ''}  ·  ` +
+    `${fc(allTrips.length)} trips  ·  depart range ${f(minDep, 0)}–${f(maxDep, 0)} s`;
+
+  // Headline KPI cards: Avg Time Loss + Avg Speed (+ loss ratio & trips as context)
+  buildExecKPICards();
+
+  // Time Loss box plot grouped by vehicle type (reuses the grouped SVG box plot)
+  buildBoxPlot('exec-bp-timeloss', 'timeLoss', 's');
+
+  // Destroy any previous exec chart and redraw
+  drawExecTimeLossVsDeparture();
+}
+
+function buildExecKPICards() {
+  const el = document.getElementById('exec-kpi-grid');
+  const baseStats = computeScenarioStats(simulations[0]);
+
+  el.innerHTML = simulations.map((sim, i) => {
+    const st = computeScenarioStats(sim);
+    const isBase = i === 0;
+    const multi  = simulations.length > 1;
+
+    const dLoss  = isBase ? null : delta(st.avgLoss,   baseStats.avgLoss,   true);
+    const dSpd   = isBase ? null : delta(st.avgSpeed,  baseStats.avgSpeed,  false);
+    const dRatio = isBase ? null : delta(st.lossRatio, baseStats.lossRatio, true);
+
+    const ratioCls = st.lossRatio > 30 ? 'c-red' : st.lossRatio > 15 ? 'c-amber' : 'c-green';
+
+    return `<div class="exec-kpi-card" style="--accent-col:${sim.color}">
+      <div class="exec-card-head">
+        <span class="chip-dot" style="background:${sim.color}"></span>
+        ${isBase && multi ? '<span class="baseline-pill">Base</span>' : ''}
+        <span class="exec-card-name">${escapeHTML(sim.name)}</span>
+        <span class="exec-card-meta">${fc(st.nTrips)} trips</span>
+      </div>
+      <div class="exec-metric-row">
+        <div>
+          <div class="exec-metric-label">Avg Time Loss</div>
+          <div class="exec-metric-value">${f(st.avgLoss, 1)}<span class="exec-metric-unit">s</span></div>
+          <div class="exec-metric-delta">${dLoss ? fmtDelta(dLoss) : (isBase && multi ? '<span class="c-muted">baseline</span>' : '')}</div>
+          <div class="exec-metric-sub ${ratioCls}">loss ratio ${f(st.lossRatio, 1)}%${dRatio ? ' ' + fmtDelta(dRatio) : ''}</div>
+        </div>
+        <div>
+          <div class="exec-metric-label">Avg Speed</div>
+          <div class="exec-metric-value">${f(st.avgSpeed, 1)}<span class="exec-metric-unit">km/h</span></div>
+          <div class="exec-metric-delta">${dSpd ? fmtDelta(dSpd) : (isBase && multi ? '<span class="c-muted">baseline</span>' : '')}</div>
+          <div class="exec-metric-sub">avg duration ${f(st.avgDur, 1)} s</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/**
+ * Bin trips into time windows and return [{x, y}] points of (avg depart, avg timeLoss)
+ * — used for the rolling-average line overlay on the scatter.
+ */
+function binAvgByDepart(trips, nBins) {
+  if (!trips.length) return [];
+  const deps = trips.map(t => t.depart);
+  const mn = Math.min(...deps), mx = Math.max(...deps);
+  const span = mx - mn;
+  if (span <= 0) return [{ x: mn, y: trips.reduce((s,t)=>s+t.timeLoss,0) / trips.length }];
+  const bsz = span / nBins;
+  const buckets = Array.from({ length: nBins }, () => ({ xSum: 0, ySum: 0, n: 0 }));
+  trips.forEach(t => {
+    let i = Math.floor((t.depart - mn) / bsz);
+    if (i >= nBins) i = nBins - 1;
+    if (i < 0) i = 0;
+    buckets[i].xSum += t.depart;
+    buckets[i].ySum += t.timeLoss;
+    buckets[i].n++;
+  });
+  return buckets
+    .filter(b => b.n > 0)
+    .map(b => ({ x: b.xSum / b.n, y: b.ySum / b.n }));
+}
+
+function drawExecTimeLossVsDeparture() {
+  // Destroy any old chart bound to this canvas
+  const canvas = document.getElementById('exec-scatter-tl');
+  const existing = Chart.getChart(canvas);
+  if (existing) {
+    existing.destroy();
+    chartInstances = chartInstances.filter(c => c !== existing);
+  }
+
+  const multi = simulations.length > 1;
+  const datasets = [];
+
+  if (multi) {
+    // Multi-scenario: one rolling-average line per scenario, coloured by scenario
+    simulations.forEach(sim => {
+      if (sim.trips.length < 2) return;
+      const nBins = Math.min(25, Math.max(6, Math.round(sim.trips.length / 40)));
+      const line = binAvgByDepart(sim.trips, nBins);
+      datasets.push({
+        type: 'line',
+        label: sim.name,
+        data: line,
+        borderColor: sim.color,
+        backgroundColor: sim.color,
+        borderWidth: 3,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        tension: 0.4,
+        fill: false,
+        parsing: false,
+      });
+    });
+  } else {
+    // Single scenario: one overall rolling-average line in the scenario colour
+    const sim = simulations[0];
+    if (sim && sim.trips.length >= 2) {
+      const nBins = Math.min(30, Math.max(8, Math.round(sim.trips.length / 30)));
+      const line = binAvgByDepart(sim.trips, nBins);
+      datasets.push({
+        type: 'line',
+        label: 'Rolling average time loss',
+        data: line,
+        borderColor: sim.color,
+        backgroundColor: sim.color + '22',
+        borderWidth: 3,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        tension: 0.4,
+        fill: true,
+        parsing: false,
+      });
+    }
+  }
+
+  const ctx = canvas.getContext('2d');
+  registerChart(new Chart(ctx, {
+    data: { datasets },
+    options: {
+      ...CHART_DEFAULTS,
+      plugins: {
+        ...CHART_DEFAULTS.plugins,
+        legend: {
+          ...CHART_DEFAULTS.plugins.legend,
+          display: true,
+          position: 'top',
+        },
+      },
+      scales: {
+        x: {
+          ...AXIS_STYLE,
+          type: 'linear',
+          title: { ...AXIS_STYLE.title, text: 'Departure Time (s)' },
+        },
+        y: {
+          ...AXIS_STYLE,
+          title: { ...AXIS_STYLE.title, text: 'Time Loss (s)' },
+          beginAtZero: true,
+        },
+      },
+    },
+  }));
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  PDF EXPORT — EXECUTIVE SUMMARY
+// ═════════════════════════════════════════════════════════════════
+async function exportExecSummaryPDF() {
+  if (!simulations.length) {
+    alert('Load at least one scenario before exporting.');
+    return;
+  }
+  // html2pdf.bundle.min.js exposes html2canvas + jspdf as globals
+  const html2canvas = window.html2canvas;
+  const jsPDFCtor   = window.jspdf && window.jspdf.jsPDF;
+  if (!html2canvas || !jsPDFCtor) {
+    alert('PDF library failed to load — check your internet connection.');
+    return;
+  }
+
+  const btn  = document.getElementById('btn-export-pdf');
+  const pane = document.getElementById('pane-exec');
+
+  switchTab('exec');
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  // Pin the pane to a fixed render width so charts re-layout consistently
+  const PRINT_WIDTH = 1100;
+  const prev = {
+    width:    pane.style.width,
+    maxWidth: pane.style.maxWidth,
+    margin:   pane.style.margin,
+  };
+  pane.style.width    = PRINT_WIDTH + 'px';
+  pane.style.maxWidth = PRINT_WIDTH + 'px';
+  pane.style.margin   = '0 auto';
+  window.dispatchEvent(new Event('resize'));
+  await new Promise(r => setTimeout(r, 300));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  try {
+    // Step 1 — capture each block as a separate image
+    async function snap(el) {
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        backgroundColor: '#0a0f1a',
+        useCORS: true,
+        logging: false,
+        windowWidth: PRINT_WIDTH,
+      });
+      return {
+        dataUrl: canvas.toDataURL('image/jpeg', 0.95),
+        ratio:   canvas.width / canvas.height, // w/h
+      };
+    }
+
+    const kpiEl     = document.getElementById('exec-kpi-grid');
+    const bpEl      = document.getElementById('exec-bp-timeloss');
+    const scatterEl = document.getElementById('exec-scatter-tl').parentElement; // .exec-chart-box
+
+    const sections = [
+      { title: 'Scenario KPIs',                          img: await snap(kpiEl)     },
+      { title: 'Time Loss Distribution by Vehicle Type', img: await snap(bpEl)      },
+      { title: 'Time Loss vs Departure Time',            img: await snap(scatterEl) },
+    ];
+
+    // Step 2 — assemble A4 PDF, one section per page
+    const pdf = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const pageW = pdf.internal.pageSize.getWidth();   // 210
+    const pageH = pdf.internal.pageSize.getHeight();  // 297
+    const margin = 12;
+    const usableW = pageW - 2 * margin;
+
+    const subtitle = document.getElementById('exec-subtitle').textContent;
+    const dateStr  = new Date().toLocaleDateString();
+
+    sections.forEach((s, i) => {
+      if (i > 0) pdf.addPage();
+
+      // Header strip
+      pdf.setTextColor(20, 28, 40);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('SUMO Executive Summary', margin, margin + 6);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+      pdf.setTextColor(96, 122, 150);
+      pdf.text(subtitle, margin, margin + 11);
+
+      pdf.setDrawColor(200, 210, 220);
+      pdf.line(margin, margin + 14, pageW - margin, margin + 14);
+
+      // Section title
+      pdf.setTextColor(180, 95, 0);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.text(s.title.toUpperCase(), margin, margin + 22);
+
+      // Image — fit-to-page, preserve aspect ratio, center horizontally
+      const top    = margin + 27;
+      const availH = pageH - margin - top - 6;  // leave room for footer
+      let w = usableW;
+      let h = w / s.img.ratio;
+      if (h > availH) { h = availH; w = h * s.img.ratio; }
+      const x = margin + (usableW - w) / 2;
+      pdf.addImage(s.img.dataUrl, 'JPEG', x, top, w, h, undefined, 'FAST');
+
+      // Footer
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(7);
+      pdf.setTextColor(140, 150, 160);
+      pdf.text(`Page ${i + 1} of ${sections.length}`,  margin, pageH - 5);
+      pdf.text(dateStr, pageW - margin, pageH - 5, { align: 'right' });
+    });
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    const safeName = simulations.length === 1
+      ? simulations[0].name.replace(/[^A-Za-z0-9_\-]+/g, '_').slice(0, 40)
+      : `${simulations.length}_scenarios`;
+    pdf.save(`SUMO_ExecSummary_${safeName}_${stamp}.pdf`);
+
+  } catch (e) {
+    console.error('PDF export failed:', e);
+    alert('PDF export failed: ' + (e && e.message ? e.message : e));
+  } finally {
+    pane.style.width    = prev.width;
+    pane.style.maxWidth = prev.maxWidth;
+    pane.style.margin   = prev.margin;
+    window.dispatchEvent(new Event('resize'));
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═════════════════════════════════════════════════════════════════
+const TAB_IDS = ['overview', 'vtypes', 'od', 'exec'];
+function switchTab(id) {
+  TAB_IDS.forEach(tid => {
+    document.getElementById('t-' + tid).classList.toggle('active', tid === id);
+    document.getElementById('pane-' + tid).classList.toggle('active', tid === id);
+  });
+}
+</script>
+</body>
+</html>

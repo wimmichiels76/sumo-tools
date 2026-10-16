@@ -8,6 +8,7 @@ Browsertools voor SUMO-microsimulatie, gepubliceerd via GitHub Pages. Handleidin
 | SUMO Simulation Manager | `SUMO_Simulation_Manager.html` |
 | SUMO VRI Manager | `SUMO_VRI_Manager.html` |
 | SUMO TLS Editor | `sumo_tls_editor.html` |
+| SUMO TripInfo Analyzer | `sumo_tripinfo_analyzer.html` |
 | SUMO Network Link Manager | `sumo_link_manager.html` |
 | SUMO Decal Generator | `sumo_decal_tool.html` |
 
