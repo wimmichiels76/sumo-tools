@@ -50,7 +50,7 @@
   </nav>
   <article>
 <h1>SUMO Simulation Manager</h1>
-<p>Begeleidt een SUMO-studie van projectmap tot rapport: verkeersvraag (OD-matrices → <code>.rou.xml</code>), configuraties (<code>.sumocfg</code>), run-scripts met seeds en schaalfactoren, en een rapport uit de resultaten.</p>
+<p>Begeleidt een SUMO-studie van projectmap tot rapport: verkeersvraag (OD-matrices → <code>.rou.xml</code>), buslijnen, configuraties (<code>.sumocfg</code>), run-scripts met seeds en schaalfactoren, en een rapport uit de resultaten.</p>
 <p><b>Openen:</b> <a href="../SUMO_Simulation_Manager.html">https://wimmichiels76.github.io/sumo-tools/SUMO_Simulation_Manager.html</a></p>
 <h2>Wat je nodig hebt</h2>
 <ul>
@@ -71,19 +71,32 @@
 <li><b>Genereren:</b> kies matrix, periode en vertrekpatroon, en sla op in <code>traffic/</code>. SUMO routeert zelf, duarouter is niet nodig.</li>
 <li>Een bestaande <code>.rou.xml</code> kun je terug inladen om aan te passen.</li>
 </ul>
-<h3>3 · Config &amp; output</h3>
+<h3>3 · Openbaar vervoer</h3>
+<p>Buslijnen opbouwen als <code>&lt;flow&gt;</code>'s die van halte naar halte rijden.</p>
+<ul>
+<li><b>Netwerk &amp; haltes:</b> laad de <code>.net.xml</code> en een <code>.add.xml</code> met de haltes (<code>&lt;busStop&gt;</code>), uit <code>network/</code> of <code>config/</code> of via <b>Bestand kiezen</b>. Haltes uit OpenStreetMap maak je met <code>netconvert … --ptstop-output haltes.add.xml</code>; zelf tekenen kan in netedit.</li>
+<li><b>Lijnen uit OSM:</b> heb je met <code>--ptline-output</code> ook een <code>ptlines.xml</code> gemaakt, dan zet <b>Lijnen uit OSM importeren</b> de bus- en tramlijnen meteen klaar (haltes in volgorde, frequentie uit OSM).</li>
+<li><b>OV-voertuigtypes:</b> standaard een bus (12 m) en een gelede bus (18 m); lengte, snelheid en capaciteit zijn aan te passen.</li>
+<li><b>Lijn opbouwen:</b> <b>+ Lijn</b>, vul lijnnummer, richting, kleur en voertuigtype in, het eerste vertrek en het einde van de dienst (in seconden simulatietijd) en de frequentie (om de … minuten). Voeg haltes toe in volgorde: kies ze uit de lijst of <b>klik ze aan op de kaart</b>. Per halte stel je de halteertijd in.</li>
+<li><b>Controle:</b> de tool kijkt na of elke halte op een rijstrook ligt die het voertuigtype toelaat, en of er een route is tussen opeenvolgende haltes. De route verschijnt op de kaart in de kleur van de lijn; een probleem staat in het oranje.</li>
+<li><b>⇄ Retourrit maken:</b> maakt de lijn in de andere richting, met de haltes in omgekeerde volgorde en telkens de halte met dezelfde naam aan de overkant. Haltes zonder tegenhanger meldt de tool; die vul je zelf aan.</li>
+<li><b>Begin- en eind-edge</b> (optioneel): laat de bus al vóór de eerste halte het net op rijden, of na de laatste halte nog verder rijden.</li>
+<li><b>Genereren:</b> één <code>&lt;flow&gt;</code> per lijn met <code>line</code>, <code>period</code> en een <code>&lt;stop busStop duration&gt;</code> per halte. <b>Naar traffic/</b> slaat het op (standaard <code>ov.rou.xml</code>).</li>
+<li>Neem in tab 4 <b>dit routebestand</b> mee naast de autoroutes, en <b>de haltes</b> als additional (<code>network/*.add.xml</code> staat in de lijst).</li>
+</ul>
+<h3>4 · Config &amp; output</h3>
 <ul>
 <li>Kies net, routes, additionals en eventueel een <b>gui-settings-file</b> (<code>background/viewsettings.xml</code>, voor sumo-gui; dit is geen additional).</li>
 <li>Stel tijd en verwerking in en vink de gewenste output aan.</li>
 <li><b>Config opbouwen</b> en <b>Naar config/</b>. Paden worden relatief geschreven (<code>../network/</code> …).</li>
 </ul>
-<h3>4 · Runs</h3>
+<h3>5 · Runs</h3>
 <ul>
 <li>De browser kan SUMO niet starten: deze tab maakt een <b>run-script</b> (<code>.bat</code> en <code>.sh</code>) dat je zelf uitvoert.</li>
 <li>Geef seeds en schaalfactoren op (bv. <code>0.8-1.2:0.05</code>). Het script draait alle combinaties en schrijft de output per run in een eigen map.</li>
 <li>Optioneel: viewsettings en een script voor stills/GIF's uit sumo-gui.</li>
 </ul>
-<h3>5 · Rapport</h3>
+<h3>6 · Rapport</h3>
 <ul>
 <li><b>Outputmap scannen</b> leest tripinfo- en summary-bestanden in en neemt het gemiddelde over seeds en schalen.</li>
 <li>Exporteer als <b>HTML-rapport</b> (af te drukken als PDF) of <b>Word (.doc)</b>.</li>

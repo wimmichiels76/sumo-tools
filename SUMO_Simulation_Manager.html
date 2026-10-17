@@ -134,9 +134,10 @@
 <nav class="tabs" id="tabs">
   <button data-tab="folders" class="active"><span class="n">1</span> Mappen</button>
   <button data-tab="od"><span class="n">2</span> OD &amp; routes</button>
-  <button data-tab="config"><span class="n">3</span> Config &amp; output</button>
-  <button data-tab="run"><span class="n">4</span> Runs</button>
-  <button data-tab="report"><span class="n">5</span> Rapport</button>
+  <button data-tab="pt"><span class="n">3</span> Openbaar vervoer</button>
+  <button data-tab="config"><span class="n">4</span> Config &amp; output</button>
+  <button data-tab="run"><span class="n">5</span> Runs</button>
+  <button data-tab="report"><span class="n">6</span> Rapport</button>
 </nav>
 
 <main>
@@ -255,7 +256,68 @@
     </div>
   </section>
 
-  <!-- ============ TAB 3 : CONFIG & OUTPUT ============ -->
+  <!-- ============ TAB 3 : OPENBAAR VERVOER ============ -->
+  <section class="tab" id="tab-pt">
+    <div class="card">
+      <h2>Netwerk &amp; haltes</h2>
+      <p class="sub">Laad het netwerk en een <code>.add.xml</code> met de haltes (<code>&lt;busStop&gt;</code>, bv. uit <code>netconvert --ptstop-output</code> of getekend in netedit). Bussen rijden als <code>&lt;flow&gt;</code> van halte naar halte; SUMO zoekt zelf de route ertussen.</p>
+      <div class="grid2">
+        <div class="field"><label>Netwerk (.net.xml)</label>
+          <div class="toolbar" style="margin:0"><select id="ptNetSel" style="min-width:200px"></select>
+            <button class="btn sm" id="btnPtNet">📂 Laden</button><button class="btn ghost sm" id="btnPtNetPick">⇧ Bestand kiezen</button></div></div>
+        <div class="field"><label>Haltes (.add.xml)</label>
+          <div class="toolbar" style="margin:0"><select id="ptStopSel" style="min-width:200px"></select>
+            <button class="btn sm" id="btnPtStops">📂 Laden</button><button class="btn ghost sm" id="btnPtStopsPick">⇧ Bestand kiezen</button></div></div>
+      </div>
+      <div class="toolbar" style="margin:4px 0 0">
+        <span class="pill" id="ptNetStat">geen netwerk</span>
+        <span class="pill" id="ptStopStat">geen haltes</span>
+        <span style="width:1px;height:22px;background:var(--line)"></span>
+        <button class="btn ghost sm" id="btnPtLinesImport" title="ptlines.xml van netconvert --ptline-output: de lijnen uit OpenStreetMap">⇧ Lijnen uit OSM importeren (ptlines.xml)</button>
+      </div>
+      <input type="file" id="ptNetFile" accept=".xml,.net.xml" style="display:none">
+      <input type="file" id="ptStopFile" accept=".xml,.add.xml" style="display:none">
+      <input type="file" id="ptLinesFile" accept=".xml" style="display:none">
+    </div>
+
+    <div class="card">
+      <h2>OV-voertuigtypes</h2>
+      <table id="ptVtypeTable">
+        <thead><tr><th>id</th><th>vClass</th><th>length</th><th>accel</th><th>decel</th><th>maxSpeed</th><th>capaciteit</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="toolbar" style="margin-top:8px"><button class="btn sm" id="btnPtAddVtype">+ Type</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Lijnen</h2>
+      <div class="toolbar">
+        <button class="btn sm" id="btnPtAddLine">+ Lijn</button>
+        <select id="ptLineSel" style="min-width:220px"></select>
+        <button class="btn ghost sm" id="btnPtReverse" title="Nieuwe lijn in de andere richting: haltes omgekeerd, elk vervangen door de halte met dezelfde naam aan de overkant">⇄ Retourrit maken</button>
+        <button class="btn ghost sm" id="btnPtDupLine">Dupliceer</button>
+        <button class="btn danger sm" id="btnPtDelLine">Verwijder</button>
+      </div>
+      <div id="ptLineArea"><div class="empty"><div class="big">🚌</div>Nog geen lijn. Laad netwerk en haltes en klik “+ Lijn”.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>.rou.xml genereren</h2>
+      <p class="sub">Eén <code>&lt;flow&gt;</code> per lijn, met <code>line</code>, frequentie (<code>period</code>) en een <code>&lt;stop busStop duration&gt;</code> per halte. Neem in tab 4 dit routebestand mee én de haltes als <i>additional</i>.</p>
+      <div class="row">
+        <div class="field"><label>Bestandsnaam</label><input type="text" id="ptFilename" value="ov.rou.xml"></div>
+      </div>
+      <div class="toolbar">
+        <button class="btn" id="btnPtGen">⚙️ Genereren</button>
+        <button class="btn ghost" id="btnPtSave" disabled>💾 Naar traffic/</button>
+        <button class="btn ghost" id="btnPtDownload" disabled>⇩ Download</button>
+        <span class="pill" id="ptGenStat"></span>
+      </div>
+      <pre class="xml" id="ptPreview" style="display:none"></pre>
+    </div>
+  </section>
+
+  <!-- ============ TAB 4 : CONFIG & OUTPUT ============ -->
   <section class="tab" id="tab-config">
     <div class="card">
       <h2>.sumocfg opbouwen</h2>
@@ -310,7 +372,7 @@
     </div>
   </section>
 
-  <!-- ============ TAB 4 : RUN ============ -->
+  <!-- ============ TAB 5 : RUN ============ -->
   <section class="tab" id="tab-run">
     <div class="banner warn"><span>⚠️</span><div>De browser kan SUMO niet zelf starten. Deze tab <b>genereert een run-script</b> (.bat voor Windows, .sh voor Linux/Mac) dat je lokaal uitvoert. Het script draait alle combinaties van seeds × schalen en schrijft genummerde outputs.</div></div>
 
@@ -355,7 +417,7 @@
 
     <div class="card">
       <h2>GUI-weergave &amp; opname (viewsettings + still/animatie)</h2>
-      <p class="sub">Genereert <code>background/viewsettings.xml</code> (schema “real world”, delay, luchtfoto-decal) — koppel dit in tab 3 als <b>gui-settings-file</b> zodat de simulatie zó opent in sumo-gui. Plus een <code>make_gui_media.py</code> dat via TraCI een still-PNG + 2D-GIF opneemt (lokaal draaien; vereist SUMO_HOME, traci, Pillow).</p>
+      <p class="sub">Genereert <code>background/viewsettings.xml</code> (schema “real world”, delay, luchtfoto-decal) — koppel dit in tab 4 als <b>gui-settings-file</b> zodat de simulatie zó opent in sumo-gui. Plus een <code>make_gui_media.py</code> dat via TraCI een still-PNG + 2D-GIF opneemt (lokaal draaien; vereist SUMO_HOME, traci, Pillow).</p>
       <div class="grid2">
         <div>
           <div class="field"><label>Config</label><select id="mediaConfig"></select></div>
@@ -381,7 +443,7 @@
     </div>
   </section>
 
-  <!-- ============ TAB 5 : REPORT ============ -->
+  <!-- ============ TAB 6 : REPORT ============ -->
   <section class="tab" id="tab-report">
     <div class="card">
       <h2>Outputbestanden inladen</h2>
@@ -435,6 +497,11 @@ let dirHandle = null;              // FileSystemDirectoryHandle (Chrome/Edge)
 const hasFS = 'showDirectoryPicker' in window;
 
 let state = blankState();
+function blankPT(){
+  return { netFile:'', stopsFile:'', stops:[], lines:[], dwell:20, filename:'ov.rou.xml',
+    vtypes:[ {id:'bus',vClass:'bus',length:12,accel:1.2,decel:4,maxSpeed:22.22,capacity:85},
+             {id:'bus_geleed',vClass:'bus',length:18,accel:1.0,decel:4,maxSpeed:22.22,capacity:130} ] };
+}
 function blankState(){
   return {
     version:1,
@@ -445,6 +512,7 @@ function blankState(){
              {id:'trailer',vClass:'trailer',share:5,accel:1.3,decel:4.0,length:16,maxSpeed:22} ],
     configs:[],                     // {id,filename,net,routes,add,begin,end,step,teleport,lateral,outDir,outputs:{}}
     netEdges:[],                    // parsed edge ids
+    pt:blankPT(),                   // openbaar vervoer: haltes, OV-types, lijnen
     lastRun:null,
     modified:new Date().toISOString()
   };
@@ -470,7 +538,7 @@ function toast(msg,isErr){
 function touch(){ state.modified=new Date().toISOString(); saveLocal(); }
 function saveLocal(){ try{ localStorage.setItem('sumo_mgr_state', JSON.stringify(state)); }catch(e){} }
 function loadLocal(){
-  try{ const s=localStorage.getItem('sumo_mgr_state'); if(s){ state=Object.assign(blankState(),JSON.parse(s)); } }catch(e){}
+  try{ const s=localStorage.getItem('sumo_mgr_state'); if(s){ state=Object.assign(blankState(),JSON.parse(s)); state.pt=Object.assign(blankPT(),state.pt||{}); } }catch(e){}
 }
 
 /* -------------------- File System helpers -------------------- */
@@ -510,6 +578,7 @@ $$('#tabs button').forEach(b=>b.addEventListener('click',()=>{
   b.classList.add('active');
   $('#tab-'+b.dataset.tab).classList.add('active');
   if(b.dataset.tab==='od') renderOD();
+  if(b.dataset.tab==='pt'){ renderPT(); ptAutoLoad(); }
   if(b.dataset.tab==='config') renderConfigTab();
   if(b.dataset.tab==='run') renderRunTab();
 }));
@@ -544,10 +613,10 @@ $('#btnLoadManifest').addEventListener('click', tryLoadManifest);
 async function tryLoadManifest(){
   try{
     const txt=await readFile('project.json');
-    if(txt){ const j=JSON.parse(txt); state=Object.assign(blankState(),j); touch(); syncProjectFields(); refreshAllViews(); toast('project.json geladen.'); }
+    if(txt){ const j=JSON.parse(txt); state=Object.assign(blankState(),j); state.pt=Object.assign(blankPT(),state.pt||{}); touch(); syncProjectFields(); refreshAllViews(); toast('project.json geladen.'); }
   }catch(e){ /* no manifest yet */ }
 }
-function refreshAllViews(){ try{ renderOD(); renderConfigTab(); renderRunTab(); renderReport(); }catch(e){} }
+function refreshAllViews(){ try{ renderOD(); renderPT(); renderConfigTab(); renderRunTab(); renderReport(); }catch(e){} }
 async function writeManifest(){
   const ok=await writeFile('project.json', JSON.stringify(state,null,2));
   if(ok) toast('project.json opgeslagen.'); else download('project.json',JSON.stringify(state,null,2),'application/json');
@@ -566,7 +635,7 @@ async function scanFolders(){
     html+='<div><span class="muted">&nbsp;&nbsp;├─ </span><span class="fdr">'+f+'/</span> <span class="muted">('+entries.length+')</span></div>';
     entries.sort().forEach(n=>{ html+='<div class="fl muted">&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;'+esc(n)+'</div>'; });
     // auto-register known files
-    if(f==='network') state._netFiles=entries.filter(n=>n.endsWith('.net.xml'));
+    if(f==='network'){ state._netFiles=entries.filter(n=>n.endsWith('.net.xml')); state._netAddFiles=entries.filter(n=>n.endsWith('.add.xml')); }
     if(f==='traffic') state._rouFiles=entries.filter(n=>n.endsWith('.rou.xml'));
     if(f==='config'){ state._cfgFiles=entries.filter(n=>n.endsWith('.sumocfg')); state._cfgAddFiles=entries.filter(n=>n.endsWith('.add.xml')); }
     if(f==='background') state._bgFiles=entries.filter(n=>n.endsWith('.xml'));
@@ -996,7 +1065,408 @@ $('#btnSaveRou').addEventListener('click', async ()=>{
 });
 
 /* =============================================================
- *  TAB 3 — CONFIG & OUTPUT
+ *  TAB 3 — OPENBAAR VERVOER
+ *  Netwerk + haltes (.add.xml) inlezen, lijnen opbouwen als reeks haltes,
+ *  controleren (rijstrook laat het type toe, route tussen haltes) en
+ *  wegschrijven als <flow line period> met <stop busStop duration>.
+ * ============================================================= */
+let ptNet=null;   // {lanes:{id:{edge,pts,len,allow,disallow}}, edges:{id:{len,lanes:[],name}}, conns:[[from,fromLane,to,toLane]]}
+const PT_COLORS=['#d62728','#1f77b4','#2ca02c','#9467bd','#ff7f0e','#17becf','#8c564b','#e377c2'];
+
+function ptLaneAllows(l, vClass){
+  if(!l) return false;
+  if(l.allow) return l.allow.has('all') || l.allow.has(vClass);
+  return !(l.disallow && (l.disallow.has(vClass) || l.disallow.has('all')));
+}
+function parsePtNet(txt){
+  const doc=new DOMParser().parseFromString(txt,'text/xml');
+  if(doc.querySelector('parsererror')) throw new Error('geen geldig XML');
+  const lanes={}, edges={}, conns=[];
+  const set=v=> v ? new Set(v.trim().split(/\s+/)) : null;
+  $$('edge',doc).forEach(e=>{
+    if(e.getAttribute('function')) return;
+    const id=e.getAttribute('id'); const ls=[];
+    $$('lane',e).forEach(l=>{
+      const pts=(l.getAttribute('shape')||'').trim().split(/\s+/).map(p=>p.split(',').map(Number)).filter(p=>p.length>=2&&!isNaN(p[0]));
+      const lid=l.getAttribute('id');
+      lanes[lid]={edge:id, idx:num(l.getAttribute('index'),0), pts, len:num(l.getAttribute('length'),0),
+        allow:set(l.getAttribute('allow')), disallow:set(l.getAttribute('disallow'))};
+      ls.push(lid);
+    });
+    if(ls.length) edges[id]={len:lanes[ls[0]].len, lanes:ls, name:e.getAttribute('name')||''};
+  });
+  $$('connection',doc).forEach(c=>{
+    const f=c.getAttribute('from'), t=c.getAttribute('to');
+    if(!f||!t||f.startsWith(':')||t.startsWith(':')) return;
+    conns.push([f, f+'_'+c.getAttribute('fromLane'), t, t+'_'+c.getAttribute('toLane')]);
+  });
+  if(!Object.keys(edges).length) throw new Error('geen edges gevonden');
+  return {lanes, edges, conns};
+}
+function parsePtStops(txt){
+  const doc=new DOMParser().parseFromString(txt,'text/xml');
+  if(doc.querySelector('parsererror')) throw new Error('geen geldig XML');
+  return $$('busStop, trainStop',doc).map(b=>{
+    const lane=b.getAttribute('lane')||'';
+    const L=ptNet&&ptNet.lanes[lane] ? ptNet.lanes[lane].len : 0;
+    let sp=b.getAttribute('startPos'), ep=b.getAttribute('endPos');
+    sp=sp==null?0:num(sp,0); ep=ep==null?L:num(ep,L);
+    if(sp<0) sp+=L; if(ep<0) ep+=L;
+    return {id:b.getAttribute('id'), name:b.getAttribute('name')||'', lane, edge:lane.replace(/_\d+$/,''),
+            startPos:sp, endPos:ep, kind:b.tagName};
+  }).filter(s=>s.id && s.lane);
+}
+function ptStopById(id){ return state.pt.stops.find(s=>s.id===id); }
+function ptStopLabel(s){ return (s.name? s.name+' — ' : '')+s.id; }
+function ptStopXY(s){
+  const l=ptNet&&ptNet.lanes[s.lane]; if(!l||l.pts.length<2) return null;
+  // point at the middle of the stop, measured along the lane shape
+  let geo=0; for(let i=1;i<l.pts.length;i++) geo+=Math.hypot(l.pts[i][0]-l.pts[i-1][0], l.pts[i][1]-l.pts[i-1][1]);
+  let target=((s.startPos+s.endPos)/2)*(geo/(l.len||geo||1)), acc=0;
+  for(let i=1;i<l.pts.length;i++){
+    const a=l.pts[i-1], b=l.pts[i], d=Math.hypot(b[0]-a[0], b[1]-a[1]);
+    if(acc+d>=target){ const f=d?(target-acc)/d:0; return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f]; }
+    acc+=d;
+  }
+  return l.pts[l.pts.length-1];
+}
+// edge graph for one vehicle class: only connections whose lanes allow it
+const ptGraphCache={};
+function ptGraph(vClass){
+  if(ptGraphCache[vClass]) return ptGraphCache[vClass];
+  const g={};
+  ptNet.conns.forEach(([f,fl,t,tl])=>{
+    if(!ptLaneAllows(ptNet.lanes[fl],vClass) || !ptLaneAllows(ptNet.lanes[tl],vClass)) return;
+    (g[f]=g[f]||new Set()).add(t);
+  });
+  return ptGraphCache[vClass]=g;
+}
+function ptEdgeAllows(edge, vClass){ const e=ptNet&&ptNet.edges[edge]; return !!e && e.lanes.some(l=>ptLaneAllows(ptNet.lanes[l],vClass)); }
+// shortest path (by length) from the end of edge a to edge b; returns [a,...,b] or null
+function ptPath(a, b, vClass){
+  if(a===b) return [a];
+  const g=ptGraph(vClass), dist={[a]:0}, prev={}, done=new Set();
+  const open=[[0,a]];
+  while(open.length){
+    let bi=0; for(let i=1;i<open.length;i++) if(open[i][0]<open[bi][0]) bi=i;
+    const [d,u]=open.splice(bi,1)[0];
+    if(done.has(u)) continue; done.add(u);
+    if(u===b) break;
+    (g[u]||[]).forEach(v=>{ const nd=d+(ptNet.edges[v]?.len||1); if(dist[v]===undefined||nd<dist[v]){ dist[v]=nd; prev[v]=u; open.push([nd,v]); } });
+  }
+  if(dist[b]===undefined) return null;
+  const path=[b]; while(path[0]!==a) path.unshift(prev[path[0]]);
+  return path;
+}
+function ptVtype(id){ return state.pt.vtypes.find(v=>v.id===id) || state.pt.vtypes[0] || {id:'bus',vClass:'bus'}; }
+// check a line: stops known, lane allows the class, route between consecutive points
+function ptCheckLine(ln){
+  const msgs=[], route=[]; const vc=ptVtype(ln.vtype).vClass||'bus';
+  const stops=ln.stops.map(x=>ptStopById(x.stop));
+  stops.forEach((s,i)=>{ if(!s) msgs.push(`Halte ${i+1} (${ln.stops[i].stop}) staat niet in het haltebestand.`);
+    else if(ptNet && !ptLaneAllows(ptNet.lanes[s.lane],vc)) msgs.push(`Halte ${ptStopLabel(s)}: rijstrook ${s.lane} laat geen ${vc} toe.`); });
+  if(!ptNet || stops.some(s=>!s)) return {msgs, route, ok:!msgs.length};
+  const pts=[]; if(ln.fromEdge) pts.push({edge:ln.fromEdge,label:'begin-edge'});
+  stops.forEach(s=>pts.push({edge:s.edge,label:ptStopLabel(s),pos:s.endPos}));
+  if(ln.toEdge) pts.push({edge:ln.toEdge,label:'eind-edge'});
+  [ln.fromEdge,ln.toEdge].forEach((e,i)=>{ if(e && !ptNet.edges[e]) msgs.push(`${i?'Eind':'Begin'}-edge ${e} bestaat niet in het netwerk.`);
+    else if(e && !ptEdgeAllows(e,vc)) msgs.push(`${i?'Eind':'Begin'}-edge ${e} laat geen ${vc} toe.`); });
+  for(let i=0;i<pts.length;i++){
+    if(!i){ route.push(pts[0].edge); continue; }
+    const a=pts[i-1], b=pts[i];
+    if(a.edge===b.edge && a.pos!=null && b.pos!=null && b.pos<a.pos) msgs.push(`${b.label} ligt vóór ${a.label} op dezelfde edge: de bus zou moeten keren.`);
+    const p=ptPath(a.edge,b.edge,vc);
+    if(!p){ msgs.push(`Geen route voor ${vc} van ${a.label} naar ${b.label}.`); route.push(b.edge); continue; }
+    route.push(...p.slice(1));
+  }
+  return {msgs, route, ok:!msgs.length};
+}
+// SVG map: whole network grey, line route in its colour, all stops clickable
+function ptMapSVG(ln, check){
+  if(!netGeom) return '<div class="empty">Laad het netwerk om de kaart te zien.</div>';
+  let {minX,minY,maxX,maxY}=netGeom.bbox;
+  if(ln && state.pt._zoomLine){   // zoom to the line
+    const xs=[],ys=[]; (check?check.route:[]).forEach(e=>{ const g=edgeById(e); if(g) g.pts.forEach(p=>{xs.push(p[0]);ys.push(p[1]);}); });
+    ln.stops.forEach(x=>{ const s=ptStopById(x.stop), p=s&&ptStopXY(s); if(p){xs.push(p[0]);ys.push(p[1]);} });
+    if(xs.length){ const m=60; minX=Math.min(...xs)-m; maxX=Math.max(...xs)+m; minY=Math.min(...ys)-m; maxY=Math.max(...ys)+m; }
+  }
+  const W=560, pad=14, w=(maxX-minX)||1, hh=(maxY-minY)||1, k=Math.min((W-2*pad)/w, 520/hh);
+  const H=Math.max(240, hh*k+2*pad);
+  const sx=x=>pad+(x-minX)*k, sy=y=>H-pad-(y-minY)*k;
+  const poly=pts=>pts.map(p=>sx(p[0]).toFixed(1)+','+sy(p[1]).toFixed(1)).join(' ');
+  const col=ln?ln.color:'#1f6feb';
+  let svg=`<svg viewBox="0 0 ${W} ${H.toFixed(0)}" width="100%" style="background:#fbfcfd;border:1px solid var(--line);border-radius:8px;cursor:default"><g>`;
+  netGeom.edges.forEach(e=>{ svg+=`<polyline points="${poly(e.pts)}" fill="none" stroke="#cdd5dc" stroke-width="1"/>`; });
+  if(check) check.route.forEach(id=>{ const e=edgeById(id); if(e) svg+=`<polyline points="${poly(e.pts)}" fill="none" stroke="${col}" stroke-width="3.5" stroke-linecap="round" opacity=".85"><title>${esc(id)}</title></polyline>`; });
+  const inLine={}; if(ln) ln.stops.forEach((x,i)=>{ (inLine[x.stop]=inLine[x.stop]||[]).push(i+1); });
+  state.pt.stops.forEach(s=>{ const p=ptStopXY(s); if(!p) return;
+    const nrs=inLine[s.id], X=sx(p[0]).toFixed(1), Y=sy(p[1]).toFixed(1);
+    svg+=`<g class="ptstop" data-stop="${esc(s.id)}" style="cursor:pointer"><title>${esc(ptStopLabel(s))}${ln?' — klik om toe te voegen':''}</title>`+
+      `<circle cx="${X}" cy="${Y}" r="${nrs?7:4.5}" fill="${nrs?col:'#fff'}" stroke="${nrs?'#fff':'#5b6b7a'}" stroke-width="1.5"/>`+
+      (nrs?`<text x="${X}" y="${(+Y+3.5).toFixed(1)}" text-anchor="middle" style="font-size:9px;font-weight:700;fill:#fff">${nrs[0]}</text>`:'')+'</g>';
+  });
+  return svg+'</g></svg>';
+}
+function ptRgb(hex){ const m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex||''); return m? [1,2,3].map(i=>parseInt(m[i],16)).join(',') : '255,0,0'; }
+function fmtClock(s){ s=Math.round(num(s,0)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
+function ptDepartures(ln){ const p=num(ln.headway,0)*60; return p>0 ? Math.max(0,Math.ceil((num(ln.end,0)-num(ln.begin,0))/p)) : 0; }
+function ptCurLine(){ return state.pt.lines.find(l=>l.id===state.pt._cur) || state.pt.lines[0]; }
+function ptNewLine(base){
+  const n=state.pt.lines.length;
+  return Object.assign({id:uid(), line:String(n+1), dir:'heen', color:PT_COLORS[n%PT_COLORS.length], vtype:(state.pt.vtypes[0]||{}).id||'bus',
+    begin:0, end:3600, headway:15, fromEdge:'', toEdge:'', stops:[]}, base||{});
+}
+function ptFlowId(ln){ return ('L'+ln.line+(ln.dir?'_'+ln.dir:'')).replace(/[^A-Za-z0-9_.\-]/g,'_'); }
+
+/* ---- render ---- */
+function renderPT(){
+  const pt=state.pt;
+  const netOpts=(state._netFiles||[]), addOpts=[...(state._netAddFiles||[]).map(n=>'network/'+n), ...(state._cfgAddFiles||[]).map(n=>'config/'+n)];
+  $('#ptNetSel').innerHTML = netOpts.length? netOpts.map(n=>`<option ${'network/'+n===pt.netFile?'selected':''} value="network/${esc(n)}">${esc(n)}</option>`).join('') : '<option value="">— geen .net.xml in network/ —</option>';
+  $('#ptStopSel').innerHTML = addOpts.length? addOpts.map(n=>`<option ${n===pt.stopsFile?'selected':''} value="${esc(n)}">${esc(n)}</option>`).join('') : '<option value="">— geen .add.xml in network/ of config/ —</option>';
+  $('#ptNetStat').className='pill'+(ptNet?' ok':''); $('#ptNetStat').textContent= ptNet? '🗺️ '+(pt.netFile||'netwerk')+' · '+Object.keys(ptNet.edges).length+' edges' : (pt.netFile? 'netwerk opnieuw laden: '+pt.netFile : 'geen netwerk');
+  $('#ptStopStat').className='pill'+(pt.stops.length?' ok':''); $('#ptStopStat').textContent= pt.stops.length? '🚏 '+pt.stops.length+' haltes'+(pt.stopsFile?' · '+pt.stopsFile:'') : 'geen haltes';
+  $('#ptFilename').value=pt.filename||'ov.rou.xml';
+  renderPtVtypes(); renderPtLineSel(); renderPtLine();
+}
+function renderPtVtypes(){
+  const tb=$('#ptVtypeTable tbody'); tb.innerHTML='';
+  const cls=['bus','coach','tram','rail_urban','rail','taxi'];
+  state.pt.vtypes.forEach(v=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input value="${esc(v.id)}" data-f="id"></td>
+      <td><select data-f="vClass">${cls.map(c=>`<option ${c===v.vClass?'selected':''}>${c}</option>`).join('')}</select></td>
+      <td><input type="number" value="${v.length}" data-f="length" step="0.5"></td>
+      <td><input type="number" value="${v.accel}" data-f="accel" step="0.1"></td>
+      <td><input type="number" value="${v.decel}" data-f="decel" step="0.1"></td>
+      <td><input type="number" value="${v.maxSpeed}" data-f="maxSpeed" step="0.1" title="m/s (22,22 = 80 km/u)"></td>
+      <td><input type="number" value="${v.capacity||''}" data-f="capacity" step="1" title="personCapacity"></td>
+      <td><button class="btn danger sm">✕</button></td>`;
+    tr.querySelectorAll('input,select').forEach(inp=>inp.addEventListener('input',()=>{
+      const old=v.id; v[inp.dataset.f]= inp.type==='number'? num(inp.value,0) : inp.value;
+      if(inp.dataset.f==='id') state.pt.lines.forEach(l=>{ if(l.vtype===old) l.vtype=v.id; });
+      touch(); if(inp.dataset.f==='vClass') renderPtLine();
+    }));
+    tr.querySelector('button').addEventListener('click',()=>{ state.pt.vtypes=state.pt.vtypes.filter(x=>x!==v); touch(); renderPtVtypes(); renderPtLine(); });
+    tb.appendChild(tr);
+  });
+}
+function renderPtLineSel(){
+  const sel=$('#ptLineSel'), pt=state.pt;
+  if(!pt._cur && pt.lines[0]) pt._cur=pt.lines[0].id;
+  sel.innerHTML = pt.lines.length? pt.lines.map(l=>`<option value="${l.id}" ${l.id===pt._cur?'selected':''}>Lijn ${esc(l.line)}${l.dir?' · '+esc(l.dir):''} (${l.stops.length} haltes)</option>`).join('') : '<option value="">— geen lijnen —</option>';
+}
+function renderPtLine(){
+  const area=$('#ptLineArea'), ln=ptCurLine();
+  if(!ln){ area.innerHTML='<div class="empty"><div class="big">🚌</div>Nog geen lijn. Laad netwerk en haltes en klik “+ Lijn”.</div>'; return; }
+  const chk=ptCheckLine(ln);
+  const stopOpts=state.pt.stops.slice().sort((a,b)=>ptStopLabel(a).localeCompare(ptStopLabel(b))).map(s=>`<option value="${esc(s.id)}">${esc(ptStopLabel(s))}</option>`).join('');
+  const deps=ptDepartures(ln);
+  let h=`<div class="grid2"><div>
+    <div class="row">
+      <div class="field"><label>Lijn</label><input type="text" data-f="line" value="${esc(ln.line)}" style="width:80px"></div>
+      <div class="field"><label>Richting</label><input type="text" data-f="dir" value="${esc(ln.dir)}" style="width:110px" placeholder="heen / terug"></div>
+      <div class="field"><label>Kleur</label><input type="color" data-f="color" value="${esc(ln.color)}" style="width:52px;height:34px;padding:2px"></div>
+      <div class="field"><label>Voertuigtype</label><select data-f="vtype">${state.pt.vtypes.map(v=>`<option ${v.id===ln.vtype?'selected':''}>${esc(v.id)}</option>`).join('')}</select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Eerste vertrek (s) <span class="hint">${fmtClock(ln.begin)}</span></label><input type="number" data-f="begin" value="${ln.begin}" style="width:110px"></div>
+      <div class="field"><label>Einde dienst (s) <span class="hint">${fmtClock(ln.end)}</span></label><input type="number" data-f="end" value="${ln.end}" style="width:110px"></div>
+      <div class="field"><label>Om de … min</label><input type="number" data-f="headway" value="${ln.headway}" step="1" min="1" style="width:90px"></div>
+      <div class="field"><span class="pill">${deps} vertrek${deps===1?'':'ken'} · ${num(ln.headway,0)>0?(60/num(ln.headway,1)).toFixed(1).replace('.0',''):0} bus/u</span></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1"><label>Begin-edge <span class="hint">(optioneel; leeg = edge van de eerste halte)</span></label><input type="text" data-f="fromEdge" list="ptEdgeList" value="${esc(ln.fromEdge)}"></div>
+      <div class="field" style="flex:1"><label>Eind-edge <span class="hint">(optioneel; leeg = edge van de laatste halte)</span></label><input type="text" data-f="toEdge" list="ptEdgeList" value="${esc(ln.toEdge)}"></div>
+    </div>
+    <h3>Haltes in volgorde</h3>
+    <table><thead><tr><th style="width:34px">#</th><th>Halte</th><th style="width:90px">halteren (s)</th><th style="width:96px"></th></tr></thead><tbody>`;
+  ln.stops.forEach((x,i)=>{ const s=ptStopById(x.stop);
+    h+=`<tr><td style="text-align:center;font-weight:700;color:${esc(ln.color)}">${i+1}</td>
+      <td title="${esc(s?s.lane:'onbekend')}">${s?esc(ptStopLabel(s)):'<span style="color:var(--err)">'+esc(x.stop)+' (onbekend)</span>'}</td>
+      <td><input type="number" data-dur="${i}" value="${x.dur}" min="0"></td>
+      <td class="inline-actions"><button class="btn ghost sm" data-mv="${i}:-1" title="omhoog">↑</button><button class="btn ghost sm" data-mv="${i}:1" title="omlaag">↓</button><button class="btn danger sm" data-del="${i}">✕</button></td></tr>`; });
+  if(!ln.stops.length) h+='<tr><td colspan="4" class="muted" style="text-align:center;color:var(--muted)">Nog geen haltes: kies hieronder of klik een halte op de kaart.</td></tr>';
+  h+=`</tbody></table>
+    <div class="toolbar" style="margin-top:8px">
+      <select id="ptAddStop" style="flex:1;min-width:180px">${stopOpts||'<option value="">— laad eerst haltes —</option>'}</select>
+      <button class="btn sm" id="btnPtAddStop">+ Halte</button>
+      <span style="width:1px;height:22px;background:var(--line)"></span>
+      <label style="font-size:12px;color:var(--muted)">standaard</label><input type="number" id="ptDwell" value="${state.pt.dwell}" style="width:64px"><span style="font-size:12px;color:var(--muted)">s</span>
+      <button class="btn ghost sm" id="btnPtDwellAll" title="Zet deze halteertijd op alle haltes van de lijn">op alle</button>
+    </div>`;
+  if(chk.msgs.length) h+=`<div class="banner warn" style="margin-top:10px"><span>⚠️</span><div>${chk.msgs.map(esc).join('<br>')}</div></div>`;
+  else if(ln.stops.length>1) h+=`<div class="banner info" style="margin-top:10px;background:#e4f4ea;color:var(--ok);border-color:#c5e6d1"><span>✓</span><div>Route gevonden langs alle ${ln.stops.length} haltes (${chk.route.length} edges). SUMO rijdt ze in deze volgorde af.</div></div>`;
+  h+=`</div><div>
+    <div class="toolbar" style="margin-bottom:6px"><span class="sub" style="margin:0">Klik een halte om ze achteraan de lijn toe te voegen.</span><span style="flex:1"></span>
+      <label class="checkline" style="padding:0;font-size:12px"><input type="checkbox" id="ptZoom" ${state.pt._zoomLine?'checked':''}> inzoomen op lijn</label></div>
+    <div id="ptMap">${ptMapSVG(ln, chk)}</div>
+  </div></div>`;
+  area.innerHTML=h;
+  let dl=$('#ptEdgeList'); if(!dl){ dl=document.createElement('datalist'); dl.id='ptEdgeList'; document.body.appendChild(dl); }
+  dl.innerHTML=ptNet? Object.keys(ptNet.edges).sort().map(e=>`<option value="${esc(e)}">`).join('') : '';
+  // events
+  area.querySelectorAll('[data-f]').forEach(inp=>inp.addEventListener('change',()=>{
+    ln[inp.dataset.f]= inp.type==='number'? num(inp.value,0) : inp.value.trim(); touch(); renderPtLineSel(); renderPtLine(); }));
+  area.querySelectorAll('[data-dur]').forEach(inp=>inp.addEventListener('change',()=>{ ln.stops[+inp.dataset.dur].dur=num(inp.value,0); touch(); }));
+  area.querySelectorAll('[data-mv]').forEach(b=>b.addEventListener('click',()=>{ const [i,d]=b.dataset.mv.split(':').map(Number), j=i+d;
+    if(j<0||j>=ln.stops.length) return; [ln.stops[i],ln.stops[j]]=[ln.stops[j],ln.stops[i]]; touch(); renderPtLine(); }));
+  area.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ ln.stops.splice(+b.dataset.del,1); touch(); renderPtLineSel(); renderPtLine(); }));
+  const add=id=>{ if(!id) return; ln.stops.push({stop:id, dur:num($('#ptDwell').value,state.pt.dwell)}); touch(); renderPtLineSel(); renderPtLine(); };
+  $('#btnPtAddStop').addEventListener('click',()=>add($('#ptAddStop').value));
+  $('#ptDwell').addEventListener('change',e=>{ state.pt.dwell=num(e.target.value,20); touch(); });
+  $('#btnPtDwellAll').addEventListener('click',()=>{ const d=num($('#ptDwell').value,20); ln.stops.forEach(x=>x.dur=d); touch(); renderPtLine(); });
+  $('#ptZoom').addEventListener('change',e=>{ state.pt._zoomLine=e.target.checked; renderPtLine(); });
+  area.querySelectorAll('#ptMap .ptstop').forEach(g=>g.addEventListener('click',()=>add(g.dataset.stop)));
+}
+
+/* ---- loading ---- */
+// het netwerk zelf zit niet in project.json: bij een geopende projectmap opnieuw inlezen
+async function ptAutoLoad(){
+  if(ptNet || !dirHandle || !state.pt.netFile) return;
+  try{ await ptLoadNetText(await readFile(state.pt.netFile), state.pt.netFile); }catch(e){}
+}
+async function ptLoadNetText(txt, name){
+  try{
+    ptNet=parsePtNet(txt); for(const k in ptGraphCache) delete ptGraphCache[k];
+    const g=parseNetGeom(txt); if(g){ netGeom=g; netGeomFile=name.replace(/^network\//,''); updateNetBadge(); }
+    state.pt.netFile=name;
+    touch(); renderPT(); toast('Netwerk geladen: '+Object.keys(ptNet.edges).length+' edges.');
+  }catch(e){ toast('Kon netwerk niet lezen: '+e.message,true); }
+}
+function ptLoadStopsText(txt, name){
+  try{
+    const stops=parsePtStops(txt);
+    if(!stops.length){ toast('Geen <busStop> gevonden in '+name+'.',true); return; }
+    state.pt.stops=stops; state.pt.stopsFile=name;
+    const off=ptNet? stops.filter(s=>!ptNet.lanes[s.lane]).length : 0;
+    touch(); renderPT();
+    toast(stops.length+' haltes geladen'+(off?` — ⚠️ ${off} liggen op een rijstrook die niet in het netwerk zit`:'')+'.', !!off);
+  }catch(e){ toast('Kon haltes niet lezen: '+e.message,true); }
+}
+$('#btnPtNet').addEventListener('click', async ()=>{
+  const n=$('#ptNetSel').value; if(!dirHandle||!n){ $('#ptNetFile').click(); return; }
+  try{ await ptLoadNetText(await readFile(n), n); }catch(e){ toast('Kon '+n+' niet lezen: '+e.message,true); }
+});
+$('#btnPtNetPick').addEventListener('click',()=>$('#ptNetFile').click());
+$('#ptNetFile').addEventListener('change', async e=>{ const f=e.target.files[0]; if(f) await ptLoadNetText(await f.text(), f.name); e.target.value=''; });
+$('#btnPtStops').addEventListener('click', async ()=>{
+  const n=$('#ptStopSel').value; if(!dirHandle||!n){ $('#ptStopFile').click(); return; }
+  try{ ptLoadStopsText(await readFile(n), n); }catch(e){ toast('Kon '+n+' niet lezen: '+e.message,true); }
+});
+$('#btnPtStopsPick').addEventListener('click',()=>$('#ptStopFile').click());
+$('#ptStopFile').addEventListener('change', async e=>{ const f=e.target.files[0]; if(f) ptLoadStopsText(await f.text(), f.name); e.target.value=''; });
+
+// ptlines.xml (netconvert --ptline-output): one line per <ptLine> with its stops
+$('#btnPtLinesImport').addEventListener('click',()=>$('#ptLinesFile').click());
+$('#ptLinesFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return; e.target.value='';
+  try{
+    const doc=new DOMParser().parseFromString(await f.text(),'text/xml');
+    const known=new Set(state.pt.stops.map(s=>s.id)); let n=0, miss=0;
+    $$('ptLine',doc).forEach(pl=>{
+      const type=pl.getAttribute('type')||'bus'; if(!/bus|tram|coach/.test(type)) return;
+      const ids=$$('busStop',pl).map(b=>b.getAttribute('id')).filter(Boolean);
+      const stops=ids.filter(id=>known.has(id)).map(id=>({stop:id,dur:state.pt.dwell}));
+      miss+=ids.length-stops.length; if(stops.length<2) return;
+      const period=num(pl.getAttribute('period'),900);
+      state.pt.lines.push(ptNewLine({line:pl.getAttribute('line')||pl.getAttribute('id'), dir:(pl.getAttribute('name')||'').slice(0,40),
+        headway:Math.max(1,Math.round(period/60)), stops}));
+      n++;
+    });
+    if(state.pt.lines.length && !ptCurLine()) state.pt._cur=state.pt.lines[0].id;
+    touch(); renderPT();
+    toast(n? `${n} ${n===1?'lijn':'lijnen'} geïmporteerd${miss?` · ${miss} ${miss===1?'halte':'haltes'} niet in het haltebestand`:''}.` : 'Geen bruikbare bus- of tramlijnen gevonden (laad eerst de haltes).', !n);
+  }catch(err){ toast('Kon ptlines niet lezen: '+err.message,true); }
+});
+
+/* ---- line management ---- */
+$('#ptLineSel').addEventListener('change',e=>{ state.pt._cur=e.target.value; renderPtLine(); });
+$('#btnPtAddLine').addEventListener('click',()=>{ const ln=ptNewLine(); state.pt.lines.push(ln); state.pt._cur=ln.id; touch(); renderPtLineSel(); renderPtLine(); });
+$('#btnPtDupLine').addEventListener('click',()=>{ const c=ptCurLine(); if(!c) return;
+  const ln=ptNewLine(JSON.parse(JSON.stringify(Object.assign({},c,{id:undefined}))) ); ln.id=uid(); ln.dir=(c.dir||'')+'_kopie';
+  state.pt.lines.push(ln); state.pt._cur=ln.id; touch(); renderPtLineSel(); renderPtLine(); });
+$('#btnPtDelLine').addEventListener('click',()=>{ const c=ptCurLine(); if(!c) return;
+  if(!confirm('Lijn '+c.line+(c.dir?' ('+c.dir+')':'')+' verwijderen?')) return;
+  state.pt.lines=state.pt.lines.filter(l=>l!==c); state.pt._cur=state.pt.lines[0]?.id; touch(); renderPtLineSel(); renderPtLine(); });
+// reverse direction: stops in reverse order, each replaced by the stop with the same name on another edge
+$('#btnPtReverse').addEventListener('click',()=>{
+  const c=ptCurLine(); if(!c||!c.stops.length){ toast('Kies eerst een lijn met haltes.',true); return; }
+  const norm=s=>(s||'').trim().toLowerCase();
+  let missing=[];
+  const stops=c.stops.slice().reverse().map(x=>{
+    const s=ptStopById(x.stop); if(!s) return null;
+    const cands=state.pt.stops.filter(o=>o.id!==s.id && o.edge!==s.edge && norm(o.name) && norm(o.name)===norm(s.name));
+    if(!cands.length){ missing.push(ptStopLabel(s)); return null; }
+    const p=ptStopXY(s); cands.sort((a,b)=>{ const pa=ptStopXY(a), pb=ptStopXY(b); return (p&&pa&&pb)? Math.hypot(pa[0]-p[0],pa[1]-p[1])-Math.hypot(pb[0]-p[0],pb[1]-p[1]) : 0; });
+    return {stop:cands[0].id, dur:x.dur};
+  }).filter(Boolean);
+  const opp=e=>{ if(!e||!ptNet) return ''; const o=e.startsWith('-')? e.slice(1) : '-'+e; return ptNet.edges[o]? o : ''; };
+  const ln=ptNewLine({line:c.line, dir:(c.dir==='heen'?'terug':c.dir==='terug'?'heen':(c.dir||'')+'_terug'), color:c.color, vtype:c.vtype,
+    begin:c.begin, end:c.end, headway:c.headway, fromEdge:opp(c.toEdge), toEdge:opp(c.fromEdge), stops});
+  state.pt.lines.push(ln); state.pt._cur=ln.id; touch(); renderPtLineSel(); renderPtLine();
+  toast(missing.length? `Retourrit gemaakt — geen overkant gevonden voor: ${missing.join(', ')}. Vul die zelf aan.` : `Retourrit gemaakt met ${stops.length} haltes.`, !!missing.length);
+});
+$('#btnPtAddVtype').addEventListener('click',()=>{ state.pt.vtypes.push({id:'ov'+(state.pt.vtypes.length+1),vClass:'bus',length:12,accel:1.2,decel:4,maxSpeed:22.22,capacity:85}); touch(); renderPtVtypes(); });
+
+/* ---- generate .rou.xml ---- */
+let lastPtRou=null;
+function buildPtRou(){
+  const pt=state.pt, warn=[]; let nFlows=0, nVeh=0;
+  const used=new Set(pt.lines.filter(l=>l.stops.length).map(l=>l.vtype));
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml+='<!-- openbaar vervoer — gegenereerd door SUMO Simulation Manager op '+new Date().toISOString().slice(0,16).replace('T',' ')+
+       (pt.stopsFile?' · haltes: '+esc(pt.stopsFile):'')+' -->\n';
+  xml+='<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">\n';
+  pt.vtypes.filter(v=>used.has(v.id)).forEach(v=>{
+    const shape = v.vClass==='tram'? 'rail/railcar' : v.vClass==='bus'||v.vClass==='coach' ? (num(v.length,12)>=15?'bus/flexible':'bus') : '';
+    xml+=`    <vType id="${esc(v.id)}" vClass="${esc(v.vClass)}" length="${v.length}" accel="${v.accel}" decel="${v.decel}" maxSpeed="${v.maxSpeed}"`+
+         (v.capacity?` personCapacity="${v.capacity}"`:'')+(shape?` guiShape="${shape}"`:'')+'/>\n';
+  });
+  const ids=new Set();
+  pt.lines.forEach(ln=>{
+    const stops=ln.stops.map(x=>({x, s:ptStopById(x.stop)})).filter(o=>o.s);
+    if(stops.length<1){ warn.push(`Lijn ${ln.line}${ln.dir?' '+ln.dir:''}: geen haltes, overgeslagen.`); return; }
+    const period=num(ln.headway,0)*60;
+    if(period<=0){ warn.push(`Lijn ${ln.line}: frequentie ontbreekt, overgeslagen.`); return; }
+    const chk=ptNet? ptCheckLine(ln) : {msgs:[]}; chk.msgs.forEach(m=>warn.push(`Lijn ${ln.line}${ln.dir?' '+ln.dir:''}: ${m}`));
+    let id=ptFlowId(ln), k=2; while(ids.has(id)) id=ptFlowId(ln)+'_'+(k++); ids.add(id);
+    const from=ln.fromEdge||stops[0].s.edge, to=ln.toEdge||stops[stops.length-1].s.edge;
+    // via = halte-edges in volgorde, zonder opeenvolgende dubbels en zonder begin/eind-edge zelf
+    const via=[]; stops.forEach(o=>{ if(via[via.length-1]!==o.s.edge) via.push(o.s.edge); });
+    while(via.length && via[0]===from) via.shift();
+    while(via.length && via[via.length-1]===to) via.pop();
+    xml+=`\n    <!-- lijn ${esc(ln.line)}${ln.dir?' · '+esc(ln.dir):''}: ${stops.length} haltes, om de ${num(ln.headway,0)} min van ${fmtClock(ln.begin)} tot ${fmtClock(ln.end)} -->\n`;
+    xml+=`    <flow id="${esc(id)}" type="${esc(ln.vtype)}" line="${esc(ln.line)}" begin="${num(ln.begin,0)}" end="${num(ln.end,0)}" period="${period}"`+
+         ` from="${esc(from)}" to="${esc(to)}"`+(via.length?` via="${esc(via.join(' '))}"`:'')+` departLane="best" color="${ptRgb(ln.color)}">\n`;
+    stops.forEach(o=>{ xml+=`        <stop busStop="${esc(o.s.id)}" duration="${num(o.x.dur,0)}"/>`+(o.s.name?` <!-- ${esc(o.s.name)} -->`:'')+'\n'; });
+    xml+='    </flow>\n';
+    nFlows++; nVeh+=ptDepartures(ln);
+  });
+  xml+='</routes>\n';
+  return {xml, nFlows, nVeh, warn};
+}
+$('#ptFilename').addEventListener('change',e=>{ state.pt.filename=e.target.value.trim()||'ov.rou.xml'; touch(); });
+$('#btnPtGen').addEventListener('click',()=>{
+  if(!state.pt.lines.length){ toast('Nog geen lijnen.',true); return; }
+  const r=buildPtRou(); lastPtRou=r.xml;
+  $('#ptPreview').style.display='block';
+  $('#ptPreview').textContent=(r.warn.length? '<!-- ⚠️ '+r.warn.join('\n     ⚠️ ')+' -->\n' : '')+r.xml;
+  $('#btnPtSave').disabled=false; $('#btnPtDownload').disabled=false;
+  $('#ptGenStat').className='pill'+(r.warn.length?' warn':' ok');
+  $('#ptGenStat').textContent=`${r.nFlows} ${r.nFlows===1?'lijn':'lijnen'} · ${r.nVeh} vertrekken`+(r.warn.length?` · ⚠️ ${r.warn.length} opmerkingen`:'');
+});
+$('#btnPtDownload').addEventListener('click',()=>{ if(lastPtRou) download($('#ptFilename').value||'ov.rou.xml', lastPtRou, 'application/xml'); });
+$('#btnPtSave').addEventListener('click', async ()=>{
+  if(!lastPtRou) return;
+  const name=$('#ptFilename').value||'ov.rou.xml';
+  const ok=await writeFile('traffic/'+name, lastPtRou);
+  if(ok){ toast('Opgeslagen: traffic/'+name+' — kies het in tab 4 samen met de haltes als additional.'); scanFolders(); }
+  else { download(name, lastPtRou, 'application/xml'); toast('Geen schrijftoegang — gedownload i.p.v. opgeslagen.'); }
+});
+
+/* =============================================================
+ *  TAB 4 — CONFIG & OUTPUT
  * ============================================================= */
 // Fill a <select> from [{v,l}] options, preserving current selection(s).
 function fillSelect(sel, opts, multi){
@@ -1014,6 +1484,7 @@ function populateCfgSelects(){
   fillSelect($('#cfgNet'),   (state._netFiles||[]).map(n=>({v:'../network/'+n,l:n})), false);
   fillSelect($('#cfgRoutes'),(state._rouFiles||[]).map(n=>({v:'../traffic/'+n,l:n})), true);
   fillSelect($('#cfgAdd'), [
+    ...(state._netAddFiles||[]).map(n=>({v:'../network/'+n,l:'network/'+n})),
     ...(state._bgFiles||[]).filter(n=>!isGuiSettings(n)).map(n=>({v:'../background/'+n,l:'background/'+n})),
     ...(state._vriFiles||[]).map(n=>({v:'../VRI/'+n,l:'VRI/'+n})),
     ...(state._cfgAddFiles||[]).filter(n=>!isGuiSettings(n)).map(n=>({v:n,l:'config/'+n})),
@@ -1209,7 +1680,7 @@ function renderCfgList(){
 }
 
 /* =============================================================
- *  TAB 4 — RUN SCRIPT GENERATION
+ *  TAB 5 — RUN SCRIPT GENERATION
  * ============================================================= */
 function parseList(str){
   // supports "1,2,3", "1-5", "0.8-1.2:0.05"
@@ -1228,7 +1699,7 @@ function parseList(str){
 function renderRunTab(){
   const sel=$('#runConfigs');
   sel.innerHTML=state.configs.map(c=>`<option value="${c.filename}">${esc(c.filename)}</option>`).join('');
-  if(!state.configs.length) sel.innerHTML='<option disabled>— maak eerst configs in tab 3 —</option>';
+  if(!state.configs.length) sel.innerHTML='<option disabled>— maak eerst configs in tab 4 —</option>';
   const ms=$('#mediaConfig'); if(ms){ ms.innerHTML=state.configs.map(c=>`<option value="${c.filename}">${esc(c.filename)}</option>`).join('')||'<option disabled>— geen configs —</option>'; }
 }
 let lastBat=null, lastSh=null;
@@ -1240,7 +1711,7 @@ $('#btnGenRun').addEventListener('click',()=>{
   const bin=$('#runBinary').value;
   const cfgs=Array.from($('#runConfigs').selectedOptions).map(o=>o.value).filter(v=>v);
   const useCfgs = cfgs.length? cfgs : state.configs.map(c=>c.filename);
-  if(!useCfgs.length){ toast('Geen configs beschikbaar. Maak er in tab 3.',true); return; }
+  if(!useCfgs.length){ toast('Geen configs beschikbaar. Maak er in tab 4.',true); return; }
   const seeds=parseList($('#runSeeds').value); if(!seeds.length) seeds.push(1);
   const scales=parseList($('#runScales').value); if(!scales.length) scales.push(1.0);
   const tail=num($('#runTail').value,0);
@@ -1355,7 +1826,7 @@ $('#btnGenMedia').addEventListener('click', async ()=>{
     }catch(e){}
   }
   // viewsettings.xml — scheme + delay + viewport + decals. NB: reference this via <gui-settings-file>
-  // in the .sumocfg (tab 3), NOT as an additional-file, or none of it applies.
+  // in the .sumocfg (tab 4), NOT as an additional-file, or none of it applies.
   let vs='<?xml version="1.0" encoding="UTF-8"?>\n<viewsettings>\n';
   vs+='    <scheme name="real world"/>\n';
   vs+=`    <delay value="${delay}"/>\n`;
@@ -1444,7 +1915,7 @@ $('#btnSaveMedia').addEventListener('click', async ()=>{
 });
 
 /* =============================================================
- *  TAB 5 — REPORT
+ *  TAB 6 — REPORT
  * ============================================================= */
 let loaded=[];   // {name, kind, scale, seed, metrics}
 $('#btnUploadOutputs').addEventListener('click',()=>$('#outputFiles').click());
