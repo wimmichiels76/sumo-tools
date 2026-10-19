@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUMO E1 Detector Linker</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --panel:#ffffff; --ink:#1c2733; --muted:#6b7885;
+    --line:#dbe2e8; --accent:#1f6feb; --accent-d:#1857bd;
+    --ok:#1a7f43; --warn:#b26a00; --err:#c0392b;
+    --chip:#eef3f8; --code:#0f2233; --codeink:#d6e6f5;
+    --radius:8px; --shadow:0 1px 3px rgba(20,40,60,.08),0 1px 2px rgba(20,40,60,.06);
+    --g:#1f9d55; --gm:#8fd19e; --y:#e3b000; --r:#d64545;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;
+    display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:20;box-shadow:var(--shadow)}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#38bdf8);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px}
+  header .spacer{flex:1}
+  header a{color:var(--muted);font-size:12.5px;text-decoration:none}
+  header a:hover{color:var(--accent)}
+  main{padding:18px;max-width:1400px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+  @media (max-width:1060px){ main{grid-template-columns:minmax(0,1fr)} .sticky{position:static} }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .card h2{margin:0 0 4px;font-size:15px}
+  .card .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .row .field{flex:1;min-width:150px}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+  .field label{font-size:12px;font-weight:600;color:var(--muted)}
+  .field .hint{font-size:11px;color:var(--muted);font-weight:400}
+  input[type=text],input[type=number],select{padding:6px 8px;border:1px solid var(--line);
+    border-radius:6px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,111,235,.12)}
+  .drop{border:1.5px dashed var(--line);border-radius:8px;padding:12px;text-align:center;color:var(--muted);font-size:12.5px;cursor:pointer;background:#fafbfc}
+  .drop:hover,.drop.over{border-color:var(--accent);color:var(--accent);background:#f2f7ff}
+  .drop b{color:var(--ink)}
+  .files{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:640px){ .files{grid-template-columns:1fr} }
+  .status{font-size:12px;margin-top:6px;min-height:16px}
+  .status.ok{color:var(--ok)} .status.warn{color:var(--warn)} .status.err{color:var(--err)}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:650;border-bottom:1.5px solid var(--line);padding:6px 6px}
+  td{border-bottom:1px solid var(--line);padding:5px 6px;vertical-align:middle}
+  tr.sel td{background:#f2f7ff}
+  td.mono,.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  td input[type=number]{width:72px} td input[type=text]{min-width:120px}
+  td select{width:auto}
+  .dir{display:inline-block;background:var(--chip);border-radius:4px;padding:0 5px;margin:1px 2px 1px 0;font-size:11.5px}
+  .w{color:var(--warn);font-size:11.5px}
+  .e{color:var(--err);font-size:11.5px}
+  .muted{color:var(--muted)}
+  .state{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;letter-spacing:1px}
+  .state .G{color:var(--g);font-weight:700} .state .g{color:var(--gm);font-weight:700}
+  .state .y,.state .Y{color:var(--y);font-weight:700} .state .r,.state .R{color:var(--r)}
+  .state .o,.state .O,.state .s,.state .u{color:var(--muted)}
+  .opt{display:grid;grid-template-columns:22px 150px 1fr;gap:2px 8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+  .opt:first-of-type{border-top:none}
+  .opt input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
+  .opt .name{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;font-weight:600}
+  .opt .help{grid-column:2 / span 2;font-size:11.5px;color:var(--muted)}
+  .opt input[type=text],.opt input[type=number]{width:110px}
+  .sticky{position:sticky;top:64px}
+  pre.code{background:var(--code);color:var(--codeink);border-radius:6px;padding:12px 14px;font-family:ui-monospace,Consolas,monospace;
+    font-size:11.5px;line-height:1.5;overflow:auto;max-height:46vh;margin:0;white-space:pre}
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px;flex-wrap:wrap}
+  .tabs button{border:none;background:none;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2.5px solid transparent;font-weight:550}
+  .tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+  button.btn{background:var(--accent);color:#fff;border:none;padding:7px 13px;border-radius:6px;font-size:13px;
+    font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  button.btn:hover{background:var(--accent-d)}
+  button.btn.ghost{background:var(--chip);color:var(--ink)}
+  button.btn.ghost:hover{background:#e2e9f0}
+  button.btn.small{padding:4px 9px;font-size:12px}
+  .steps{margin:0;padding-left:20px;font-size:12.5px;color:var(--muted)}
+  .steps li{margin:3px 0}
+  .sub code,.steps code,.help code{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;background:var(--chip);padding:1px 4px;border-radius:3px;color:var(--ink)}
+  .issues{margin:0;padding-left:18px;font-size:12.5px}
+  .issues li{margin:2px 0}
+  .issues li.err{color:var(--err)} .issues li.warn{color:var(--warn)} .issues li.ok{color:var(--ok)}
+  #map{width:100%;height:420px;border:1px solid var(--line);border-radius:6px;background:#fbfcfd;display:block}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:14px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+  .hidden{display:none}
+  .scroll{max-height:420px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">E1</div>
+  <h1>SUMO E1 Detector Linker</h1>
+  <div class="spacer"></div>
+  <a href="handleiding/SUMO-E1-Detector-Linker.html">handleiding</a>
+  <a href="index.html">← alle tools</a>
+</header>
+
+<main>
+  <div>
+    <div class="card">
+      <h2>1 · Bestanden</h2>
+      <p class="sub">Het netwerk is nodig. Een additional met een bestaande regeling (<code>tlLogic</code>) en/of lussen (<code>inductionLoop</code>) is optioneel: die worden ingelezen en gekoppeld. Alles blijft in je browser.</p>
+      <div class="files">
+        <div>
+          <div class="drop" id="dropNet"><b>Netwerk (.net.xml)</b><br>klik of sleep hierheen</div>
+          <input type="file" id="fNet" accept=".xml" class="hidden">
+          <div class="status" id="stNet"></div>
+        </div>
+        <div>
+          <div class="drop" id="dropAdd"><b>Additional (.add.xml)</b> · optioneel<br>regeling en/of lussen — meerdere bestanden kan</div>
+          <input type="file" id="fAdd" accept=".xml" multiple class="hidden">
+          <div class="status" id="stAdd"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="cardTls">
+      <h2>2 · Verkeerslicht en regeling</h2>
+      <div class="row">
+        <div class="field"><label>Verkeerslicht (tlLogic-id)</label><select id="tls"></select></div>
+        <div class="field"><label>Regeling als vertrekpunt</label><select id="prog"></select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>programID van het resultaat <span class="hint">· SUMO gebruikt het laatst geladen programma</span></label><input type="text" id="progId" value="actuated"></div>
+        <div class="field"><label>offset (s)</label><input type="number" id="offset" value="0"></div>
+      </div>
+      <div class="status" id="stTls"></div>
+    </div>
+
+    <div class="card">
+      <h2>3 · Detectoren per rijstrook</h2>
+      <p class="sub">Elke gestuurde rijstrook krijgt een lus. <b>Automatisch</b>: SUMO legt ze zelf, op ± snelheid × <code>detector-gap</code> voor de stopstreep. <b>Eigen</b>: jij kiest de afstand tot de stopstreep; is de rijstrook te kort, dan komt de lus op de rijstrook ervoor.</p>
+      <div class="row">
+        <div class="field" style="max-width:160px"><label>Afstand tot stopstreep (m)</label><input type="number" id="bulkDist" value="40" step="1" min="0"></div>
+        <div class="field" style="max-width:160px"><label>Prefix van de id</label><input type="text" id="prefix" value="E1_"></div>
+        <div class="field" style="flex:2"><div class="actions" style="margin:0">
+          <button class="btn small" id="allOwn">Alle rijstroken: eigen lus</button>
+          <button class="btn small ghost" id="allAuto">Alle rijstroken: automatisch</button>
+        </div></div>
+      </div>
+      <div class="scroll"><table id="laneTable"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>4 · Fasen</h2>
+      <p class="sub">Een voertuigafhankelijke fase heeft een <code>minDur</code> en <code>maxDur</code>; gele en rode fasen blijven vast (geen min/max). Kolom <b>lussen</b>: de detectoren van de rijstroken die in die fase groen hebben.</p>
+      <div class="row">
+        <div class="field" style="max-width:130px"><label>minDur groen (s)</label><input type="number" id="convMin" value="5" min="0"></div>
+        <div class="field" style="max-width:150px"><label>maxDur = duur ×</label><input type="number" id="convFac" value="1.5" step="0.1" min="1"></div>
+        <div class="field" style="flex:2"><div class="actions" style="margin:0"><button class="btn small" id="convert">Groenfasen voertuigafhankelijk maken</button></div></div>
+      </div>
+      <div class="scroll"><table id="phaseTable"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>5 · Parameters van de regeling</h2>
+      <p class="sub">Aangevinkt = komt als <code>&lt;param&gt;</code> in de <code>tlLogic</code>. Niet aangevinkt = de standaardwaarde van SUMO.</p>
+      <div id="params"></div>
+    </div>
+  </div>
+
+  <div class="sticky">
+    <div class="card">
+      <h2>Kaart</h2>
+      <svg id="map"></svg>
+      <div class="legend">
+        <span><i style="background:#9aa7b4"></i>rijstrook</span>
+        <span><i style="background:#1c2733"></i>stopstreep</span>
+        <span><i style="background:#f0b400"></i>eigen lus</span>
+        <span><i style="background:#ffffff;border:1.5px dashed #6b7885"></i>automatisch (schatting)</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Controle</h2>
+      <ul class="issues" id="issues"></ul>
+    </div>
+    <div class="card">
+      <div class="tabs">
+        <button class="active" data-view="both">Eén bestand</button>
+        <button data-view="det">detectoren.add.xml</button>
+        <button data-view="tls">regeling.add.xml</button>
+      </div>
+      <p class="sub" id="viewHelp"></p>
+      <pre class="code" id="preview"></pre>
+      <div class="actions">
+        <button class="btn" id="dl">⬇ Download</button>
+        <button class="btn ghost" id="copy">Kopieer</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Gebruik</h2>
+      <ol class="steps">
+        <li>Zet het bestand (of beide) in de map van je regelingen, bv. <code>VRI/</code>.</li>
+        <li>Laad ze in de <code>.sumocfg</code>, <b>lussen vóór de regeling</b>:<br><code>&lt;additional-files value="../VRI/detectoren.add.xml,../VRI/regeling.add.xml"/&gt;</code></li>
+        <li>Komt de regeling al uit het net, dan neemt SUMO het programma uit de additional (laatst geladen) automatisch over.</li>
+        <li>Controle in sumo-gui: zet <code>show-detectors</code> aan en kijk of de lussen op de juiste plaats liggen.</li>
+      </ol>
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   SUMO E1 Detector Linker — eigen E1-lussen koppelen aan een
+   actuated tlLogic via <param key="<lane>" value="<detector>"/>.
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const num = (v, d) => { const x = parseFloat(v); return isFinite(x) ? x : d; };
+const fmt = (x, n = 2) => (Math.round(x * 10 ** n) / 10 ** n).toString();
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2200); }
+
+let NET = null;          // {lanes, edges, tls, conns}
+let ADD = {tls: [], loops: []};
+let S = {tlsId:null, phases:[], rows:[], selLane:null};
+
+const PARAMS = [
+  {key:"max-gap", def:"3.0", help:"Maximaal hiaat (s) tussen voertuigen op de lus: langer = groen beëindigen (gap-out)."},
+  {key:"detector-gap", def:"2.0", help:"Alleen voor automatische lussen: afstand tot de stopstreep, uitgedrukt in seconden rijden aan de toegelaten snelheid."},
+  {key:"passing-time", def:"1.9", help:"Tijd (s) die een voertuig nodig heeft om van de lus tot de stopstreep te rijden; bepaalt mee de verlenging."},
+  {key:"show-detectors", def:"true", help:"Lussen tonen in sumo-gui (handig om de ligging te controleren)."},
+  {key:"jam-threshold", def:"-1", help:"Een lus die langer dan dit (s) bezet is, telt als file en verlengt niet meer (−1 = uit)."},
+  {key:"file", def:"NUL", help:"Uitvoerbestand van de automatische lussen (NUL = geen uitvoer op Windows)."},
+  {key:"freq", def:"300", help:"Aggregatie-interval (s) van die uitvoer."},
+];
+let PARAMSTATE = {"max-gap":{on:false,val:"3.0"}, "detector-gap":{on:false,val:"2.0"}, "passing-time":{on:false,val:"1.9"},
+  "show-detectors":{on:true,val:"true"}, "jam-threshold":{on:false,val:"-1"}, "file":{on:false,val:"NUL"}, "freq":{on:false,val:"300"}};
+let DET = {period:"900", file:"NUL", friendly:true};
+
+/* ---------------- parsing ---------------- */
+function parseXML(text){ const d = new DOMParser().parseFromString(text, "application/xml");
+  if (d.querySelector("parsererror")) throw new Error("geen geldig XML-bestand"); return d; }
+function parseShape(s){ return (s||"").trim().split(/\s+/).filter(Boolean).map(p => p.split(",").map(Number)); }
+
+function parseNet(text){
+  const d = parseXML(text), root = d.documentElement;
+  if (root.tagName !== "net") throw new Error("dit is geen .net.xml (root is <" + root.tagName + ">)");
+  const lanes = {}, edges = {}, tls = {}, conns = [];
+  for (const e of root.children) {
+    if (e.tagName !== "edge") continue;
+    const id = e.getAttribute("id");
+    edges[id] = {id, name: e.getAttribute("name") || "", fn: e.getAttribute("function") || "", from: e.getAttribute("from"), to: e.getAttribute("to")};
+    for (const l of e.children) if (l.tagName === "lane") {
+      lanes[l.getAttribute("id")] = {id: l.getAttribute("id"), edge: id, index: +l.getAttribute("index"),
+        length: +l.getAttribute("length"), speed: +l.getAttribute("speed"), shape: parseShape(l.getAttribute("shape")),
+        internal: id.startsWith(":"), allow: l.getAttribute("allow") || "", disallow: l.getAttribute("disallow") || ""};
+    }
+  }
+  for (const t of root.querySelectorAll(":scope > tlLogic")) {
+    const id = t.getAttribute("id");
+    tls[id] = tls[id] || {id, programs: [], links: []};
+    tls[id].programs.push(readProgram(t, "net"));
+  }
+  for (const c of root.querySelectorAll(":scope > connection")) {
+    const from = c.getAttribute("from"), to = c.getAttribute("to");
+    if (from.startsWith(":")) continue;
+    const fl = from + "_" + c.getAttribute("fromLane"), tlid = c.getAttribute("tl");
+    conns.push({from, to, fromLane: fl, toLane: to + "_" + c.getAttribute("toLane"), tl: tlid || ""});
+    if (tlid && tls[tlid]) tls[tlid].links.push({i: +c.getAttribute("linkIndex"), fromLane: fl, toLane: to + "_" + c.getAttribute("toLane"), dir: c.getAttribute("dir") || "?"});
+  }
+  for (const t of Object.values(tls)) t.links.sort((a, b) => a.i - b.i);
+  return {lanes, edges, tls, conns};
+}
+
+function readProgram(t, bron){
+  const p = {bron, id: t.getAttribute("id"), programID: t.getAttribute("programID") || "0", type: t.getAttribute("type") || "static",
+    offset: t.getAttribute("offset") || "0", params: {}, phases: []};
+  for (const c of t.children) {
+    if (c.tagName === "param") p.params[c.getAttribute("key")] = c.getAttribute("value");
+    if (c.tagName === "phase") p.phases.push({duration: c.getAttribute("duration"), state: c.getAttribute("state"),
+      minDur: c.getAttribute("minDur") || "", maxDur: c.getAttribute("maxDur") || "", name: c.getAttribute("name") || "",
+      next: c.getAttribute("next") || "", extra: [...c.attributes].filter(a => !["duration","state","minDur","maxDur","name","next"].includes(a.name)).map(a => [a.name, a.value])});
+  }
+  return p;
+}
+
+function parseAdd(text, fname){
+  const d = parseXML(text), out = {tls: [], loops: []};
+  for (const t of d.querySelectorAll("tlLogic")) { const p = readProgram(t, fname); out.tls.push(p); }
+  for (const l of d.querySelectorAll("inductionLoop, e1Detector")) out.loops.push({id: l.getAttribute("id"), lane: l.getAttribute("lane"),
+    pos: num(l.getAttribute("pos"), 0), period: l.getAttribute("period") || l.getAttribute("freq") || "", file: l.getAttribute("file") || "",
+    vTypes: l.getAttribute("vTypes") || "", detectPersons: l.getAttribute("detectPersons") || "", bron: fname});
+  return out;
+}
+
+/* ---------------- geometry / placement ---------------- */
+function upstream(laneId){
+  // inkomende rijstroken (niet-intern); langste eerst. Nooit over een stopstreep van een verkeerslicht heen.
+  const ups = NET.conns.filter(c => c.toLane === laneId && !c.tl).map(c => NET.lanes[c.fromLane]).filter(Boolean);
+  const uniq = [...new Map(ups.map(u => [u.id, u])).values()];
+  return uniq.sort((a, b) => b.length - a.length);
+}
+function place(row){
+  // afstand tot de stopstreep -> (detectorrijstrook, pos), zo nodig stroomop
+  const L = NET.lanes[row.lane]; let lane = L, rest = row.dist, steps = 0, warn = "", avail = L.length;
+  if (rest < 0) rest = 0;
+  while (rest > lane.length - 0.1) {
+    const ups = upstream(lane.id);
+    if (!ups.length) { warn = `te weinig ruimte: lus op het begin van ${lane.id}, ${fmt(avail - 0.1, 1)} m voor de stopstreep`; rest = lane.length - 0.1; break; }
+    avail += ups[0].length;
+    if (ups.length > 1) warn = `meerdere rijstroken stroomop: lus op de langste (${ups[0].id})`;
+    rest -= lane.length; lane = ups[0]; steps++;
+    if (steps > 6) { warn = "te ver stroomop gezocht"; break; }
+  }
+  return {lane: lane.id, pos: Math.max(0, lane.length - rest), steps, warn};
+}
+function placeDist(row){
+  // werkelijke afstand tot de stopstreep na plaatsing (kan korter zijn dan gevraagd)
+  const p = place(row); let lane = NET.lanes[row.lane], acc = 0;
+  for (let s = 0; s <= p.steps && lane; s++) { if (lane.id === p.lane) return acc + lane.length - p.pos; acc += lane.length; lane = upstream(lane.id)[0]; }
+  return row.dist;
+}
+function pointAt(shape, off){
+  let acc = 0;
+  for (let i = 1; i < shape.length; i++) {
+    const [x0, y0] = shape[i - 1], [x1, y1] = shape[i], s = Math.hypot(x1 - x0, y1 - y0);
+    if (acc + s >= off || i === shape.length - 1) { const f = s ? Math.min(1, Math.max(0, (off - acc) / s)) : 0;
+      return {x: x0 + f * (x1 - x0), y: y0 + f * (y1 - y0), ang: Math.atan2(y1 - y0, x1 - x0)}; }
+    acc += s;
+  }
+  return {x: shape[0][0], y: shape[0][1], ang: 0};
+}
+function distFromStop(loop, ctrlLane){
+  // afstand van een bestaande lus tot de stopstreep van ctrlLane (lus op die rijstrook of tot 4 rijstroken stroomop)
+  let lane = NET.lanes[ctrlLane], acc = 0;
+  for (let s = 0; s < 5 && lane; s++) {
+    if (loop.lane === lane.id) return acc + lane.length - loop.pos;
+    acc += lane.length; const ups = upstream(lane.id); lane = ups[0];
+  }
+  return null;
+}
+
+/* ---------------- state ---------------- */
+function alwaysGreen(lane){
+  // alle links van deze rijstrook staan in elke fase op groen: een lus heeft geen zin
+  const t = NET.tls[S.tlsId];
+  return S.phases.length > 0 && t.links.filter(k => k.fromLane === lane).every(k => S.phases.every(p => p.state[k.i] === "G" || p.state[k.i] === "g"));
+}
+function controlledLanes(t){ return [...new Set(t.links.map(l => l.fromLane))].filter(id => NET.lanes[id]); }
+
+function loadTls(){
+  const id = $("#tls").value; S.tlsId = id; const t = NET.tls[id];
+  // regelingen: uit het net en uit de additionals
+  const progs = [...t.programs, ...ADD.tls.filter(p => p.id === id)];
+  $("#prog").innerHTML = progs.map((p, i) => `<option value="${i}">${esc(p.bron === "net" ? "net" : p.bron)} · programID ${esc(p.programID)} · ${esc(p.type)}</option>`).join("");
+  $("#prog").value = String(progs.length - 1);
+  S.progs = progs;
+  // rijen
+  const prefix = $("#prefix").value;
+  S.rows = controlledLanes(t).map(lid => {
+    const L = NET.lanes[lid];
+    return {lane: lid, mode: "auto", dist: num($("#bulkDist").value, 40), id: prefix + lid, dirs: t.links.filter(k => k.fromLane === lid)};
+  });
+  loadProgram();
+  autoMatch();
+  renderAll();
+}
+
+function loadProgram(){
+  const p = S.progs[+$("#prog").value];
+  S.phases = p.phases.map(ph => ({...ph}));
+  $("#offset").value = p.offset || 0;
+  if (p.type === "actuated" && p.bron !== "net") $("#progId").value = p.programID;
+  // bestaande params overnemen
+  for (const [k, v] of Object.entries(p.params)) {
+    if (PARAMSTATE[k]) PARAMSTATE[k] = {on: true, val: v};
+  }
+  S.mapped = Object.fromEntries(Object.entries(p.params).filter(([k]) => NET.lanes[k]));
+}
+
+function autoMatch(){
+  // 1) koppelingen uit de geladen regeling; 2) lussen op (of stroomop van) een gestuurde rijstrook
+  let n = 0;
+  for (const r of S.rows) {
+    const detId = S.mapped && S.mapped[r.lane];
+    let loop = detId ? ADD.loops.find(l => l.id === detId) : null;
+    if (!loop) loop = ADD.loops.find(l => l.lane === r.lane);
+    if (!loop) { const cands = ADD.loops.map(l => [l, distFromStop(l, r.lane)]).filter(x => x[1] !== null).sort((a, b) => a[1] - b[1]); if (cands.length) loop = cands[0][0]; }
+    if (loop) { const d = distFromStop(loop, r.lane); if (d !== null) { r.mode = "eigen"; r.id = loop.id; r.dist = Math.round(d * 100) / 100; r.imported = loop; n++; } }
+  }
+  if (ADD.loops.length) $("#stAdd").innerHTML += `<br>${n} rijstro${n === 1 ? "ok" : "ken"} gekoppeld aan een bestaande lus.`;
+}
+
+/* ---------------- rendering ---------------- */
+function dirLabel(d){ return ({s:"rechtdoor", r:"rechts", l:"links", R:"rechts", L:"links", t:"keren", T:"keren"})[d] || d; }
+function renderLanes(){
+  const t = NET.tls[S.tlsId];
+  let h = `<tr><th>Rijstrook</th><th>Straat</th><th class="mono">m · km/u</th><th>Links (index · richting)</th><th>Detector</th><th>Afstand tot stopstreep</th><th>id</th><th>Ligging</th></tr>`;
+  S.rows.forEach((r, k) => {
+    const L = NET.lanes[r.lane], E = NET.edges[L.edge];
+    const dirs = r.dirs.map(x => `<span class="dir">${x.i} · ${dirLabel(x.dir)}</span>`).join("");
+    let lig = "";
+    if (r.mode === "eigen") { const p = place(r); r._p = p;
+      lig = `<span class="mono">${esc(p.lane)} @ ${fmt(p.pos, 1)}</span>` + (p.steps ? `<br><span class="muted">${p.steps} rijstro${p.steps === 1 ? "ok" : "ken"} stroomop</span>` : "") + (p.warn ? `<br><span class="w">${esc(p.warn)}</span>` : "");
+    } else if (alwaysGreen(r.lane)) { lig = `<span class="muted">altijd groen: geen lus nodig</span>`; r._p = null;
+    } else { const gap = PARAMSTATE["detector-gap"].on ? num(PARAMSTATE["detector-gap"].val, 2) : 2; lig = `<span class="muted">± ${fmt(L.speed * gap, 0)} m (SUMO)</span>`; r._p = null; }
+    h += `<tr data-k="${k}" class="${S.selLane === r.lane ? "sel" : ""}"><td class="mono">${esc(r.lane)}</td><td>${esc(E.name || "—")}</td>
+      <td class="mono">${fmt(L.length, 1)} · ${fmt(L.speed * 3.6, 0)}</td><td>${dirs}</td>
+      <td><select data-f="mode"><option value="auto"${r.mode === "auto" ? " selected" : ""}>automatisch</option><option value="eigen"${r.mode === "eigen" ? " selected" : ""}>eigen lus</option></select></td>
+      <td>${r.mode === "eigen" ? `<input type="number" data-f="dist" value="${r.dist}" step="0.5" min="0"> m` : ""}</td>
+      <td>${r.mode === "eigen" ? `<input type="text" data-f="id" value="${esc(r.id)}">` : ""}</td><td>${lig}</td></tr>`;
+  });
+  $("#laneTable").innerHTML = h;
+}
+
+function greenLanes(state){
+  const t = NET.tls[S.tlsId], set = new Set();
+  t.links.forEach(k => { const c = state[k.i]; if (c === "G" || c === "g") set.add(k.fromLane); });
+  return set;
+}
+function stateHtml(s){ return [...s].map(c => `<span class="${c}">${esc(c)}</span>`).join(""); }
+function isGreenPhase(st){
+  // groen op minstens één link die niet in elke fase groen is (interne links staan vaak altijd op G)
+  if (/[yY]/.test(st)) return false;
+  return [...st].some((c, i) => (c === "G" || c === "g") && !S.phases.every(p => p.state[i] === "G" || p.state[i] === "g"));
+}
+
+function renderPhases(){
+  let h = `<tr><th>#</th><th>duration</th><th>minDur</th><th>maxDur</th><th>state</th><th>lussen</th></tr>`;
+  S.phases.forEach((p, k) => {
+    const gl = greenLanes(p.state);
+    const dets = S.rows.filter(r => gl.has(r.lane)).map(r => r.mode === "eigen" ? esc(r.id) : `<span class="muted">auto ${esc(r.lane)}</span>`);
+    h += `<tr data-p="${k}"><td>${k}</td><td><input type="number" data-f="duration" value="${esc(p.duration)}" min="0" step="1"></td>
+      <td><input type="number" data-f="minDur" value="${esc(p.minDur)}" min="0" step="1"></td>
+      <td><input type="number" data-f="maxDur" value="${esc(p.maxDur)}" min="0" step="1"></td>
+      <td class="state">${stateHtml(p.state)}${p.name ? `<br><span class="muted" style="letter-spacing:0">${esc(p.name)}</span>` : ""}</td>
+      <td style="font-size:11.5px">${dets.join(", ") || (isGreenPhase(p.state) ? '<span class="w">geen</span>' : '<span class="muted">—</span>')}</td></tr>`;
+  });
+  $("#phaseTable").innerHTML = h;
+}
+
+function renderParams(){
+  $("#params").innerHTML = PARAMS.map(p => {
+    const s = PARAMSTATE[p.key];
+    const inp = p.key === "show-detectors" ? `<select data-pv="${p.key}"><option${s.val === "true" ? " selected" : ""}>true</option><option${s.val === "false" ? " selected" : ""}>false</option></select>`
+      : `<input type="text" data-pv="${p.key}" value="${esc(s.val)}">`;
+    return `<div class="opt"><input type="checkbox" data-pk="${p.key}"${s.on ? " checked" : ""}><span class="name">${p.key}</span><span>${inp} <span class="muted" style="font-size:11.5px">standaard ${esc(p.def)}</span></span><span class="help">${p.help}</span></div>`;
+  }).join("") + `<div class="opt" style="border-top:1.5px solid var(--line);margin-top:6px"><span></span><span class="name">eigen lussen</span>
+    <span>period <input type="number" id="detPeriod" value="${esc(DET.period)}" style="width:80px"> s · file <input type="text" id="detFile" value="${esc(DET.file)}" style="width:150px">
+    <label style="font-size:12px;margin-left:6px"><input type="checkbox" id="detFriendly"${DET.friendly ? " checked" : ""}> friendlyPos</label></span>
+    <span class="help">Uitvoer van je eigen lussen (<code>NUL</code> = geen bestand). <code>friendlyPos</code> laat SUMO een lus die net buiten de rijstrook valt, terugzetten.</span></div>`;
+}
+
+function issues(){
+  const out = [], t = NET.tls[S.tlsId];
+  const ids = S.rows.filter(r => r.mode === "eigen").map(r => r.id);
+  const dub = ids.filter((x, i) => ids.indexOf(x) !== i);
+  if (dub.length) {
+    const share = [...new Set(dub)].every(id => { const rs = S.rows.filter(r => r.mode === "eigen" && r.id === id).map(r => place(r)); return rs.every(p => p.lane === rs[0].lane && Math.abs(p.pos - rs[0].pos) < 0.5); });
+    out.push(share ? ["ok", `Dezelfde lus (${[...new Set(dub)].join(", ")}) bedient meerdere rijstroken: kan, ze ligt op dezelfde plek.`]
+                   : ["err", `Dubbele id voor verschillende plaatsen: ${[...new Set(dub)].join(", ")}.`]);
+  }
+  S.rows.forEach(r => { if (r.mode === "eigen" && !/^[^\s"<>&]+$/.test(r.id)) out.push(["err", `Ongeldige id voor ${r.lane}.`]); });
+  S.rows.forEach(r => { if (r.mode === "eigen") { const p = place(r); if (p.warn) out.push(["warn", `${r.lane}: ${p.warn}.`]); } });
+  const nOwn = S.rows.filter(r => r.mode === "eigen").length;
+  S.phases.forEach((p, k) => {
+    if (p.state.length !== t.links.length) out.push(["err", `Fase ${k}: state heeft ${p.state.length} tekens, het verkeerslicht ${t.links.length} links.`]);
+    const mn = num(p.minDur, NaN), mx = num(p.maxDur, NaN), du = num(p.duration, NaN);
+    if (isGreenPhase(p.state)) {
+      if (!isFinite(mn) || !isFinite(mx)) out.push(["warn", `Fase ${k} (groen) heeft geen minDur/maxDur: ze blijft vast.`]);
+      else if (mn > mx) out.push(["err", `Fase ${k}: minDur > maxDur.`]);
+      else if (du < mn || du > mx) out.push(["warn", `Fase ${k}: duration ligt buiten [minDur, maxDur].`]);
+    } else if (isFinite(mn) && isFinite(mx) && mn !== mx) out.push(["warn", `Fase ${k} (geel/rood) heeft verschillende minDur en maxDur: meestal hoort die vast.`]);
+  });
+  // zelfde controle als SUMO: de wachtrij tussen lus en stopstreep moet in minDur kunnen wegrijden
+  // (aantal voertuigen = afstand / 7,5 m, elk passing-time seconden)
+  const pt = PARAMSTATE["passing-time"].on ? num(PARAMSTATE["passing-time"].val, 1.9) : 1.9;
+  S.phases.forEach((p, k) => {
+    const mn = num(p.minDur, NaN); if (!isGreenPhase(p.state) || !isFinite(mn)) return;
+    const gl = greenLanes(p.state);
+    const worst = S.rows.filter(r => r.mode === "eigen" && gl.has(r.lane)).map(r => Math.floor(Math.floor(Math.min(r.dist, placeDist(r)) / 7.5) * pt)).reduce((a, b) => Math.max(a, b), 0);
+    if (worst > mn) out.push(["warn", `Fase ${k}: minDur ${mn} s is korter dan de tijd om de wachtrij tussen lus en stopstreep af te wikkelen (± ${worst} s). SUMO waarschuwt hiervoor; verhoog minDur of leg de lus dichter bij de stopstreep.`]);
+  });
+  if (!S.phases.some(p => isGreenPhase(p.state) && num(p.minDur, NaN) < num(p.maxDur, NaN))) out.push(["warn", "Geen enkele fase is variabel (minDur < maxDur): de regeling gedraagt zich als vaste tijd."]);
+  if (!out.length) out.push(["ok", `In orde: ${nOwn} eigen lus${nOwn === 1 ? "" : "sen"}, ${S.rows.length - nOwn} automatisch.`]);
+  $("#issues").innerHTML = out.map(([c, m]) => `<li class="${c}">${esc(m)}</li>`).join("");
+}
+
+function renderMap(){
+  const svg = $("#map"), t = NET.tls[S.tlsId];
+  const ctrl = new Set(S.rows.map(r => r.lane)), lanesToDraw = new Map();
+  S.rows.forEach(r => { lanesToDraw.set(r.lane, "ctrl"); let L = NET.lanes[r.lane];
+    for (let s = 0; s < 3; s++) { const u = upstream(L.id)[0]; if (!u) break; if (!lanesToDraw.has(u.id)) lanesToDraw.set(u.id, "up"); L = u; } });
+  t.links.forEach(k => { if (NET.lanes[k.toLane]) lanesToDraw.set(k.toLane, lanesToDraw.get(k.toLane) || "out"); });
+  // interne rijstroken van de kruispuntcluster
+  const pts = [];
+  for (const id of lanesToDraw.keys()) NET.lanes[id].shape.forEach(p => pts.push(p));
+  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+  // bereik: rond het kruispunt, tot de verste eigen lus + 25 m (min 70 m, max 260 m)
+  let R = 70;
+  S.rows.forEach(r => { if (r.mode === "eigen") R = Math.max(R, r.dist + 25); });
+  R = Math.min(R, 260);
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 420, sc = Math.min(W, H) / (2 * R);
+  const X = x => W / 2 + (x - cx) * sc, Y = y => H / 2 - (y - cy) * sc;
+  let g = "";
+  for (const L of Object.values(NET.lanes)) {
+    if (!L.internal || !L.shape.length) continue;
+    const near = L.shape.some(p => Math.hypot(p[0] - cx, p[1] - cy) < R * 0.6);
+    if (near) g += `<polyline points="${L.shape.map(p => X(p[0]) + "," + Y(p[1])).join(" ")}" fill="none" stroke="#d6dde4" stroke-width="${Math.max(1, 2.2 * sc)}" stroke-linecap="round"/>`;
+  }
+  for (const [id, kind] of lanesToDraw) {
+    const L = NET.lanes[id];
+    g += `<polyline points="${L.shape.map(p => X(p[0]) + "," + Y(p[1])).join(" ")}" fill="none" stroke="${kind === "ctrl" ? (S.selLane === id ? "#1f6feb" : "#9aa7b4") : "#c5cdd6"}" stroke-width="${Math.max(2, 3.2 * sc)}" stroke-linecap="butt"/>`;
+    if (kind === "ctrl") { const e = pointAt(L.shape, L.length), nx = -Math.sin(e.ang), ny = Math.cos(e.ang), h = 1.7;
+      g += `<line x1="${X(e.x + nx * h)}" y1="${Y(e.y + ny * h)}" x2="${X(e.x - nx * h)}" y2="${Y(e.y - ny * h)}" stroke="#1c2733" stroke-width="${Math.max(1.5, 0.6 * sc)}"/>`; }
+  }
+  const gap = PARAMSTATE["detector-gap"].on ? num(PARAMSTATE["detector-gap"].val, 2) : 2;
+  const done = new Set();
+  S.rows.forEach(r => {
+    let lane, pos, own = r.mode === "eigen";
+    if (own) { const p = place(r); lane = NET.lanes[p.lane]; pos = p.pos; }
+    else { lane = NET.lanes[r.lane]; pos = Math.max(0, lane.length - lane.speed * gap); }
+    const key = lane.id + "@" + Math.round(pos * 2); if (own && done.has(key)) return; done.add(key);
+    const q = pointAt(lane.shape, pos), w = 1.6, l = 1.0, ca = Math.cos(q.ang), sa = Math.sin(q.ang);
+    const corners = [[-l, -w], [l, -w], [l, w], [-l, w]].map(([a, b]) => [q.x + a * ca - b * sa, q.y + a * sa + b * ca]);
+    g += `<polygon points="${corners.map(c => X(c[0]) + "," + Y(c[1])).join(" ")}" fill="${own ? "#f0b400" : "#ffffff"}" stroke="${own ? "#7a5b00" : "#6b7885"}" stroke-width="1" ${own ? "" : 'stroke-dasharray="3 2"'}><title>${esc(own ? r.id : "automatisch")} · ${esc(lane.id)} @ ${fmt(pos, 1)}</title></polygon>`;
+    if (own) g += `<text x="${X(q.x) + 6}" y="${Y(q.y) - 6}" font-size="10.5" fill="#1c2733" font-family="ui-monospace,Consolas,monospace">${esc(r.id)}</text>`;
+  });
+  // schaalbalk
+  const m = R > 150 ? 50 : 20;
+  g += `<line x1="12" y1="${H - 14}" x2="${12 + m * sc}" y2="${H - 14}" stroke="#1c2733" stroke-width="2"/><text x="12" y="${H - 20}" font-size="10.5" fill="#6b7885">${m} m</text>`;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = g;
+}
+
+/* ---------------- output ---------------- */
+function detXml(ind = "    "){
+  const seen = new Set(), lines = [];
+  S.rows.filter(r => r.mode === "eigen").forEach(r => {
+    if (seen.has(r.id)) return; seen.add(r.id);
+    const p = place(r), imp = r.imported;
+    let extra = "";
+    if (imp && imp.vTypes) extra += ` vTypes="${esc(imp.vTypes)}"`;
+    if (imp && imp.detectPersons) extra += ` detectPersons="${esc(imp.detectPersons)}"`;
+    lines.push(`${ind}<inductionLoop id="${esc(r.id)}" lane="${esc(p.lane)}" pos="${fmt(p.pos, 2)}" period="${esc(DET.period)}" file="${esc(DET.file)}"${DET.friendly ? ' friendlyPos="true"' : ""}${extra}/>  <!-- ${fmt(r.dist, 1)} m voor de stopstreep van ${esc(r.lane)} -->`);
+  });
+  return lines;
+}
+function tlsXml(ind = "    "){
+  const out = [`${ind}<tlLogic id="${esc(S.tlsId)}" type="actuated" programID="${esc($("#progId").value || "actuated")}" offset="${esc($("#offset").value || 0)}">`];
+  for (const p of PARAMS) { const s = PARAMSTATE[p.key]; if (s.on) out.push(`${ind}    <param key="${p.key}" value="${esc(s.val)}"/>`); }
+  S.rows.filter(r => r.mode === "eigen").forEach(r => out.push(`${ind}    <param key="${esc(r.lane)}" value="${esc(r.id)}"/>`));
+  S.phases.forEach(p => {
+    let a = `duration="${esc(p.duration)}"`;
+    if (p.minDur !== "" && p.minDur !== undefined) a += ` minDur="${esc(p.minDur)}"`;
+    if (p.maxDur !== "" && p.maxDur !== undefined) a += ` maxDur="${esc(p.maxDur)}"`;
+    a += ` state="${esc(p.state)}"`;
+    if (p.name) a += ` name="${esc(p.name)}"`;
+    if (p.next) a += ` next="${esc(p.next)}"`;
+    (p.extra || []).forEach(([k, v]) => a += ` ${k}="${esc(v)}"`);
+    out.push(`${ind}    <phase ${a}/>`);
+  });
+  out.push(`${ind}</tlLogic>`);
+  return out;
+}
+const HEAD = `<?xml version="1.0" encoding="UTF-8"?>\n<!-- gegenereerd met SUMO E1 Detector Linker (https://wimmichiels76.github.io/sumo-tools/) -->\n`;
+let VIEW = "both";
+function output(){
+  if (!NET || !S.tlsId) return "";
+  const d = detXml(), t = tlsXml();
+  if (VIEW === "det") return HEAD + "<additional>\n" + (d.join("\n") || "    <!-- geen eigen lussen -->") + "\n</additional>\n";
+  if (VIEW === "tls") return HEAD + "<additional>\n" + t.join("\n") + "\n</additional>\n";
+  return HEAD + "<additional>\n    <!-- eerst de lussen, dan de regeling die ernaar verwijst -->\n" + (d.length ? d.join("\n") + "\n" : "") + t.join("\n") + "\n</additional>\n";
+}
+function fileName(){ const s = (S.tlsId || "vri").replace(/[^\w.-]+/g, "_").slice(0, 40);
+  return VIEW === "det" ? "detectoren.add.xml" : VIEW === "tls" ? "regeling.add.xml" : `regeling_actuated_${s}.add.xml`; }
+const HELP = {both: "Lussen en regeling in één bestand, lussen eerst. Eenvoudigst: één additional in de sumocfg.",
+  det: "Alleen de lussen. Laad dit bestand vóór de regeling.", tls: "Alleen de regeling met de koppelingen (param key = rijstrook, value = lus)."};
+function renderOut(){ $("#preview").textContent = output(); $("#viewHelp").textContent = HELP[VIEW]; }
+
+function renderAll(){ if (!NET || !S.tlsId) return; renderLanes(); renderPhases(); renderParams(); renderMap(); issues(); renderOut(); }
+function refresh(){ renderLanes(); renderPhases(); renderMap(); issues(); renderOut(); }
+
+/* ---------------- events ---------------- */
+function readFile(f){ return new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsText(f); }); }
+async function loadNet(f){
+  try {
+    const t = await readFile(f); NET = parseNet(t);
+    const ids = Object.keys(NET.tls);
+    if (!ids.length) { $("#stNet").className = "status warn"; $("#stNet").textContent = `${f.name}: geen verkeerslichten in dit net.`; return; }
+    $("#stNet").className = "status ok"; $("#stNet").textContent = `${f.name}: ${Object.keys(NET.lanes).length} rijstroken, ${ids.length} verkeerslicht${ids.length === 1 ? "" : "en"}.`;
+    $("#tls").innerHTML = ids.map(id => `<option value="${esc(id)}">${esc(id.length > 70 ? id.slice(0, 67) + "…" : id)} · ${NET.tls[id].links.length} links</option>`).join("");
+    const fromAdd = ADD.tls.find(p => NET.tls[p.id]); if (fromAdd) $("#tls").value = fromAdd.id;
+    loadTls();
+  } catch (e) { $("#stNet").className = "status err"; $("#stNet").textContent = `${f.name}: ${e.message}`; }
+}
+async function loadAdds(files){
+  const msgs = [];
+  for (const f of files) {
+    try { const a = parseAdd(await readFile(f), f.name); ADD.tls.push(...a.tls); ADD.loops.push(...a.loops);
+      msgs.push(`${f.name}: ${a.tls.length} regeling${a.tls.length === 1 ? "" : "en"}, ${a.loops.length} lus${a.loops.length === 1 ? "" : "sen"}`); }
+    catch (e) { msgs.push(`${f.name}: ${e.message}`); }
+  }
+  $("#stAdd").className = "status ok"; $("#stAdd").innerHTML = msgs.map(esc).join("<br>");
+  if (NET) { const fromAdd = ADD.tls.find(p => NET.tls[p.id]); if (fromAdd) $("#tls").value = fromAdd.id; loadTls(); }
+}
+function dropzone(zone, input, handler){
+  zone.addEventListener("click", () => input.click());
+  input.addEventListener("change", e => { if (e.target.files.length) handler(e.target.files); e.target.value = ""; });
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("over"); if (e.dataTransfer.files.length) handler(e.dataTransfer.files); });
+}
+dropzone($("#dropNet"), $("#fNet"), fs => loadNet(fs[0]));
+dropzone($("#dropAdd"), $("#fAdd"), fs => loadAdds([...fs]));
+$("#tls").addEventListener("change", loadTls);
+$("#prog").addEventListener("change", () => { loadProgram(); autoMatch(); renderAll(); });
+$("#progId").addEventListener("input", renderOut);
+$("#offset").addEventListener("input", renderOut);
+
+$("#laneTable").addEventListener("change", e => {
+  const tr = e.target.closest("tr[data-k]"); if (!tr) return; const r = S.rows[+tr.dataset.k], f = e.target.dataset.f;
+  if (f === "mode") { r.mode = e.target.value; if (r.mode === "eigen" && !r.id) r.id = $("#prefix").value + r.lane; }
+  if (f === "dist") r.dist = Math.max(0, num(e.target.value, r.dist));
+  if (f === "id") r.id = e.target.value.trim();
+  refresh();
+});
+$("#laneTable").addEventListener("click", e => { const tr = e.target.closest("tr[data-k]"); if (!tr || e.target.closest("input,select")) return;
+  const lane = S.rows[+tr.dataset.k].lane; S.selLane = S.selLane === lane ? null : lane; renderLanes(); renderMap(); });
+$("#allOwn").addEventListener("click", () => { const d = num($("#bulkDist").value, 40), pf = $("#prefix").value;
+  S.rows.forEach(r => { if (alwaysGreen(r.lane)) return; r.mode = "eigen"; r.dist = d; if (!r.imported) r.id = pf + r.lane; }); refresh(); toast(`Eigen lus op ${d} m (rijstroken die altijd groen hebben, niet)`); });
+$("#allAuto").addEventListener("click", () => { S.rows.forEach(r => r.mode = "auto"); refresh(); });
+$("#prefix").addEventListener("change", () => { const pf = $("#prefix").value; S.rows.forEach(r => { if (!r.imported) r.id = pf + r.lane; }); refresh(); });
+
+$("#phaseTable").addEventListener("change", e => {
+  const tr = e.target.closest("tr[data-p]"); if (!tr) return; S.phases[+tr.dataset.p][e.target.dataset.f] = e.target.value.trim(); renderPhases(); issues(); renderOut(); });
+$("#convert").addEventListener("click", () => {
+  const mn = num($("#convMin").value, 5), fac = num($("#convFac").value, 1.5); let n = 0;
+  S.phases.forEach(p => { if (isGreenPhase(p.state)) { const d = num(p.duration, 10); p.minDur = String(Math.min(mn, d)); p.maxDur = String(Math.round(Math.max(d, d * fac))); n++; }
+    else { p.minDur = ""; p.maxDur = ""; } });
+  renderPhases(); issues(); renderOut(); toast(`${n} groenfase${n === 1 ? "" : "n"} voertuigafhankelijk gemaakt`);
+});
+
+$("#params").addEventListener("change", e => {
+  const k = e.target.dataset.pk || e.target.dataset.pv;
+  if (e.target.dataset.pk) PARAMSTATE[k].on = e.target.checked;
+  if (e.target.dataset.pv) { PARAMSTATE[k].val = e.target.value; PARAMSTATE[k].on = true; renderParams(); }
+  if (e.target.id === "detPeriod") DET.period = e.target.value;
+  if (e.target.id === "detFile") DET.file = e.target.value;
+  if (e.target.id === "detFriendly") DET.friendly = e.target.checked;
+  refresh();
+});
+
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.remove("active")); b.classList.add("active"); VIEW = b.dataset.view; renderOut(); }));
+$("#dl").addEventListener("click", () => { const txt = output(); if (!txt) return toast("Laad eerst een netwerk.");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], {type: "application/xml"})); a.download = fileName(); a.click(); URL.revokeObjectURL(a.href); });
+$("#copy").addEventListener("click", async () => { const txt = output(); if (!txt) return toast("Laad eerst een netwerk.");
+  try { await navigator.clipboard.writeText(txt); toast("Gekopieerd"); } catch { toast("Kopiëren lukt niet in deze browser"); } });
+window.addEventListener("resize", () => { if (NET && S.tlsId) renderMap(); });
+$("#preview").textContent = "Laad een .net.xml om te beginnen.";
+</script>
+</body>
+</html>

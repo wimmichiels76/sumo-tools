@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO E1 Detector Linker · Handleiding SUMO-tools</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --muted:#5b6475; --line:#e2e5eb; --accent:#1f6feb; --code:#eef1f5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1c2027; --fg:#e6e9ef; --muted:#9aa3b2; --line:#2c323c; --accent:#58a6ff; --code:#262b34; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; }
+  @media (max-width:760px) { .wrap { grid-template-columns:1fr; gap:16px; } nav { position:static !important; } }
+  nav { position:sticky; top:24px; align-self:start; font-size:14px; }
+  nav .home { display:block; font-weight:700; margin-bottom:12px; color:var(--fg); text-decoration:none; }
+  nav a { display:block; padding:6px 10px; border-radius:6px; color:var(--muted); text-decoration:none; }
+  nav a:hover { color:var(--fg); background:var(--card); }
+  nav a.active { color:var(--accent); background:var(--card); border:1px solid var(--line); }
+  nav .back { margin-top:16px; font-size:13px; }
+  article { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:28px 32px; min-width:0; }
+  @media (max-width:760px) { article { padding:20px 18px; } }
+  h1 { margin:0 0 12px; font-size:28px; line-height:1.25; }
+  h2 { margin:32px 0 8px; font-size:20px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h3 { margin:22px 0 6px; font-size:16px; }
+  a { color:var(--accent); }
+  code { font-family:ui-monospace, Consolas, monospace; font-size:.88em; background:var(--code); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:15px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="home" href="index.html">Handleiding</a>
+    <a href="index.html">Overzicht</a>
+    <a href="netconvert-Batch-Generator.html">netconvert Batch Generator</a>
+    <a href="SUMO-Simulation-Manager.html">SUMO Simulation Manager</a>
+    <a href="SUMO-VRI-Manager.html">SUMO VRI Manager</a>
+    <a href="SUMO-TLS-Editor.html">SUMO TLS Editor</a>
+    <a href="SUMO-E1-Detector-Linker.html" class="active">SUMO E1 Detector Linker</a>
+    <a href="SUMO-TripInfo-Analyzer.html">SUMO TripInfo Analyzer</a>
+    <a href="SUMO-Network-Link-Manager.html">SUMO Network Link Manager</a>
+    <a href="SUMO-Decal-Generator.html">SUMO Decal Generator</a>
+    <a class="back" href="../index.html">← alle tools</a>
+  </nav>
+  <article>
+<h1>SUMO E1 Detector Linker</h1>
+<p>Legt eigen E1-lussen (<code>inductionLoop</code>) op de naderingen van een verkeerslicht en koppelt ze aan een voertuigafhankelijke regeling (<code>type="actuated"</code>). Zonder eigen lussen legt SUMO ze zelf, op ± snelheid × <code>detector-gap</code> voor de stopstreep (bij 50 km/u ± 28 m). Met deze tool kies je per rijstrook zelf de afstand, bijvoorbeeld om de echte lussen van een V-plan na te bootsen.</p>
+<p><b>Openen:</b> <a href="../sumo_detector_linker.html">https://wimmichiels76.github.io/sumo-tools/sumo_detector_linker.html</a></p>
+<h2>Wat je nodig hebt</h2>
+<ul>
+<li>Een SUMO-netwerk (<code>.net.xml</code>) met het kruispunt als verkeerslicht.</li>
+<li>Optioneel: de additional met de huidige regeling (bv. <code>VRI/048A7_OS.add.xml</code> uit een basismodel), of een eerder gemaakt bestand van deze tool. Bestaande lussen en koppelingen worden dan ingelezen.</li>
+<li>Chrome of Edge. De tool werkt offline; er wordt niets doorgestuurd.</li>
+</ul>
+<h2>Werkwijze</h2>
+<h3>1 · Bestanden</h3>
+<ul>
+<li>Sleep het <code>.net.xml</code> in het linkervak, de additional(s) in het rechtervak. De volgorde maakt niet uit.</li>
+</ul>
+<h3>2 · Verkeerslicht en regeling</h3>
+<ul>
+<li>Kies het verkeerslicht en de regeling waarmee je start: die uit het net of die uit een additional (standaard de laatst geladen).</li>
+<li><b>programID van het resultaat</b>: SUMO gebruikt het programma dat het laatst geladen wordt. Komt je additional na het net, dan neemt de nieuwe regeling het automatisch over.</li>
+</ul>
+<h3>3 · Detectoren per rijstrook</h3>
+<ul>
+<li>Elke gestuurde rijstrook staat in de tabel, met lengte, snelheid en de links (linkIndex en richting).</li>
+<li><b>automatisch</b>: SUMO legt de lus zelf. <b>eigen lus</b>: je geeft de afstand tot de stopstreep en de id.</li>
+<li>De tool rekent <code>pos = lengte van de rijstrook − afstand</code>. Is de rijstrook te kort, dan schuift de lus door naar de rijstrook ervoor (nooit voorbij een ander verkeerslicht). De kolom <b>Ligging</b> toont waar ze uiteindelijk ligt.</li>
+<li><b>Alle rijstroken: eigen lus</b> legt overal een lus op dezelfde afstand. Rijstroken die in elke fase groen hebben (vrije rechtsaf, interne links) slaat die knop over: daar heeft een lus geen zin.</li>
+<li>Klik op een rij om de rijstrook op de kaart te markeren.</li>
+<li>Meerdere rijstroken mogen dezelfde lus gebruiken (zelfde id). Ze moet dan wel op dezelfde plek liggen.</li>
+</ul>
+<h3>4 · Fasen</h3>
+<ul>
+<li>Een fase is pas voertuigafhankelijk met een <code>minDur</code> en <code>maxDur</code>. <b>Groenfasen voertuigafhankelijk maken</b> zet <code>minDur</code> op de ingestelde waarde en <code>maxDur</code> op duur × factor. Gele en rode fasen blijven vast.</li>
+<li>De kolom <b>lussen</b> toont welke detectoren in elke fase meetellen.</li>
+</ul>
+<h3>5 · Parameters</h3>
+<ul>
+<li><code>max-gap</code>, <code>passing-time</code>, <code>detector-gap</code>, <code>jam-threshold</code>, <code>show-detectors</code> en de uitvoer van de lussen. Niet aangevinkt = standaardwaarde van SUMO.</li>
+</ul>
+<h3>6 · Uitvoer</h3>
+<ul>
+<li><b>Eén bestand</b> (lussen en regeling samen) of twee aparte bestanden. Download of kopieer.</li>
+<li>In de <code>.sumocfg</code> komen <b>de lussen vóór de regeling</b>:</li>
+</ul>
+<pre><code>&lt;additional-files value=&quot;../VRI/detectoren.add.xml,../VRI/regeling.add.xml&quot;/&gt;</code></pre>
+<ul>
+<li>Zet het oude vaste-tijdbestand uit de <code>additional-files</code> als je de regeling volledig vervangt.</li>
+</ul>
+<h2>Wat de tool schrijft</h2>
+<pre><code>&lt;inductionLoop id=&quot;E1_47371858#0_0&quot; lane=&quot;47371858#0_0&quot; pos=&quot;262.98&quot; period=&quot;900&quot; file=&quot;NUL&quot; friendlyPos=&quot;true&quot;/&gt;
+&lt;tlLogic id=&quot;...&quot; type=&quot;actuated&quot; programID=&quot;actuated&quot; offset=&quot;0&quot;&gt;
+    &lt;param key=&quot;max-gap&quot; value=&quot;3.0&quot;/&gt;
+    &lt;param key=&quot;47371858#0_0&quot; value=&quot;E1_47371858#0_0&quot;/&gt;   &lt;!-- rijstrook → lus --&gt;
+    &lt;phase duration=&quot;49&quot; minDur=&quot;5&quot; maxDur=&quot;74&quot; state=&quot;GGGGrGGGGG...&quot;/&gt;
+    ...
+&lt;/tlLogic&gt;</code></pre>
+<p>Een <code>param</code> met als sleutel een rijstrook-id koppelt die rijstrook aan de lus. Rijstroken zonder koppeling krijgen een automatische lus.</p>
+<h2>Controle</h2>
+<p>Het blok <b>Controle</b> waarschuwt voor:</p>
+<ul>
+<li>dubbele of ongeldige id's;</li>
+<li>lussen die niet op de gevraagde afstand passen;</li>
+<li>fasen met een verkeerd aantal tekens, of <code>minDur</code> &gt; <code>maxDur</code>;</li>
+<li>groenfasen zonder <code>minDur</code>/<code>maxDur</code>;</li>
+<li>een <code>minDur</code> die te kort is voor de wachtrij tussen lus en stopstreep (afstand / 7,5 m × <code>passing-time</code>). SUMO geeft dezelfde waarschuwing bij het starten.</li>
+</ul>
+<h2>Tips</h2>
+<ul>
+<li>Controleer in sumo-gui met <code>show-detectors</code> of de lussen goed liggen.</li>
+<li>Lussen ver van de stopstreep (&gt; 40 m) vragen een langere <code>minDur</code>, anders kan de wachtrij niet weg voor groen eindigt.</li>
+<li>Bij een samengevoegd kruispunt (joined cluster) liggen sommige gestuurde rijstroken binnen het kruispunt en zijn ze maar enkele meter lang. Een lus op 40 m past daar niet. Kies daar automatisch, of een korte afstand.</li>
+<li>Getest met de basismodellen van Geel in SUMO 1.24: het resultaat laadt zonder fouten en de groentijden variëren met het verkeer.</li>
+</ul>
+  </article>
+</div>
+</body>
+</html>
