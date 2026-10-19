@@ -558,6 +558,13 @@ async function writeFile(relPath, contents){
   }
   return false;
 }
+// SUMO maakt outputmappen niet zelf aan ("Could not build output file"): maak ze hier aan
+async function ensureDir(relPath){
+  if(!dirHandle) return false;
+  let dh=dirHandle; for(const p of relPath.split('/').filter(Boolean)) dh=await dh.getDirectoryHandle(p,{create:true});
+  return true;
+}
+async function ensureOutDir(outDir){ try{ return await ensureDir('output/'+(outDir||'')); }catch(e){ return false; } }
 async function readFile(relPath){
   if(!dirHandle) return null;
   const parts=relPath.split('/'); let dh=dirHandle;
@@ -678,6 +685,7 @@ async function syncConfigsFromDisk(){
     if(ex) Object.assign(ex, rec, {id:ex.id});         // refresh from disk, keep id
     else { state.configs.push(rec); byName[name]=rec; }
   }
+  for(const c of state.configs) if(c.outDir) await ensureOutDir(c.outDir);   // ontbrekende outputmappen aanvullen
   touch(); renderCfgList(); renderRunTab();
 }
 
@@ -1563,7 +1571,7 @@ function buildCfgXml(o){
     if(!addFiles.includes(edgeAddName)) addFiles.push(edgeAddName);
   }
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml+='<!-- gegenereerd door SUMO Simulation Manager -->\n';
+  xml+='<!-- gegenereerd door SUMO Simulation Manager'+(outDir?' · de outputmap output/'+esc(outDir)+'/ moet bestaan: SUMO maakt ze niet aan':'')+' -->\n';
   xml+='<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">\n';
   xml+='    <input>\n';
   xml+=`        <net-file value="${esc(net)}"/>\n`;
@@ -1636,7 +1644,7 @@ $('#btnBuildAllCfg').addEventListener('click', async ()=>{
     const fname=cfgBase+'.sumocfg';
     const ok=await writeFile('config/'+fname, r.xml);
     if(r.edgeAdd) await writeFile('config/'+r.edgeAddName, r.edgeAdd);   // single shared edgedata.add.xml (bare)
-    if(ok) saved++; else { download(fname,r.xml,'application/xml'); if(r.edgeAdd) download(r.edgeAddName,r.edgeAdd,'application/xml'); downloaded++; }
+    if(ok){ saved++; await ensureOutDir(outDir); } else { download(fname,r.xml,'application/xml'); if(r.edgeAdd) download(r.edgeAddName,r.edgeAdd,'application/xml'); downloaded++; }
     const rec={id:uid(),filename:fname,net,routes:'../traffic/'+rou,begin:s.begin,end:s.end,outDir,outputs:Object.assign({},s.outputs),add:r.addNonEdge,guiSettings:s.guiSettings};
     state.configs=state.configs.filter(c=>c.filename!==fname); state.configs.push(rec);
     const addNames=(addFilesSel.map(a=>a.split('/').pop())).concat(s.outputs.edgedata?['edgedata.add.xml (per-run)']:[]);
@@ -1665,7 +1673,8 @@ $('#btnSaveCfg').addEventListener('click', async ()=>{
     begin:num($('#cfgBegin').value,0),end:num($('#cfgEnd').value,3600),outDir:$('#cfgOutDir').value.trim(),
     outputs:Object.fromEntries(OUTPUTS.filter(o=>$('#out_'+o.key)?.checked).map(o=>[o.key,true])), add:lastAddNonEdge, guiSettings:($('#cfgGui')&&$('#cfgGui').value||'')};
   state.configs=state.configs.filter(c=>c.filename!==name); state.configs.push(cfg); touch();
-  if(ok){ toast('Opgeslagen: config/'+name); scanFolders(); } else { download(name,lastCfg,'application/xml'); }
+  if(ok){ await ensureOutDir(cfg.outDir); toast('Opgeslagen: config/'+name+' (+ map output/'+(cfg.outDir?cfg.outDir+'/':'')+')'); scanFolders(); }
+  else { download(name,lastCfg,'application/xml'); if(cfg.outDir) toast('Gedownload. Maak zelf de map output/'+cfg.outDir+'/ aan: SUMO doet dat niet.'); }
   renderCfgList();
 });
 function renderCfgList(){
