@@ -89,7 +89,7 @@
 <h3>4 · Config &amp; output</h3>
 <ul>
 <li>Kies net, routes, additionals en eventueel een <b>gui-settings-file</b> (<code>background/viewsettings.xml</code>, voor sumo-gui; dit is geen additional).</li>
-<li>Stel tijd en verwerking in en vink de gewenste output aan.</li>
+<li>Stel tijd en verwerking in en vink de gewenste output aan. Wil je <b>filelengtes</b> evalueren, vink dan <b>queue</b> aan: SUMO schrijft dan elke 10 s de wachtrij per rijstrook weg (<code>queue-output</code>).</li>
 <li><b>Config opbouwen</b> en <b>Naar config/</b>. Paden worden relatief geschreven (<code>../network/</code> …).</li>
 </ul>
 <h3>5 · Runs</h3>
@@ -101,6 +101,12 @@
 <h3>6 · Rapport</h3>
 <ul>
 <li><b>Outputmap scannen</b> leest tripinfo- en summary-bestanden in en neemt het gemiddelde over seeds en schalen.</li>
+<li><b>Filelengtes</b> (als de queue-output aan stond): per scenario de langste files, met de maximale filelengte (gemiddeld over de seeds en de hoogste in één seed), de gemiddelde filelengte, het deel van de tijd met file en over hoeveel wegvakken de file loopt, plus een kaart. Met meerdere scenario's toont de vergelijking de maximale filelengte per wegvak en het verschil tegenover de referentie (bv. bestaand tegenover een nieuwe ontwikkeling).
+<ul>
+<li>Laad het <b>netwerk</b> in het rapport: dan rijgt de tool een file die over een kruispunt terugslaat (wegvak ≥ 90 % vol) aan het vorige wegvak, en toont ze de files op de kaart.</li>
+<li>⚠️ bij een file betekent dat ze haar wegvakken volledig vult: ze reikt tot de rand van het net of tot waar de voertuigen het net op rijden. In werkelijkheid is ze dan langer; neem zo nodig meer van het net mee.</li>
+</ul>
+</li>
 <li>Exporteer als <b>HTML-rapport</b> (af te drukken als PDF) of <b>Word (.doc)</b>.</li>
 </ul>
 <h2>Tips</h2>

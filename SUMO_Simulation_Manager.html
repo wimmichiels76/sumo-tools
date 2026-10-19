@@ -526,7 +526,9 @@ const OUTPUTS = [
   {key:'statistic',flag:'--statistic-output',file:'statistics.xml',label:'statistics (samenvatting hele run)', on:false},
   {key:'fcd',      flag:'--fcd-output',      file:'fcd.xml',      label:'fcd (trajectoriën — groot!)', on:false},
   {key:'emission', flag:'--emission-output', file:'emission.xml', label:'emissions (CO2/NOx per voertuig)', on:false},
+  {key:'queue',    flag:'--queue-output',    file:'queue.xml',    label:'queue (filelengtes per rijstrook, elke 10 s — voor het rapport)', on:false},
 ];
+const QUEUE_PERIOD=10;   // s tussen twee momentopnames van de wachtrijen (queue-output.period)
 
 /* -------------------- toast -------------------- */
 let toastT;
@@ -1656,6 +1658,7 @@ function buildCfgXml(o){
   }
   const outLines=[];
   OUTPUTS.forEach(x=>{ if(!o.outputs[x.key]||x.key==='edgedata') return; outLines.push(`        <${x.flag.replace('--','')} value="${outPrefix}${x.file}"/>`); });
+  if(o.outputs.queue) outLines.push(`        <queue-output.period value="${QUEUE_PERIOD}"/>`);   // momentopname elke 10 s (zonder: elke stap)
   if(outLines.length) xml+='    <output>\n'+outLines.join('\n')+'\n    </output>\n';
   xml+='    <report>\n        <no-step-log value="true"/>\n        <verbose value="true"/>\n    </report>\n';
   xml+='</configuration>\n';
@@ -1802,7 +1805,7 @@ $('#btnGenRun').addEventListener('click',()=>{
     const keys = c && c.outputs ? Object.keys(c.outputs) : [];
     let flags = OUTPUTS.filter(o=>keys.includes(o.key) && o.key!=='edgedata');
     if(!flags.length) flags = OUTPUTS.filter(o=>o.key==='tripinfo'||o.key==='summary');
-    return flags.map(o=>`${o.flag} ${runOut}/${o.file}`).join(' ');
+    return flags.map(o=>`${o.flag} ${runOut}/${o.file}`).join(' ') + (keys.includes('queue')? ` --queue-output.period ${QUEUE_PERIOD}` : '');
   }
 
   // ---- .bat ----
@@ -2008,7 +2011,7 @@ $('#btnLoadOutputs').addEventListener('click', async ()=>{
   async function walk(dh,prefix){
     for await (const [name,h] of dh.entries()){
       if(h.kind==='directory'){ await walk(h,prefix+name+'/'); }
-      else if(name.endsWith('.xml') && /tripinfo|summary|edgedata|edgemean|meandata/i.test(name)){
+      else if(name.endsWith('.xml') && /tripinfo|summary|edgedata|edgemean|meandata|queue/i.test(name)){
         const txt=await (await h.getFile()).text(); ingestOutput(prefix+name,txt); count++;
       }
     }
@@ -2038,6 +2041,18 @@ function tagFromName(name){
 function ingestOutput(name,txt){
   let doc; try{ doc=new DOMParser().parseFromString(txt,'text/xml'); }catch(e){ toast('Kon '+name+' niet parsen',true); return; }
   const t=tagFromName(name);
+  if(doc.querySelector('queue-export')){
+    // queue-output: per momentopname de wachtrij per rijstrook -> per wegvak de langste rijstrook
+    const steps=[];
+    $$('data',doc).forEach(d=>{
+      const q={};
+      $$('lane',d).forEach(l=>{ const id=l.getAttribute('id')||''; if(id.startsWith(':')) return;   // interne rijstroken (op het kruispunt) niet
+        const e=id.replace(/_\d+$/,''), len=num(l.getAttribute('queueing_length'),0); if(len>(q[e]||0)) q[e]=len; });
+      steps.push({t:num(d.getAttribute('timestep'),0), q});
+    });
+    if(steps.length) loaded.push({name,kind:'queue',seed:t.seed,scale:t.scale,steps});
+    return;
+  }
   if(/tripinfo/i.test(name) || doc.querySelector('tripinfo')){
     const trips=$$('tripinfo',doc);
     if(!trips.length){ return; }
@@ -2155,6 +2170,107 @@ function edgeDataSection(g, gt){
     const map=networkMapSVG({highlight:hi, markers});
     if(map && Object.keys(hi).length) h+='<h4 style="margin:14px 0 4px;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Locatie knelpunten op netwerk</h4>'+map.svg;
   }
+  return h;
+}
+/* ---- filelengtes (queue-output) ----
+ * SUMO meet de wachtrij per rijstrook. Een file die over een kruispunt terugslaat,
+ * staat dan op twee wegvakken. Is een wegvak voor >= 90 % gevuld, dan tellen we de
+ * file op het aansluitende wegvak stroomopwaarts erbij (vereist het geladen netwerk). */
+const QUEUE_FULL=0.9;
+function queueFileStats(f){
+  const lens={}, preds=(netGeom&&netGeom.preds)||{};
+  if(netGeom) netGeom.edges.forEach(e=>lens[e.id]=e.len);
+  const per={};   // edge -> {max, members, sum, nPos}
+  f.steps.forEach(st=>{
+    const q=st.q, memo={};
+    const chain=(e,seen)=>{
+      if(memo[e]) return memo[e];
+      const own=q[e]||0; let best={len:0,members:[]};
+      if(own>0 && lens[e] && own>=QUEUE_FULL*lens[e]){
+        (preds[e]?[...preds[e]]:[]).forEach(p=>{ if(!q[p]||seen.has(p)) return; seen.add(p); const c=chain(p,seen); seen.delete(p); if(c.len>best.len) best=c; });
+      }
+      return memo[e]={len:own+best.len, members:[e,...best.members]};
+    };
+    Object.keys(q).forEach(e=>{
+      const c=chain(e,new Set([e]));
+      const o=per[e]||(per[e]={max:0,members:[e],sum:0,nPos:0,tMax:0});
+      if(c.len>o.max){ o.max=c.len; o.members=c.members; o.tMax=st.t; }
+      o.sum+=c.len; if(c.len>0) o.nPos++;
+    });
+  });
+  const n=f.steps.length||1;
+  Object.values(per).forEach(o=>{ o.mean=o.sum/n; o.pctTime=100*o.nPos/n; });
+  return per;
+}
+// over de seeds van één config (basisschaal): max = gemiddelde van de maxima, hoogste = hoogste maximum
+function groupQueues(g, base){
+  let qs=loaded.filter(f=>f.kind==='queue' && configGroupOf(f.name)===g);
+  if(base!=null){ const f=qs.filter(s=>s.scale===base||s.scale==null); if(f.length) qs=f; }
+  if(!qs.length) return null;
+  const acc={};
+  qs.forEach(f=>{ const st=queueFileStats(f);
+    Object.entries(st).forEach(([e,o])=>{ const a=acc[e]||(acc[e]={id:e,sumMax:0,absMax:0,members:[e],sumMean:0,sumPct:0,tMax:0});
+      a.sumMax+=o.max; a.sumMean+=o.mean; a.sumPct+=o.pctTime; if(o.max>a.absMax){ a.absMax=o.max; a.members=o.members; a.tMax=o.tMax; } }); });
+  const n=qs.length;
+  return {n, edges:Object.values(acc).map(a=>({id:a.id, max:a.sumMax/n, absMax:a.absMax, mean:a.sumMean/n, pctTime:a.sumPct/n, members:a.members, tMax:a.tMax}))};
+}
+// langste files, zonder wegvakken die al deel uitmaken van een langere file in de lijst
+function topQueues(edges, k){
+  const out=[], covered=new Set();
+  edges.slice().sort((a,b)=>b.max-a.max).forEach(e=>{ if(out.length>=k || e.max<1 || covered.has(e.id)) return; out.push(e); e.members.forEach(m=>covered.add(m)); });
+  return out;
+}
+function edgeLabel(id){ const e=netGeom&&edgeById(id); return e&&e.name? `${esc(e.name)} <span class="mono" style="color:var(--muted)">${esc(id)}</span>` : `<span class="mono">${esc(id)}</span>`; }
+function queueSection(g, gt){
+  const {base}=baseScaleTrips(gt);
+  const gq=groupQueues(g, base); if(!gq) return '';
+  const top=topQueues(gq.edges, 12);
+  let h='<div class="divider"></div><h3>🚗 Filelengtes <span class="hint" style="font-weight:400">(queue-output — langste files'+(base!=null?', schaal '+base:'')+(gq.n>1?', '+gq.n+' seeds':'')+')</span></h3>';
+  if(!top.length) return h+'<p class="sub">Geen files van betekenis (&lt; 1 m).</p>';
+  h+='<div style="overflow:auto"><table><thead><tr><th>#</th><th>wegvak (kop van de file)</th><th>max. file (m)</th><th>hoogste (m)</th><th>gem. file (m)</th><th>tijd met file</th><th>file loopt over</th></tr></thead><tbody>';
+  // vult de file haar wegvakken volledig zonder verder terug te slaan? Dan reikt ze tot de rand van het net
+  // of tot het wegvak waar de voertuigen het net op rijden: in werkelijkheid is ze langer (rest = invoegwachtrij)
+  const atBorder=e=>{ if(!netGeom) return false;
+    const tot=e.members.reduce((s,m)=>s+((edgeById(m)||{}).len||0),0);
+    return tot>0 && e.absMax>=QUEUE_FULL*tot; };
+  let border=false;
+  top.forEach((e,i)=>{
+    const b=atBorder(e); if(b) border=true;
+    h+=`<tr><td>${i+1}</td><td>${edgeLabel(e.id)}</td><td style="text-align:right;font-weight:600">${Math.round(e.max)}${b?' <span title="file reikt tot aan de rand van het net">⚠️</span>':''}</td><td style="text-align:right">${Math.round(e.absMax)}</td>`+
+       `<td style="text-align:right">${Math.round(e.mean)}</td><td style="text-align:right">${e.pctTime.toFixed(0)}%</td>`+
+       `<td style="text-align:center" title="${esc(e.members.join(' ← '))}">${e.members.length>1? e.members.length+' wegvakken':'—'}</td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  h+=`<p class="sub">Filelengte = wachtrij vanaf de stopstreep, momentopname elke ${QUEUE_PERIOD} s. <b>Max. file</b> = langste file in een run, gemiddeld over de seeds; <b>hoogste</b> = de langste in één seed; <b>gem. file</b> = gemiddelde over de hele simulatie (ook zonder file). `+
+     (netGeom? 'Slaat een file terug over een kruispunt (wegvak ≥ 90 % vol), dan telt de file op het vorige wegvak mee.' : '<b>Laad het netwerk</b> om files over meerdere wegvakken samen te tellen en ze op de kaart te tonen.')+'</p>';
+  if(border) h+='<p class="sub">⚠️ Deze file vult haar wegvakken volledig: ze reikt tot aan de rand van het netwerk of tot het wegvak waar de voertuigen het net op rijden. In werkelijkheid is ze langer; de voertuigen die niet meer binnen kunnen, staan in de invoegwachtrij (zie Netwerkbelasting en de vertrekvertraging). Neem zo nodig meer van het net mee.</p>';
+  if(netGeom){
+    const hi={}, markers=[];
+    top.forEach((e,i)=>{ e.members.forEach(m=>{ if(edgeById(m) && !hi[m]) hi[m]={color:'#d35400', width:Math.max(2.5,5.5-i*0.3), title:`#${i+1} file ${Math.round(e.max)} m — ${m}`}; });
+      const mid=edgeMid(e.id); if(mid && i<8) markers.push({x:mid[0],y:mid[1],color:'#d35400',label:''+(i+1)}); });
+    const map=networkMapSVG({highlight:hi, markers});
+    if(map && Object.keys(hi).length) h+='<h4 style="margin:14px 0 4px;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Langste files op het netwerk</h4>'+map.svg;
+  }
+  return h;
+}
+// vergelijking tussen configs: max. filelengte per wegvak, Δ t.o.v. de referentie
+function queueComparisonHTML(keys, groups, baseKey, forExport){
+  const per={}; keys.forEach(g=>{ const {base}=baseScaleTrips(groups[g]); const gq=groupQueues(g, base); if(gq) per[g]=Object.fromEntries(gq.edges.map(e=>[e.id,e])); });
+  const have=keys.filter(g=>per[g]); if(have.length<2) return '';
+  // de wegvakken met de langste files in om het even welke config
+  const union={}; have.forEach(g=>topQueues(Object.values(per[g]),10).forEach(e=>{ union[e.id]=Math.max(union[e.id]||0,e.max); }));
+  const rows=Object.keys(union).sort((a,b)=>union[b]-union[a]).slice(0,12);
+  if(!rows.length) return '';
+  const ref=have.includes(baseKey)? baseKey : have[0];
+  const fmt=v=>(v>0?'+':'')+Math.round(v);
+  let h=(forExport?'<h3>Filelengtes per wegvak</h3>':'<div class="divider"></div><h3>🚗 Filelengtes per wegvak <span class="hint" style="font-weight:400">(max. file in m, gemiddeld over seeds)</span></h3>');
+  h+='<div style="overflow:auto"><table><thead><tr><th>wegvak</th>'+have.map(g=>`<th>${esc(configLabel(g))}${g===ref?' (ref)':''}</th>`+(g===ref?'':'<th>Δ</th>')).join('')+'</tr></thead><tbody>';
+  rows.forEach(id=>{
+    const r=per[ref][id]?per[ref][id].max:0;
+    h+=`<tr><td>${edgeLabel(id)}</td>`+have.map(g=>{ const v=per[g][id]?per[g][id].max:0, d=v-r;
+      return `<td style="text-align:right">${Math.round(v)}</td>`+(g===ref?'':`<td style="text-align:right;${d>5?'color:var(--err)':d<-5?'color:var(--ok)':''}">${fmt(d)}</td>`); }).join('')+'</tr>';
+  });
+  h+='</tbody></table></div><p class="sub">Δ in meter t.o.v. de referentie. <span style="color:var(--err)">rood = langere file</span>, <span style="color:var(--ok)">groen = kortere file</span>.</p>';
   return h;
 }
 // simulated OD matrix (arrived vehicles, mean over seeds at base scale), styled like the input
@@ -2310,7 +2426,8 @@ function comparisonHTML(keys, groups){
        `<td style="text-align:right;${isBase?'':col(dDur)}">${isBase?'—':fmt(dDur)}</td>`+
        `<td style="text-align:right;${isBase?'':col(dDur)}">${isBase?'—':fmt(pDur)+'%'}</td></tr>`;
   });
-  h+='</tbody></table><p class="sub">Δ t.o.v. referentie ('+metricLabel()+'), bij basisschaal. <span style="color:var(--err)">rood = trager</span>, <span style="color:var(--ok)">groen = sneller</span>.</p></div>';
+  h+='</tbody></table><p class="sub">Δ t.o.v. referentie ('+metricLabel()+'), bij basisschaal. <span style="color:var(--err)">rood = trager</span>, <span style="color:var(--ok)">groen = sneller</span>.</p>';
+  h+=queueComparisonHTML(keys, groups, reportBaseline, false)+'</div>';
   return h;
 }
 // one report section per config
@@ -2347,8 +2464,9 @@ function configSectionHTML(g, gt){
     if(sm.teleports>0) h+='<p class="sub">⚠️ Teleports &gt; 0: voertuigen zaten vast (gridlock) en werden verplaatst — interpreteer de KPI\'s met voorzichtigheid.</p>';
     if(sm.maxWaiting>0.5*sm.maxRunning) h+='<p class="sub">⚠️ Grote invoegwachtrij t.o.v. voertuigen in net: het net kan de vraag niet tijdig opnemen (oververzadiging).</p>';
   }
-  // knelpunten (edgeData)
+  // knelpunten (edgeData) en filelengtes (queue-output)
   h+=edgeDataSection(g, gt);
+  h+=queueSection(g, gt);
   if(vdf){
     h+=`<div class="divider"></div><h3>📈 Volume–vertraging (VDF) <span class="hint" style="font-weight:400">— ${metricLabel()}</span></h3>`;
     h+='<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start">';
@@ -2425,10 +2543,15 @@ function parseNetGeom(txt){
     const pts=shape.trim().split(/\s+/).map(p=>{ const xy=p.split(','); return [parseFloat(xy[0]),parseFloat(xy[1])]; }).filter(p=>!isNaN(p[0])&&!isNaN(p[1]));
     if(pts.length<2) return;
     pts.forEach(p=>{ if(p[0]<minX)minX=p[0]; if(p[0]>maxX)maxX=p[0]; if(p[1]<minY)minY=p[1]; if(p[1]>maxY)maxY=p[1]; });
-    edges.push({id:e.getAttribute('id'), pts});
+    const lane=e.querySelector('lane');
+    edges.push({id:e.getAttribute('id'), pts, len:lane?num(lane.getAttribute('length'),0):0, name:e.getAttribute('name')||''});
   });
   if(!edges.length) return null;
-  return {edges, bbox:{minX,minY,maxX,maxY}};
+  // topologie voor filelengtes: welke wegvakken monden uit in welk wegvak (voorgangers)
+  const preds={};
+  $$('connection',doc).forEach(c=>{ const f=c.getAttribute('from'), t=c.getAttribute('to');
+    if(f&&t&&!f.startsWith(':')&&!t.startsWith(':')&&f!==t) (preds[t]=preds[t]||new Set()).add(f); });
+  return {edges, bbox:{minX,minY,maxX,maxY}, preds};
 }
 async function parseNetIntoGeom(fname){
   try{ const txt=await readFile('network/'+fname); const g=parseNetGeom(txt); if(g){ netGeom=g; netGeomFile=fname; updateNetBadge(); } }catch(e){}
@@ -2514,6 +2637,7 @@ function buildReportHTML(){
       const dTl=s.metric-bs.metric,dDur=s.duration-bs.duration; const pTl=bs.metric?dTl/bs.metric*100:0,pDur=bs.duration?dDur/bs.duration*100:0;
       html+=`<tr${isB?' style="background:#eef3f8;font-weight:600"':''}><td>${esc(configLabel(g))}${isB?' (ref)':''}</td><td style="text-align:right">${s.metric.toFixed(1)}</td><td style="text-align:right">${isB?'—':fmt(dTl)}</td><td style="text-align:right">${isB?'—':fmt(pTl)+'%'}</td><td style="text-align:right">${s.duration.toFixed(1)}</td><td style="text-align:right">${isB?'—':fmt(dDur)}</td><td style="text-align:right">${isB?'—':fmt(pDur)+'%'}</td></tr>`; });
     html+='</table>';
+    html+=queueComparisonHTML(keys, groups, reportBaseline, true);
   }
   keys.forEach(g=>{
     const gt=groups[g]; const bs=groupBaseStats(gt);
@@ -2534,6 +2658,7 @@ function buildReportHTML(){
       if(sm.teleports>0) html+='<p class="muted">Teleports &gt; 0: gridlock — interpreteer met voorzichtigheid.</p>';
     }
     html+=edgeDataSection(g, gt);
+    html+=queueSection(g, gt);
     const pts=vdfCompute(gt); const vdf=vdfSvgAndNote(pts);
     if(vdf){
       html+=`<h3>Volume–vertraging (VDF) — ${metricLabel()}</h3><div class="flex"><div>`+vdf.svg+'<p class="muted">'+vdf.note+'</p></div>';
