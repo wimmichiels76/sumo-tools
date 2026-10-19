@@ -625,7 +625,20 @@ document.getElementById('netInput').addEventListener('change', function(e) {
             }
 
             if (networkRect) { map.removeLayer(networkRect); networkRect = null; }
-            if (origStr) {
+            // Network extent: use convBoundary (the network as built). origBoundary covers every
+            // point of the input .osm, incl. everything netconvert dropped (full ways, railways,
+            // rivers beyond the export box) and can be tens of km wider than the network.
+            const cbr = projDefined && netConvBoundary
+                ? [[netConvBoundary[0], netConvBoundary[1]], [netConvBoundary[2], netConvBoundary[1]],
+                   [netConvBoundary[2], netConvBoundary[3]], [netConvBoundary[0], netConvBoundary[3]]]
+                    .map(([x, y]) => sumoToLatLon(x, y)) : null;
+            if (cbr && cbr.every(Boolean)) {
+                networkRect = L.polygon(cbr.map(p => [p.lat, p.lon]), {
+                    color: '#cba6f7', weight: 2, fill: false, dashArray: '6,4'
+                }).addTo(map);
+                networkRect.bindTooltip('SUMO network boundary', { permanent: false });
+                map.fitBounds(networkRect.getBounds().pad(0.05));
+            } else if (origStr) {
                 const ob = origStr.split(',').map(Number);
                 if (ob.length === 4) {
                     const sw = L.latLng(ob[1], ob[0]);
