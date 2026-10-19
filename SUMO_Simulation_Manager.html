@@ -1743,9 +1743,15 @@ $('#btnGenRun').addEventListener('click',()=>{
 
   // ---- .bat ----
   let bat='@echo off\r\nREM ==== SUMO run-script — gegenereerd door SUMO Simulation Manager ====\r\n';
-  bat+='REM Dit script hoort in de batch/ map te staan; het springt zelf naar de projectwortel.\r\n';
+  bat+='REM Zet dit script in de map batch\\ van je project (of in de projectmap zelf).\r\n';
+  bat+='REM Het zoekt zelf de projectmap (die met config\\) en werkt van daaruit.\r\n';
   bat+='REM Vereist SUMO op PATH (of zet SUMO_HOME).\r\n';
-  bat+='setlocal\r\ncd /d "%~dp0.."\r\nset BIN='+bin+'\r\n\r\n';
+  bat+='setlocal\r\n';
+  bat+='set "ROOT=%~dp0.."\r\n';
+  bat+='if exist "%~dp0config\\" set "ROOT=%~dp0."\r\n';
+  bat+='cd /d "%ROOT%"\r\n';
+  bat+='if not exist "config\\" ( echo [FOUT] Projectmap niet gevonden. Zet dit script in de map batch\\ van je project. & pause & exit /b 1 )\r\n';
+  bat+='set BIN='+bin+'\r\n\r\n';
   combos.forEach(({cf,s,sc})=>{
     const c=cfgByName[cf]; const base=cf.replace('.sumocfg','');
     const outDir=(c?.outDir? c.outDir : 'runs_'+base);
@@ -1766,7 +1772,7 @@ $('#btnGenRun').addEventListener('click',()=>{
   bat+='\r\necho Klaar.\r\npause\r\n';
 
   // ---- .sh ----
-  let sh='#!/usr/bin/env bash\n# ==== SUMO run-script — gegenereerd door SUMO Simulation Manager ====\n# Dit script hoort in de batch/ map te staan; het springt zelf naar de projectwortel.\nset -e\ncd "$(dirname "$0")/.."\nBIN='+bin+'\n';
+  let sh='#!/usr/bin/env bash\n# ==== SUMO run-script — gegenereerd door SUMO Simulation Manager ====\n# Zet dit script in de map batch/ van je project (of in de projectmap zelf).\n# Het zoekt zelf de projectmap (die met config/) en werkt van daaruit.\nset -e\nROOT="$(cd "$(dirname "$0")" && pwd)"\n[ -d "$ROOT/config" ] || ROOT="$(dirname "$ROOT")"\ncd "$ROOT"\n[ -d config ] || { echo "[FOUT] Projectmap niet gevonden. Zet dit script in de map batch/ van je project."; exit 1; }\nBIN='+bin+'\n';
   if(parallel) sh+='MAXPROC='+num($('#runMaxProc').value,6)+'\n';
   sh+='\n';
   combos.forEach(({cf,s,sc})=>{
