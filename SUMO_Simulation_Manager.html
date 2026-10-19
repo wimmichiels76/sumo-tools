@@ -222,6 +222,7 @@
     <div class="card">
       <h2>Voertuigtypes</h2>
       <p class="sub">Split per matrixcel over voertuigtypes. Aandelen tellen bij voorkeur tot 100 %.</p>
+      <div id="vtypeScope" class="toolbar"></div>
       <table id="vtypeTable">
         <thead><tr><th>id</th><th>vClass</th><th>aandeel&nbsp;%</th><th>accel</th><th>decel</th><th>length</th><th>maxSpeed</th><th title="kleur in sumo-gui; leeg = standaardkleur van SUMO">kleur</th><th></th></tr></thead>
         <tbody></tbody>
@@ -729,10 +730,13 @@ function parseRouIntoState(txt, fname){
   let doc; try{ doc=new DOMParser().parseFromString(txt,'text/xml'); }catch(err){ toast('Kon .rou.xml niet parsen.',true); return; }
   // vTypes (also inside vTypeDistribution)
   const vts=$$('vType',doc);
-  if(vts.length) state.vtypes=vts.map(v=>({ id:v.getAttribute('id')||'type', vClass:v.getAttribute('vClass')||'passenger',
+  const parsedVt = vts.length? vts.map(v=>({ id:v.getAttribute('id')||'type', vClass:v.getAttribute('vClass')||'passenger',
     share:0, accel:num(v.getAttribute('accel'),2.6), decel:num(v.getAttribute('decel'),4.5),
-    length:num(v.getAttribute('length'),5), maxSpeed:num(v.getAttribute('maxSpeed'),13.9), color:sumoColorToHex(v.getAttribute('color')) }));
-  const vtSan=state.vtypes.map(v=>({id:v.id, san:v.id.replace(/[^A-Za-z0-9_]/g,'')}));
+    length:num(v.getAttribute('length'),5), maxSpeed:num(v.getAttribute('maxSpeed'),13.9), color:sumoColorToHex(v.getAttribute('color')) })) : null;
+  // Andere type-id's dan de standaardtypes (bv. car_ontwikkeling) én er zijn al matrices?
+  // Dan worden het de eigen types van de ingelezen matrix; anders vervangen ze de standaardtypes, zoals voorheen.
+  const ownVt = !!(parsedVt && state.matrices.length && parsedVt.some(v=>!state.vtypes.some(g=>g.id===v.id)));
+  const vtSan=(parsedVt||state.vtypes).map(v=>({id:v.id, san:v.id.replace(/[^A-Za-z0-9_]/g,'')}));
   // named routes (for vehicles referencing a route by id)
   const routeMap={}; $$('route',doc).forEach(r=>{ const id=r.getAttribute('id'), e=r.getAttribute('edges'); if(id&&e){ const a=e.trim().split(/\s+/); routeMap[id]=[a[0],a[a.length-1]]; } });
   // existing zones -> edge lookups (so an external rou maps onto your defined arms)
@@ -783,7 +787,7 @@ function parseRouIntoState(txt, fname){
   // individual vehicles + trips (1 each)  -> handles jtrrouter/duarouter output
   $$('vehicle',doc).concat($$('trip',doc)).forEach(v=>{ const [oe,de]=endpoints(v); add(v.getAttribute('id')||'', oe, de, 1, v.getAttribute('type')||''); });
 
-  if(items===0){ touch(); renderOD(); const st=$('#rouLoadStat'); st.className='pill warn'; st.textContent='geen herkomst-bestemming gevonden (enkel vTypes geladen)'; toast('Geen OD-gegevens gevonden in dit bestand.',true); return; }
+  if(items===0){ if(parsedVt && !ownVt) state.vtypes=parsedVt; touch(); renderOD(); const st=$('#rouLoadStat'); st.className='pill warn'; st.textContent='geen herkomst-bestemming gevonden (enkel vTypes geladen)'; toast('Geen OD-gegevens gevonden in dit bestand.',true); return; }
 
   // upsert zones by name (non-destructive)
   const allNames=[...new Set([...Object.keys(nameFrom),...Object.keys(nameTo)])];
@@ -792,15 +796,16 @@ function parseRouIntoState(txt, fname){
   const nameToId=Object.fromEntries(state.zones.map(z=>[z.name,z.id]));
   const m={id:uid(), name:(fname||'geladen').replace(/\.rou\.xml$/i,'').replace(/\.xml$/i,''), peak:'', values:{}};
   Object.entries(cell).forEach(([k,v])=>{ const [o,d]=k.split('|'); const oi=nameToId[o],di=nameToId[d]; if(oi&&di&&v>0) m.values[oi+'>'+di]=Math.round(v); });
+  if(ownVt) m.vtypes=parsedVt; else if(parsedVt) state.vtypes=parsedVt;
   state.matrices.push(m); state._curMatrix=m.id;
   const totVeh=Object.values(vtypeVeh).reduce((a,b)=>a+b,0);
-  if(totVeh>0) state.vtypes.forEach(v=>{ v.share=+(100*(vtypeVeh[v.id]||0)/totVeh).toFixed(1); });
+  if(totVeh>0) vtypesFor(m).forEach(v=>{ v.share=+(100*(vtypeVeh[v.id]||0)/totVeh).toFixed(1); });
   touch(); renderOD();
   if(hasFlowTiming){ $('#genBegin').value=begin; $('#genEnd').value=end; $('#genPattern').value=pattern; }
   renderGenMatrixSelect(); if(typeof syncGenFilename==='function') syncGenFilename();
   const how = named? 'uit flow-id\'s' : matched? 'via edge-koppeling met bestaande zones' : 'via edge-namen (herkomst/bestemming apart)';
   const st=$('#rouLoadStat'); st.className='pill'+(named||matched? ' ok':' warn');
-  st.textContent=`${state.zones.length} zones · ${Object.keys(m.values).length} cellen · ${state.vtypes.length} types — ${how}`;
+  st.textContent=`${state.zones.length} zones · ${Object.keys(m.values).length} cellen · ${vtypesFor(m).length} ${ownVt?'eigen ':''}types — ${how}`;
   toast(`Ingeladen: ${fname||'rou'} — ${Object.keys(m.values).length} OD-cellen (${how}).`);
 }
 
@@ -853,7 +858,7 @@ function renderMatrixSelect(){
   const sel=$('#matrixSelect'); sel.innerHTML=state.matrices.map(m=>`<option value="${m.id}">${esc(m.name)}${m.peak?' ('+esc(m.peak)+')':''}</option>`).join('');
   if(state._curMatrix) sel.value=state._curMatrix; else if(state.matrices[0]) state._curMatrix=state.matrices[0].id;
 }
-$('#matrixSelect').addEventListener('change',e=>{ state._curMatrix=e.target.value; renderMatrix(); });
+$('#matrixSelect').addEventListener('change',e=>{ state._curMatrix=e.target.value; renderMatrix(); renderVtypes(); });
 $('#btnAddMatrix').addEventListener('click',()=>{
   const m={id:uid(),name:'matrix'+(state.matrices.length+1),peak:'AS',values:{}};
   state.matrices.push(m); state._curMatrix=m.id; touch(); renderMatrixSelect(); renderMatrix(); renderGenMatrixSelect();
@@ -964,9 +969,42 @@ function sumoColorToHex(c){
   const unit=p.slice(0,3).every(x=>x<=1) && c.includes('.');          // 0-1-schaal, bv. "1,0.5,0"
   return '#'+p.slice(0,3).map(x=>Math.max(0,Math.min(255,Math.round(unit?x*255:x))).toString(16).padStart(2,'0')).join('');
 }
+// Voertuigtypes per matrix: een matrix met eigen types (m.vtypes) gebruikt die, anders de standaardtypes.
+// Zo krijgt bv. het extra verkeer van een nieuwe ontwikkeling een eigen type en kleur in een eigen .rou.xml.
+function vtypesFor(m){ return (m && Array.isArray(m.vtypes)) ? m.vtypes : state.vtypes; }
+function matrixSlug(m){ return (m.name||'matrix').trim().replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'') || 'matrix'; }
+// type-id's die ook in een ándere matrix gebruikt worden: SUMO weigert dubbele vType-id's als beide .rou.xml samen geladen worden
+function vtypeIdClashes(m){
+  if(!m || !Array.isArray(m.vtypes)) return [];
+  const mine=new Set(m.vtypes.map(v=>v.id)), out=[];
+  state.matrices.forEach(o=>{ if(o===m) return; vtypesFor(o).forEach(v=>{ if(mine.has(v.id)) out.push(`${v.id} (ook in ${o.name})`); }); });
+  return [...new Set(out)];
+}
+function renderVtypeScope(){
+  const box=$('#vtypeScope'); if(!box) return;
+  const m=currentMatrix();
+  if(!m){ box.innerHTML='<span class="pill">Standaardtypes</span><span class="sub" style="margin:0">— gelden voor elke matrix zonder eigen types.</span>'; return; }
+  const own=Array.isArray(m.vtypes), clash=vtypeIdClashes(m);
+  box.innerHTML=`<label class="checkline" style="padding:0;font-weight:600"><input type="checkbox" id="vtOwn" ${own?'checked':''}> eigen voertuigtypes voor matrix «${esc(m.name)}»</label>
+    <span class="pill${own?' ok':''}">${own?'eigen types van '+esc(m.name):'standaardtypes (gedeeld met alle matrices zonder eigen types)'}</span>`+
+    (clash.length?`<span class="pill warn" title="Geef deze types een andere id: SUMO stopt als twee routebestanden in één config hetzelfde type-id gebruiken.">⚠️ dubbel type-id: ${esc(clash.join(', '))}</span>`:'');
+  $('#vtOwn').addEventListener('change',e=>{
+    if(e.target.checked){
+      const sfx='_'+matrixSlug(m);   // unieke id's, zodat dit .rou.xml samen met de andere geladen kan worden
+      m.vtypes=state.vtypes.map(v=>Object.assign({},v,{id:v.id+sfx}));
+      toast(`Eigen types voor ${m.name}: ${m.vtypes.map(v=>v.id).join(', ')}. Pas kleur en aandeel aan.`);
+    } else {
+      if(!confirm(`De eigen voertuigtypes van «${m.name}» wissen? De matrix gebruikt dan weer de standaardtypes.`)){ e.target.checked=true; return; }
+      delete m.vtypes;
+    }
+    touch(); renderVtypes();
+  });
+}
 function renderVtypes(){
+  renderVtypeScope();
   const tb=$('#vtypeTable tbody'); tb.innerHTML='';
-  state.vtypes.forEach(v=>{
+  const m=currentMatrix(), list=vtypesFor(m), setList=arr=>{ if(m && Array.isArray(m.vtypes)) m.vtypes=arr; else state.vtypes=arr; };
+  list.forEach(v=>{
     const tr=document.createElement('tr');
     const cls=['passenger','trailer','truck','bus','motorcycle','bicycle','delivery','emergency'];
     tr.innerHTML=`<td><input value="${esc(v.id)}" data-f="id"></td>
@@ -983,13 +1021,16 @@ function renderVtypes(){
     tr.querySelectorAll('input,select').forEach(inp=>inp.addEventListener('input',()=>{
       v[inp.dataset.f] = inp.type==='number'? num(inp.value,0) : inp.value; touch();
       if(inp.dataset.f==='color'){ inp.style.opacity=1; inp.title='kleur '+inp.value; tr.querySelector('[data-clear]').style.visibility='visible'; }
+      if(inp.dataset.f==='id') renderVtypeScope();
     }));
     tr.querySelector('[data-clear]').addEventListener('click',()=>{ v.color=''; touch(); renderVtypes(); });
-    tr.querySelector('[data-del]').addEventListener('click',()=>{ state.vtypes=state.vtypes.filter(x=>x!==v); touch(); renderVtypes(); });
+    tr.querySelector('[data-del]').addEventListener('click',()=>{ setList(vtypesFor(m).filter(x=>x!==v)); touch(); renderVtypes(); });
     tb.appendChild(tr);
   });
 }
-$('#btnAddVtype').addEventListener('click',()=>{ state.vtypes.push({id:'type'+(state.vtypes.length+1),vClass:'passenger',share:0,accel:2.6,decel:4.5,length:5,maxSpeed:13.9}); touch(); renderVtypes(); });
+$('#btnAddVtype').addEventListener('click',()=>{ const m=currentMatrix(), list=vtypesFor(m);
+  const sfx=(m && Array.isArray(m.vtypes))? '_'+matrixSlug(m) : '';
+  list.push({id:'type'+(list.length+1)+sfx,vClass:'passenger',share:0,accel:2.6,decel:4.5,length:5,maxSpeed:13.9}); touch(); renderVtypes(); });
 
 /* ---- generate rou.xml ---- */
 function renderGenMatrixSelect(){
@@ -1010,16 +1051,17 @@ function rouFilename(m){ return (m.name||m.peak||'demand').trim().replace(/[^\w.
 // Build a .rou.xml for one matrix using the current period/pattern settings.
 // Returns {xml, nFlows, totVeh, warn:[...]}.
 function buildRou(m){
+  const vts=vtypesFor(m);   // eigen types van deze matrix, anders de standaardtypes
   const zonesById=Object.fromEntries(state.zones.map(z=>[z.id,z]));
   const begin=num($('#genBegin').value,0), end=num($('#genEnd').value,3600);
   const dur=Math.max(1,end-begin);
   const pattern=$('#genPattern').value;
-  const totShare=state.vtypes.reduce((a,v)=>a+num(v.share,0),0)||100;
+  const totShare=vts.reduce((a,v)=>a+num(v.share,0),0)||100;
 
   let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
   xml+='<!-- '+esc(m.name||'demand')+' — gegenereerd door SUMO Simulation Manager op '+new Date().toISOString().slice(0,16).replace('T',' ')+' -->\n';
   xml+='<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">\n';
-  state.vtypes.forEach(v=>{
+  vts.forEach(v=>{
     xml+=`    <vType id="${esc(v.id)}" vClass="${esc(v.vClass)}" accel="${v.accel}" decel="${v.decel}" length="${v.length}" maxSpeed="${v.maxSpeed}"${v.color?` color="${hexToSumoColor(v.color)}"`:''}/>\n`;
   });
   xml+='\n';
@@ -1032,7 +1074,7 @@ function buildRou(m){
     const oz=zonesById[o], dz=zonesById[d];
     if(!oz||!dz) return;
     if(!oz.fromEdge||!dz.toEdge){ warn.push(`${oz?.name||o}→${dz?.name||d}`); return; }
-    state.vtypes.forEach(v=>{
+    vts.forEach(v=>{
       const share=num(v.share,0)/totShare;
       const veh=vol*share;
       if(veh<=0) return;
@@ -1047,7 +1089,7 @@ function buildRou(m){
     });
   });
   xml+='</routes>\n';
-  return {xml, nFlows, totVeh, warn};
+  return {xml, nFlows, totVeh, warn, clash:vtypeIdClashes(m)};
 }
 $('#btnGenRou').addEventListener('click',()=>{
   const m=state.matrices.find(x=>x.id===$('#genMatrix').value)||currentMatrix();
@@ -1059,9 +1101,10 @@ $('#btnGenRou').addEventListener('click',()=>{
   $('#rouPreview').style.display='block'; $('#rouPreview').textContent=r.xml;
   $('#btnSaveRou').disabled=false; $('#btnDownloadRou').disabled=false;
   let stat=`${r.nFlows} flows · ~${Math.round(r.totVeh)} vtg`;
+  if(r.clash.length) stat+=` · ⚠️ type-id ook in andere matrix: ${r.clash.join(', ')}`;
   if(r.warn.length) stat+=` · ⚠️ ${r.warn.length} cellen zonder edge-koppeling overgeslagen`;
   $('#rouStats').textContent=stat;
-  $('#rouStats').className='pill'+(r.warn.length?' warn':' ok');
+  $('#rouStats').className='pill'+(r.warn.length||r.clash.length?' warn':' ok');
 });
 $('#btnGenAll').addEventListener('click', async ()=>{
   if(!state.matrices.length){ toast('Geen matrices gedefinieerd.',true); return; }
@@ -1070,8 +1113,8 @@ $('#btnGenAll').addEventListener('click', async ()=>{
     const r=buildRou(m); const name=rouFilename(m);
     const ok=await writeFile('traffic/'+name, r.xml);
     if(ok) saved++; else { download(name, r.xml, 'application/xml'); downloaded++; }
-    totWarn+=r.warn.length;
-    lines.push(`${name}: ${r.nFlows} flows · ~${Math.round(r.totVeh)} vtg${r.warn.length?' · ⚠️ '+r.warn.length+' overgeslagen':''}`);
+    totWarn+=r.warn.length+r.clash.length;
+    lines.push(`${name}: ${r.nFlows} flows · ~${Math.round(r.totVeh)} vtg${r.warn.length?' · ⚠️ '+r.warn.length+' overgeslagen':''}${r.clash.length?' · ⚠️ type-id ook in andere matrix: '+r.clash.join(', '):''}`);
   }
   if(saved) scanFolders();
   $('#rouPreview').style.display='block';
@@ -2059,7 +2102,9 @@ function metricLabel(){ return delayMetric==='total' ? 'totale vertraging' : 'ti
 // so simulated vehicle ids ("<flowid>.<n>") can be traced back to origin/destination zones.
 function buildFlowMap(){
   const map={};
-  (state.zones||[]).forEach(oz=>(state.zones||[]).forEach(dz=>(state.vtypes||[]).forEach(v=>{
+  // standaardtypes + de eigen types van elke matrix (bv. het extra verkeer van een ontwikkeling)
+  const allVt=[...(state.vtypes||[]), ...(state.matrices||[]).flatMap(m=>Array.isArray(m.vtypes)?m.vtypes:[])];
+  (state.zones||[]).forEach(oz=>(state.zones||[]).forEach(dz=>allVt.forEach(v=>{
     const id=`f_${esc(oz.name)}_${esc(dz.name)}_${esc(v.id)}`.replace(/[^A-Za-z0-9_]/g,'');
     map[id]={o:oz.id,d:dz.id};
   })));
