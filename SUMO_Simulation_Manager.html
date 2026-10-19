@@ -223,7 +223,7 @@
       <h2>Voertuigtypes</h2>
       <p class="sub">Split per matrixcel over voertuigtypes. Aandelen tellen bij voorkeur tot 100 %.</p>
       <table id="vtypeTable">
-        <thead><tr><th>id</th><th>vClass</th><th>aandeel&nbsp;%</th><th>accel</th><th>decel</th><th>length</th><th>maxSpeed</th><th></th></tr></thead>
+        <thead><tr><th>id</th><th>vClass</th><th>aandeel&nbsp;%</th><th>accel</th><th>decel</th><th>length</th><th>maxSpeed</th><th title="kleur in sumo-gui; leeg = standaardkleur van SUMO">kleur</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="toolbar" style="margin-top:8px"><button class="btn sm" id="btnAddVtype">+ Type</button></div>
@@ -731,7 +731,7 @@ function parseRouIntoState(txt, fname){
   const vts=$$('vType',doc);
   if(vts.length) state.vtypes=vts.map(v=>({ id:v.getAttribute('id')||'type', vClass:v.getAttribute('vClass')||'passenger',
     share:0, accel:num(v.getAttribute('accel'),2.6), decel:num(v.getAttribute('decel'),4.5),
-    length:num(v.getAttribute('length'),5), maxSpeed:num(v.getAttribute('maxSpeed'),13.9) }));
+    length:num(v.getAttribute('length'),5), maxSpeed:num(v.getAttribute('maxSpeed'),13.9), color:sumoColorToHex(v.getAttribute('color')) }));
   const vtSan=state.vtypes.map(v=>({id:v.id, san:v.id.replace(/[^A-Za-z0-9_]/g,'')}));
   // named routes (for vehicles referencing a route by id)
   const routeMap={}; $$('route',doc).forEach(r=>{ const id=r.getAttribute('id'), e=r.getAttribute('edges'); if(id&&e){ const a=e.trim().split(/\s+/); routeMap[id]=[a[0],a[a.length-1]]; } });
@@ -953,6 +953,17 @@ function importCsvMatrix(txt,name){
 }
 
 /* ---- vtypes ---- */
+// kleur: in de tool als #rrggbb, in SUMO als "r,g,b" (0-255)
+function hexToSumoColor(hex){ const m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex||''); return m? [1,2,3].map(i=>parseInt(m[i],16)).join(',') : ''; }
+function sumoColorToHex(c){
+  if(!c) return '';
+  c=c.trim(); if(/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase();
+  const named={red:'#ff0000',green:'#00ff00',blue:'#0000ff',yellow:'#ffff00',cyan:'#00ffff',magenta:'#ff00ff',orange:'#ffa500',white:'#ffffff',black:'#000000',grey:'#808080',gray:'#808080'};
+  if(named[c.toLowerCase()]) return named[c.toLowerCase()];
+  const p=c.split(',').map(Number); if(p.length<3||p.slice(0,3).some(isNaN)) return '';
+  const unit=p.slice(0,3).every(x=>x<=1) && c.includes('.');          // 0-1-schaal, bv. "1,0.5,0"
+  return '#'+p.slice(0,3).map(x=>Math.max(0,Math.min(255,Math.round(unit?x*255:x))).toString(16).padStart(2,'0')).join('');
+}
 function renderVtypes(){
   const tb=$('#vtypeTable tbody'); tb.innerHTML='';
   state.vtypes.forEach(v=>{
@@ -965,11 +976,16 @@ function renderVtypes(){
       <td><input type="number" value="${v.decel}" data-f="decel" step="0.1"></td>
       <td><input type="number" value="${v.length}" data-f="length" step="0.1"></td>
       <td><input type="number" value="${v.maxSpeed}" data-f="maxSpeed" step="0.1"></td>
-      <td><button class="btn danger sm">✕</button></td>`;
+      <td style="white-space:nowrap"><input type="color" data-f="color" value="${esc(v.color||'#cccccc')}" title="${v.color?'kleur '+esc(v.color):'geen kleur: SUMO-standaard'}"
+          style="width:34px;height:24px;padding:0;border:none;vertical-align:middle;${v.color?'':'opacity:.35'}">
+        <button class="btn ghost sm" data-clear title="kleur wissen (SUMO-standaard)" style="padding:2px 6px;${v.color?'':'visibility:hidden'}">×</button></td>
+      <td><button class="btn danger sm" data-del>✕</button></td>`;
     tr.querySelectorAll('input,select').forEach(inp=>inp.addEventListener('input',()=>{
       v[inp.dataset.f] = inp.type==='number'? num(inp.value,0) : inp.value; touch();
+      if(inp.dataset.f==='color'){ inp.style.opacity=1; inp.title='kleur '+inp.value; tr.querySelector('[data-clear]').style.visibility='visible'; }
     }));
-    tr.querySelector('button').addEventListener('click',()=>{ state.vtypes=state.vtypes.filter(x=>x!==v); touch(); renderVtypes(); });
+    tr.querySelector('[data-clear]').addEventListener('click',()=>{ v.color=''; touch(); renderVtypes(); });
+    tr.querySelector('[data-del]').addEventListener('click',()=>{ state.vtypes=state.vtypes.filter(x=>x!==v); touch(); renderVtypes(); });
     tb.appendChild(tr);
   });
 }
@@ -1004,7 +1020,7 @@ function buildRou(m){
   xml+='<!-- '+esc(m.name||'demand')+' — gegenereerd door SUMO Simulation Manager op '+new Date().toISOString().slice(0,16).replace('T',' ')+' -->\n';
   xml+='<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">\n';
   state.vtypes.forEach(v=>{
-    xml+=`    <vType id="${esc(v.id)}" vClass="${esc(v.vClass)}" accel="${v.accel}" decel="${v.decel}" length="${v.length}" maxSpeed="${v.maxSpeed}"/>\n`;
+    xml+=`    <vType id="${esc(v.id)}" vClass="${esc(v.vClass)}" accel="${v.accel}" decel="${v.decel}" length="${v.length}" maxSpeed="${v.maxSpeed}"${v.color?` color="${hexToSumoColor(v.color)}"`:''}/>\n`;
   });
   xml+='\n';
   let nFlows=0, totVeh=0, warn=[];
